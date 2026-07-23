@@ -1,8 +1,9 @@
 export const REPORT_TZ='America/New_York';
 export const KPI_TYPES=['Voice Jr TSR','Non-Voice Jr TSR','Senior TSR','Trainee','Excluded'];
+export const PRIMARY_CHANNELS=['Voice','Email / Chat','Multi-channel','Leadership','TBD - Pending Classification'];
 export const EMPLOYMENT_STATUSES=['Active','Trainee','On Leave','Resigned','Terminated','Suspended','Inactive'];
-export const ATTENDANCE_CODES=['','ONSITE','WFH','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
-export const PRESENT_CODES=new Set(['ONSITE','WFH']);
+export const ATTENDANCE_CODES=['','ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
+export const PRESENT_CODES=new Set(['ONSITE','WFH','LATE']);
 export const HALF_DAY_CODES=new Set(['SL-HD','EL-HD']);
 export const DATA_STATUSES=['Ready','Pending','No Data','Missing Attendance','Roster Unavailable','Stale','Failed','Partial'];
 export const CACHE_VERSION=1;
