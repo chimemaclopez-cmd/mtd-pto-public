@@ -1,0 +1,12 @@
+{
+  "name": "mtd-kpi-pto-public",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public PTO filing/status server for reps. Deploy target: Render web service.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node pto-public-server.js"
+  }
+}

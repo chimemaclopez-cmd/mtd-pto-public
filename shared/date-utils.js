@@ -1,0 +1,14 @@
+import {REPORT_TZ} from './kpi-config.js';
+export function zonedParts(date=new Date(),timeZone=REPORT_TZ){const out={};new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).forEach(p=>{if(p.type!=='literal')out[p.type]=p.value});return out}
+export function todayET(){const p=zonedParts();return `${p.year}-${p.month}-${p.day}`}
+export function monthKey(date=todayET()){return String(date).slice(0,7)}
+export function daysInMonth(month){const [y,m]=month.split('-').map(Number);return new Date(Date.UTC(y,m,0)).getUTCDate()}
+export function dateList(month,endDate=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`){const n=Math.min(daysInMonth(month),Number(String(endDate).slice(8,10)));return Array.from({length:n},(_,i)=>`${month}-${String(i+1).padStart(2,'0')}`)}
+export function weekday(date){return new Intl.DateTimeFormat('en-US',{timeZone:'UTC',weekday:'short'}).format(new Date(`${date}T12:00:00Z`))}
+export function validatePeriod(month,endDate){if(!/^\d{4}-\d{2}$/.test(month))throw new Error('Reporting month must use YYYY-MM.');if(!/^\d{4}-\d{2}-\d{2}$/.test(endDate)||!endDate.startsWith(month+'-'))throw new Error('MTD end date must be within the reporting month.');const max=daysInMonth(month);const day=Number(endDate.slice(8));if(day<1||day>max)throw new Error('Invalid MTD end date.');return{month,startDate:`${month}-01`,endDate,timeZone:REPORT_TZ}}
+export function easternEpoch(date,hour=0,minute=0){const [y,m,d]=date.split('-').map(Number);const guess=Date.UTC(y,m-1,d,hour,minute);const p=zonedParts(new Date(guess));const represented=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);return Math.floor((guess-(represented-guess))/1000)}
+export function periodEpoch(month,endDate){validatePeriod(month,endDate);return{start:easternEpoch(`${month}-01`,0),end:easternEpoch(endDate,24)-1}}
+export function isBusinessHour(iso){const p=zonedParts(new Date(iso));const h=Number(p.hour);return h>=8&&h<20}
+export function zonedDateTime(date,time,timeZone){const [y,m,d]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number),guess=Date.UTC(y,m-1,d,hour,minute);const p=zonedParts(new Date(guess),timeZone),represented=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);return new Date(guess-(represented-guess))}
+export function formatZonedDateTime(date,time,sourceZone,targetZone){const instant=zonedDateTime(date,time,sourceZone);return new Intl.DateTimeFormat('en-US',{timeZone:targetZone,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(instant)}
+export function intervalTimes(startHour=8,endHour=20){const out=[];for(let minutes=startHour*60;minutes<endHour*60;minutes+=30)out.push(`${String(Math.floor(minutes/60)).padStart(2,'0')}:${minutes%60?'30':'00'}`);return out}
