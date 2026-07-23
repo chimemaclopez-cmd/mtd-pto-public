@@ -221,7 +221,9 @@ const server = http.createServer(async (req, res) => {
       if (requestId) {
         const request = (pto.requests || []).find(x => x.requestId === requestId);
         if (!request) return json(res, 404, { ok: false, error: 'PTO request not found.' });
-        return json(res, 200, ptoLogic.applyPtoCapacityLimits(ptoLogic.buildPtoForecast({ requestId }, ctx), request, ctx));
+        const forecastResult = ptoLogic.buildPtoForecast({ requestId }, ctx);
+        if (forecastResult.forecastStatus === 'SCHEDULE_MISSING') return json(res, 200, forecastResult);
+        return json(res, 200, ptoLogic.applyPtoCapacityLimits(forecastResult, request, ctx));
       }
       const input = {
         employeeEmail: ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail')),
@@ -236,10 +238,14 @@ const server = http.createServer(async (req, res) => {
       if (!employee) return json(res, 400, { ok: false, error: 'Employee must exist in the roster.' });
       if (!ptoLogic.validDate(input.startDate) || !ptoLogic.validDate(input.endDate) || input.startDate > input.endDate) return json(res, 400, { ok: false, error: 'A valid PTO date range is required for the forecast.' });
       const calculation = ptoLogic.calculatePtoWorkdays(input, schedules);
-      if (calculation.missingScheduleDates.length) return json(res, 409, { ok: false, error: `Forecast unavailable because schedule is missing for: ${calculation.missingScheduleDates.join(', ')}.`, missingScheduleDates: calculation.missingScheduleDates });
-      if (!calculation.workDates.length) return json(res, 409, { ok: false, error: 'The requested dates are all scheduled rest days.', rdDates: calculation.rdDates });
-      Object.assign(input, { employeeName: employee.employeeName, kpiType: employee.kpiType, primaryChannel: employee.primaryChannel, teamLeadName: employee.teamLeadName, workDates: calculation.workDates });
-      return json(res, 200, ptoLogic.applyPtoCapacityLimits(ptoLogic.buildPtoForecast(input, ctx), input, ctx));
+      const scheduleMissing = calculation.missingScheduleDates.length > 0;
+      // Missing schedule is a warning (buildPtoForecast reports SCHEDULE_MISSING below), never a 409.
+      if (!scheduleMissing && !calculation.workDates.length) return json(res, 409, { ok: false, error: 'The requested dates are all scheduled rest days.', rdDates: calculation.rdDates });
+      const workDates = scheduleMissing ? ptoLogic.dateRange(input.startDate, input.endDate) : calculation.workDates;
+      Object.assign(input, { employeeName: employee.employeeName, kpiType: employee.kpiType, primaryChannel: employee.primaryChannel, teamLeadName: employee.teamLeadName, workDates });
+      const forecastResult = ptoLogic.buildPtoForecast(input, ctx);
+      if (forecastResult.forecastStatus === 'SCHEDULE_MISSING') return json(res, 200, forecastResult);
+      return json(res, 200, ptoLogic.applyPtoCapacityLimits(forecastResult, input, ctx));
     }
 
     if (parsed.pathname === '/api/pto/conflicts' && req.method === 'GET') {

@@ -92,9 +92,15 @@ function normalizePtoRequest(body, { roster, schedules }, current = null) {
   const reason = String(body.reason ?? current?.reason ?? '').trim();
   if (!reason) throw Object.assign(new Error('Reason is required.'), { statusCode: 400 });
   const calculation = calculatePtoWorkdays({ employeeEmail: email, startDate, endDate }, schedules);
-  if (calculation.missingScheduleDates.length) throw Object.assign(new Error(`Schedule is missing for: ${calculation.missingScheduleDates.join(', ')}. Requested workdays cannot fall back to calendar days.`), { statusCode: 409, details: calculation });
-  if (!calculation.requestedWorkdays) throw Object.assign(new Error(`The requested range contains only scheduled rest days: ${calculation.rdDates.join(', ')}.`), { statusCode: 409, details: calculation });
-  if (requestType === 'PARTIAL_DAY') {
+  // A missing schedule is a warning, not a rejection: Workforce may not have built it yet,
+  // but the employee must still be able to file. Fall back to the raw calendar range for
+  // workDates/requestedWorkdays, skip the schedule-dependent partial-day shift check, and
+  // flag forecastStatus so the approver sees "Schedule Missing" instead of the request
+  // silently vanishing. When the schedule IS resolved, behavior is unchanged (0 workdays
+  // because every date is a rest day is still rejected - that's a real "nothing to request").
+  const scheduleMissing = calculation.missingScheduleDates.length > 0;
+  if (!scheduleMissing && !calculation.requestedWorkdays) throw Object.assign(new Error(`The requested range contains only scheduled rest days: ${calculation.rdDates.join(', ')}.`), { statusCode: 409, details: calculation });
+  if (requestType === 'PARTIAL_DAY' && !scheduleMissing) {
     const resolved = scheduleForDate(schedules, email, startDate);
     const shiftStart = minutesOf(resolved.template.shiftStartEastern);
     const shiftEndRaw = minutesOf(resolved.template.shiftEndEastern);
@@ -103,6 +109,7 @@ function normalizePtoRequest(body, { roster, schedules }, current = null) {
     if (resolved.template.overnight && partialStart < shiftStart) { partialStart += 1440; partialEnd += 1440; }
     if (partialStart < shiftStart || partialEnd > shiftEnd) throw Object.assign(new Error(`Partial-day PTO must fall inside the scheduled shift ${resolved.template.shiftStartEastern}–${resolved.template.shiftEndEastern} ET.`), { statusCode: 400 });
   }
+  const workDates = scheduleMissing ? dateRange(startDate, endDate) : calculation.workDates;
   const now = new Date().toISOString();
   return {
     ...current, ...body,
@@ -116,9 +123,10 @@ function normalizePtoRequest(body, { roster, schedules }, current = null) {
     startDate, endDate, requestType,
     partialStartTime: requestType === 'PARTIAL_DAY' ? partialStartTime : null,
     partialEndTime: requestType === 'PARTIAL_DAY' ? partialEndTime : null,
-    requestedWorkdays: calculation.requestedWorkdays,
-    workDates: calculation.workDates,
+    requestedWorkdays: workDates.length,
+    workDates,
     rdDates: calculation.rdDates,
+    forecastStatus: scheduleMissing ? 'SCHEDULE_MISSING' : 'CALCULATED',
     reason,
     employeeNotes: String(body.employeeNotes ?? current?.employeeNotes ?? ''),
     supportingDocumentReference: String(body.supportingDocumentReference ?? current?.supportingDocumentReference ?? ''),
@@ -168,6 +176,10 @@ function buildPtoForecast(input, { pto, settings, roster, schedules, attendance 
   const request = input.requestId ? (pto.requests || []).find(x => x.requestId === input.requestId) : input;
   if (!request) throw Object.assign(new Error('PTO request not found.'), { statusCode: 404 });
   const dates = request.workDates?.length ? request.workDates : dateRange(request.startDate, request.endDate);
+  const employeeScheduleResolved = dates.length > 0 && dates.every(date => !scheduleForDate(schedules, request.employeeEmail, date).missingSchedule);
+  if (!employeeScheduleResolved) {
+    return { success: true, ok: true, forecastStatus: 'SCHEDULE_MISSING', staffing: null, dates: [], conflicts: ptoConflictsFor(request, pto.requests || [], request.requestId), warning: 'Schedule has not yet been created.' };
+  }
   const groups = ['VOICE', 'NON_VOICE', 'SENIOR'];
   const dateRows = [];
   for (const date of dates) {
