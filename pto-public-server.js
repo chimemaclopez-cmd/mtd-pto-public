@@ -143,8 +143,8 @@ const server = http.createServer(async (req, res) => {
       return sendText(res, 401, 'Access denied. Use the PTO link your team lead shared with you.');
     }
 
-    if (parsed.pathname === '/' || parsed.pathname === '/pto' || parsed.pathname === '/MTD_PTO_Management.html') {
-      const filePath = path.join(MTD_ROOT, 'MTD_PTO_Management.html');
+    if (parsed.pathname === '/' || parsed.pathname === '/pto') {
+      const filePath = path.join(MTD_ROOT, 'pto-public.html');
       return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), 'text/html; charset=utf-8');
     }
 
