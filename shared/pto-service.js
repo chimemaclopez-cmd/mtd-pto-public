@@ -7,6 +7,7 @@ export const createPtoRequest=request=>api('/api/pto/requests',{method:'POST',bo
 export const loadPtoRequest=requestId=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`);
 export const updatePtoRequest=(requestId,request)=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`,{method:'PUT',body:JSON.stringify(request)});
 export const ptoAction=(requestId,action,payload={})=>api(`/api/pto/requests/${encodeURIComponent(requestId)}/${action}`,{method:'POST',body:JSON.stringify(payload)});
+export const deletePtoRequest=(requestId,payload={})=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`,{method:'DELETE',body:JSON.stringify(payload)});
 export const loadPtoForecast=params=>{const query=new URLSearchParams(Object.entries(params).filter(([,value])=>value!=null&&value!==''));return api(`/api/pto/forecast?${query}`)};
 export const loadPtoConflicts=params=>{const query=new URLSearchParams(Object.entries(params).filter(([,value])=>value));return api(`/api/pto/conflicts?${query}`)};
 export const loadPtoAudit=(requestId='')=>api(`/api/pto/audit${requestId?`?requestId=${encodeURIComponent(requestId)}`:''}`);

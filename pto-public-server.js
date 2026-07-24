@@ -50,7 +50,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png']);
 
 function json(res, status, body) {
@@ -130,6 +130,7 @@ async function getSnapshot(name, key, fallback) {
 async function loadRosterSnapshot() { return getSnapshot('roster', 'mtdkpi:snapshot:roster', { records: [] }); }
 async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:snapshot:schedules', { schedules: [], overrides: [] }); }
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
+async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
@@ -304,9 +305,60 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    // Only the caller's own roster record - the old employee-picker dropdown that needed
+    // everyone's name is gone, so nothing on this page should see anyone else's record.
     if (parsed.pathname === '/api/roster' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
-      return json(res, 200, { ok: true, records: roster.records || [], lastUpdated: roster.lastUpdated || '' });
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      return json(res, 200, { ok: true, employee, lastUpdated: roster.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
+      const kpiResults = await loadKpiResultsSnapshot();
+      const periods = kpiResults.periods || {};
+      const results = Object.entries(periods)
+        .flatMap(([period, rows]) => (rows || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => ({ period, ...x })))
+        .sort((a, b) => b.period.localeCompare(a.period));
+      return json(res, 200, { ok: true, results });
+    }
+
+    if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
+      const schedules = await loadScheduleSnapshot();
+      const today = new Date();
+      const startDate = parsed.searchParams.get('startDate') || new Date(today.getTime() - 3 * 86400000).toISOString().slice(0, 10);
+      const endDate = parsed.searchParams.get('endDate') || new Date(today.getTime() + 10 * 86400000).toISOString().slice(0, 10);
+      if (!ptoLogic.validDate(startDate) || !ptoLogic.validDate(endDate) || startDate > endDate) {
+        return json(res, 400, { ok: false, error: 'A valid startDate/endDate range is required.' });
+      }
+      const days = ptoLogic.dateRange(startDate, endDate).map(date => {
+        const resolved = ptoLogic.scheduleForDate(schedules, identity, date);
+        const t = resolved.template;
+        return {
+          date,
+          weekday: resolved.weekday,
+          missingSchedule: resolved.missingSchedule,
+          off: t ? Boolean(t.off) : null,
+          shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null),
+          shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null),
+          overnight: Boolean(t?.overnight)
+        };
+      });
+      return json(res, 200, { ok: true, days });
+    }
+
+    if (parsed.pathname === '/api/my/attendance' && req.method === 'GET') {
+      const attendance = await loadAttendanceSnapshot();
+      const month = parsed.searchParams.get('month') || new Date().toISOString().slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) is required.' });
+      const today = new Date().toISOString().slice(0, 10);
+      const requestedEnd = parsed.searchParams.get('endDate') || '';
+      const monthEnd = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10);
+      const endDate = requestedEnd || (month === today.slice(0, 7) ? today : monthEnd);
+      const days = ptoLogic.dateRange(`${month}-01`, endDate).map(date => ({
+        date,
+        code: ptoLogic.attendanceCodeOnDate(attendance, identity, date) || null
+      }));
+      return json(res, 200, { ok: true, days });
     }
 
     if (parsed.pathname === '/api/pto/settings' && req.method === 'GET') {
