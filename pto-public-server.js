@@ -38,6 +38,7 @@ const ptoPassword = require('./server/password.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence'];
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -311,6 +312,23 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       return json(res, 200, { ok: true, employee, lastUpdated: roster.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/contact' && req.method === 'PUT') {
+      const body = await readJsonBody(req);
+      const update = {};
+      for (const field of ROSTER_CONTACT_FIELDS) update[field] = String(body[field] || '').trim();
+      if (update.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(update.contactEmail)) return json(res, 400, { ok: false, error: 'Contact email is invalid.' });
+      const roster = await loadRosterSnapshot();
+      const index = (roster.records || []).findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      if (index < 0) return json(res, 400, { ok: false, error: 'Employee not found in the roster.' });
+      roster.records[index] = { ...roster.records[index], ...update };
+      await cloudStore.kvSetJson('mtdkpi:snapshot:roster', roster);
+      snapshotCache.set('mtdkpi:snapshot:roster', { value: roster, at: Date.now() });
+      const pending = await cloudStore.kvGetJson('mtdkpi:roster-contact-updates', {});
+      pending[identity] = { employeeEmail: identity, ...update, updatedAt: new Date().toISOString() };
+      await cloudStore.kvSetJson('mtdkpi:roster-contact-updates', pending);
+      return json(res, 200, { ok: true, employee: roster.records[index] });
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
