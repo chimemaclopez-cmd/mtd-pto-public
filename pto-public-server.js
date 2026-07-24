@@ -10,8 +10,12 @@
 
   Approvals/declines/threshold settings stay on the local admin dashboard
   (zendesk-proxy.js) - this server only allows: list/create/edit-draft/submit/
-  withdraw. All other PTO actions are rejected here regardless of any
-  self-declared "role" in the request body, since role is not authenticated.
+  withdraw, and only ever as the signed-in rep themselves.
+
+  Auth: each rep has their own account (email + password), verified server-side.
+  There is no shared link secret anymore - the login form is the gate, and
+  every identity-sensitive write is scoped to the signed-in session, never to
+  whatever the client claims in the request body.
 
   Data lives in Upstash (shared with zendesk-proxy.js's background sync loop),
   not on this server's local disk - safe to run on a host with no persistent
@@ -19,7 +23,7 @@
 
   Required env vars:
     UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  - shared cloud data store
-    PTO_ACCESS_KEY                                     - shared link passphrase
+    PTO_ADMIN_KEY                                      - admin-only credential reset endpoint
   Optional:
     PORT (default 3050)
 */
@@ -30,23 +34,23 @@ const path = require('path');
 const crypto = require('crypto');
 const cloudStore = require('./server/kv-store.js');
 const ptoLogic = require('./server/pto-logic.js');
+const ptoPassword = require('./server/password.js');
 
 const PORT = Number(process.env.PORT || 3050);
-const ACCESS_KEY = process.env.PTO_ACCESS_KEY || '';
-const COOKIE_NAME = 'pto_access';
+const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+const SESSION_COOKIE_NAME = 'pto_session';
+const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
 const SNAPSHOT_MAX_AGE_MS = Number(process.env.PTO_SNAPSHOT_CACHE_MS || 15000);
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 if (!cloudStore.isConfigured()) {
   console.error('Missing UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN. The public PTO server has nowhere to store data - refusing to start.');
   process.exit(1);
 }
-if (!ACCESS_KEY) {
-  console.error('Missing PTO_ACCESS_KEY. Set a passphrase so the public link is not wide open - refusing to start.');
-  process.exit(1);
-}
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png']);
 
 function json(res, status, body) {
@@ -99,10 +103,20 @@ function timingSafeEqualStr(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+function sessionCookieHeader(token, isSecureReq) {
+  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}${isSecureReq ? '; Secure' : ''}`;
+}
+
+function clearSessionCookieHeader(isSecureReq) {
+  return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecureReq ? '; Secure' : ''}`;
+}
+
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
 const PTO_KEY = 'mtdkpi:pto-requests';
 const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
+const CREDENTIAL_KEY_PREFIX = 'mtdkpi:pto-credential:';
+const SESSION_KEY_PREFIX = 'mtdkpi:pto-session:';
 const snapshotCache = new Map();
 
 async function getSnapshot(name, key, fallback) {
@@ -129,27 +143,58 @@ async function appendAudit(requestId, action, { user = 'Rep', notes = '', previo
   await saveAudit(data);
 }
 
+// --- Rep accounts (credentials + sessions) ---
+function credentialKey(email) { return CREDENTIAL_KEY_PREFIX + ptoLogic.cleanEmail(email); }
+function sessionKey(token) { return SESSION_KEY_PREFIX + token; }
+
+async function loadCredential(email) { return cloudStore.kvGetJson(credentialKey(email), null); }
+async function saveCredential(record) { await cloudStore.kvSetJson(credentialKey(record.employeeEmail), record); }
+
+async function createSession(employeeEmail, employeeName) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const now = Date.now();
+  const record = { employeeEmail, employeeName, issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + SESSION_TTL_SECONDS * 1000).toISOString() };
+  await cloudStore.kvSetJson(sessionKey(token), record, { exSeconds: SESSION_TTL_SECONDS });
+  return token;
+}
+
+async function loadSession(token) {
+  if (!token) return null;
+  const record = await cloudStore.kvGetJson(sessionKey(token), null);
+  if (!record) return null;
+  if (new Date(record.expiresAt).getTime() <= Date.now()) return null;
+  return record;
+}
+
+async function destroySession(token) {
+  if (token) { try { await cloudStore.kvDel(sessionKey(token)); } catch { /* best-effort */ } }
+}
+
+// In-memory login rate limiting (per process - acceptable for a single-instance Render deploy).
+const loginAttempts = new Map();
+function assertNotLockedOut(email) {
+  const entry = loginAttempts.get(email);
+  if (entry && entry.lockedUntil && entry.lockedUntil > Date.now()) {
+    const waitMin = Math.ceil((entry.lockedUntil - Date.now()) / 60000);
+    throw Object.assign(new Error(`Too many failed attempts. Try again in ${waitMin} minute(s).`), { statusCode: 429 });
+  }
+}
+function recordLoginFailure(email) {
+  const entry = loginAttempts.get(email) || { count: 0, lockedUntil: 0 };
+  entry.count += 1;
+  if (entry.count >= MAX_LOGIN_ATTEMPTS) { entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS; entry.count = 0; }
+  loginAttempts.set(email, entry);
+}
+function clearLoginFailures(email) { loginAttempts.delete(email); }
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') return json(res, 200, { ok: true });
     const parsed = new URL(req.url, `http://localhost:${PORT}`);
     const cookies = parseCookies(req);
-    const suppliedKey = parsed.searchParams.get('key');
     const isSecureReq = req.headers['x-forwarded-proto'] === 'https' || Boolean(req.socket.encrypted);
 
-    let authorized = Boolean(cookies[COOKIE_NAME]) && timingSafeEqualStr(cookies[COOKIE_NAME], ACCESS_KEY);
-    let setCookieHeader = null;
-    if (!authorized && suppliedKey && timingSafeEqualStr(suppliedKey, ACCESS_KEY)) {
-      authorized = true;
-      setCookieHeader = `${COOKIE_NAME}=${encodeURIComponent(ACCESS_KEY)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${isSecureReq ? '; Secure' : ''}`;
-    }
-    if (setCookieHeader) res.setHeader('Set-Cookie', setCookieHeader);
-
-    if (!authorized) {
-      if (parsed.pathname.startsWith('/api/')) return json(res, 401, { ok: false, error: 'A valid access link is required.' });
-      return sendText(res, 401, 'Access denied. Use the PTO link your team lead shared with you.');
-    }
-
+    // --- Always-reachable: page shell + static assets (the login form lives on this page) ---
     if (parsed.pathname === '/' || parsed.pathname === '/pto') {
       const filePath = path.join(MTD_ROOT, 'pto-public.html');
       return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), 'text/html; charset=utf-8');
@@ -171,6 +216,94 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, success: true, server: 'online', timestamp: new Date().toISOString() });
     }
 
+    // --- Auth endpoints ---
+    if (parsed.pathname === '/api/auth/login' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.email);
+      if (!email || !body.password) return json(res, 400, { ok: false, error: 'Email and password are required.' });
+      try { assertNotLockedOut(email); } catch (err) { return json(res, err.statusCode || 429, { ok: false, error: err.message }); }
+      const credential = await loadCredential(email);
+      if (!credential || !ptoPassword.verifyPassword(body.password, credential.passwordHash)) {
+        recordLoginFailure(email);
+        return json(res, 401, { ok: false, error: 'Invalid email or password.' });
+      }
+      clearLoginFailures(email);
+      const token = await createSession(credential.employeeEmail, credential.employeeName);
+      credential.lastLoginAt = new Date().toISOString();
+      await saveCredential(credential);
+      res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword) });
+    }
+
+    // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
+    // separate admin secret, since the rep whose password is being reset can't be logged in yet.
+    if (parsed.pathname === '/api/admin/credentials/reset' && req.method === 'POST') {
+      const suppliedAdminKey = req.headers['x-admin-key'] || '';
+      if (!ADMIN_KEY || !suppliedAdminKey || !timingSafeEqualStr(suppliedAdminKey, ADMIN_KEY)) {
+        return json(res, 403, { ok: false, error: 'A valid admin key is required.' });
+      }
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail);
+      if (!email || !body.temporaryPassword) return json(res, 400, { ok: false, error: 'employeeEmail and temporaryPassword are required.' });
+      const roster = await loadRosterSnapshot();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+      if (!employee) return json(res, 400, { ok: false, error: 'Employee not found in the roster.' });
+      const now = new Date().toISOString();
+      const existing = await loadCredential(email);
+      const record = {
+        employeeEmail: email,
+        employeeName: employee.employeeName,
+        passwordHash: ptoPassword.hashPassword(body.temporaryPassword),
+        mustChangePassword: true,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        lastLoginAt: existing?.lastLoginAt || null
+      };
+      await saveCredential(record);
+      return json(res, 200, { ok: true, employeeEmail: email });
+    }
+
+    // --- Everything below requires a signed-in session ---
+    const sessionToken = cookies[SESSION_COOKIE_NAME];
+    const session = await loadSession(sessionToken);
+
+    if (parsed.pathname === '/api/auth/logout' && req.method === 'POST') {
+      await destroySession(sessionToken);
+      res.setHeader('Set-Cookie', clearSessionCookieHeader(isSecureReq));
+      return json(res, 200, { ok: true });
+    }
+
+    if (!session && parsed.pathname === '/api/auth/session' && req.method === 'GET') {
+      return json(res, 200, { ok: true, authenticated: false });
+    }
+
+    if (!session) {
+      return json(res, 401, { ok: false, error: 'Please sign in to continue.' });
+    }
+
+    const identity = ptoLogic.cleanEmail(session.employeeEmail);
+    const credential = await loadCredential(identity);
+    const mustChangePassword = Boolean(credential?.mustChangePassword);
+
+    if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword });
+    }
+
+    if (parsed.pathname === '/api/auth/change-password' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      if (!credential || !ptoPassword.verifyPassword(body.currentPassword, credential.passwordHash)) {
+        return json(res, 401, { ok: false, error: 'Current password is incorrect.' });
+      }
+      if (!body.newPassword || String(body.newPassword).length < 8) {
+        return json(res, 400, { ok: false, error: 'New password must be at least 8 characters.' });
+      }
+      credential.passwordHash = ptoPassword.hashPassword(body.newPassword);
+      credential.mustChangePassword = false;
+      credential.updatedAt = new Date().toISOString();
+      await saveCredential(credential);
+      return json(res, 200, { ok: true });
+    }
+
     if (parsed.pathname === '/api/roster' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
       return json(res, 200, { ok: true, records: roster.records || [], lastUpdated: roster.lastUpdated || '' });
@@ -187,22 +320,14 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/pto/requests' && req.method === 'GET') {
       const data = await loadPto();
       const filters = {
-        employee: ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail')),
-        teamLead: String(parsed.searchParams.get('teamLead') || ''),
-        kpi: String(parsed.searchParams.get('kpiType') || ''),
-        channel: String(parsed.searchParams.get('primaryChannel') || ''),
+        employee: identity,
         status: String(parsed.searchParams.get('status') || ''),
-        approver: ptoLogic.cleanEmail(parsed.searchParams.get('approverEmail')),
         ptoDate: String(parsed.searchParams.get('ptoDate') || ''),
         dateRequested: String(parsed.searchParams.get('dateRequested') || '')
       };
       const requests = (data.requests || []).filter(x =>
-        (!filters.employee || ptoLogic.cleanEmail(x.employeeEmail) === filters.employee) &&
-        (!filters.teamLead || x.teamLeadName === filters.teamLead) &&
-        (!filters.kpi || x.kpiType === filters.kpi) &&
-        (!filters.channel || x.primaryChannel === filters.channel) &&
+        ptoLogic.cleanEmail(x.employeeEmail) === filters.employee &&
         (!filters.status || x.status === filters.status) &&
-        (!filters.approver || ptoLogic.cleanEmail(x.approverEmail) === filters.approver) &&
         (!filters.ptoDate || (x.startDate <= filters.ptoDate && x.endDate >= filters.ptoDate)) &&
         (!filters.dateRequested || x.dateRequested === filters.dateRequested)
       );
@@ -210,7 +335,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/pto/requests' && req.method === 'POST') {
+      if (mustChangePassword) return json(res, 403, { ok: false, error: 'Please change your temporary password before filing a request.' });
       const body = await readJsonBody(req);
+      body.employeeEmail = identity;
+      body.createdBy = identity;
       const [roster, schedules, data] = await Promise.all([loadRosterSnapshot(), loadScheduleSnapshot(), loadPto()]);
       const normalized = ptoLogic.normalizePtoRequest(body, { roster: roster.records || [], schedules });
       const conflicts = ptoLogic.ptoConflictsFor(normalized, data.requests || []);
@@ -223,7 +351,7 @@ const server = http.createServer(async (req, res) => {
       data.sequenceByYear[year] = sequence;
       data.requests.push(request);
       await savePto(data);
-      await appendAudit(requestId, request.status === 'DRAFT' ? 'REQUEST_CREATED' : 'REQUEST_SUBMITTED', { user: request.createdBy, newValue: request, notes: request.reason });
+      await appendAudit(requestId, request.status === 'DRAFT' ? 'REQUEST_CREATED' : 'REQUEST_SUBMITTED', { user: identity, newValue: request, notes: request.reason });
       return json(res, 201, { ok: true, request, lastUpdated: data.lastUpdated });
     }
 
@@ -234,12 +362,13 @@ const server = http.createServer(async (req, res) => {
       if (requestId) {
         const request = (pto.requests || []).find(x => x.requestId === requestId);
         if (!request) return json(res, 404, { ok: false, error: 'PTO request not found.' });
+        if (ptoLogic.cleanEmail(request.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only view the forecast for your own requests.' });
         const forecastResult = ptoLogic.buildPtoForecast({ requestId }, ctx);
         if (forecastResult.forecastStatus === 'SCHEDULE_MISSING') return json(res, 200, forecastResult);
         return json(res, 200, ptoLogic.applyPtoCapacityLimits(forecastResult, request, ctx));
       }
       const input = {
-        employeeEmail: ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail')),
+        employeeEmail: identity,
         startDate: parsed.searchParams.get('startDate'),
         endDate: parsed.searchParams.get('endDate'),
         requestType: parsed.searchParams.get('requestType') || 'FULL_DAY',
@@ -263,16 +392,17 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/pto/conflicts' && req.method === 'GET') {
       const data = await loadPto();
-      const candidate = { employeeEmail: ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail')), startDate: parsed.searchParams.get('startDate'), endDate: parsed.searchParams.get('endDate') };
+      const candidate = { employeeEmail: identity, startDate: parsed.searchParams.get('startDate'), endDate: parsed.searchParams.get('endDate') };
       const excludeId = parsed.searchParams.get('excludeId') || '';
       return json(res, 200, { ok: true, conflicts: ptoLogic.ptoConflictsFor(candidate, data.requests || [], excludeId), lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/pto/audit' && req.method === 'GET') {
       const requestId = parsed.searchParams.get('requestId');
-      const data = await loadAudit();
-      const events = (data.events || []).filter(x => !requestId || x.requestId === requestId);
-      return json(res, 200, { ok: true, events, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+      const [pto, audit] = await Promise.all([loadPto(), loadAudit()]);
+      const ownRequestIds = new Set((pto.requests || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => x.requestId));
+      const events = (audit.events || []).filter(x => ownRequestIds.has(x.requestId) && (!requestId || x.requestId === requestId));
+      return json(res, 200, { ok: true, events, lastUpdated: audit.lastUpdated || '', dataStatus: 'Live' });
     }
 
     const ptoRequestMatch = parsed.pathname.match(/^\/api\/pto\/requests\/([^/]+)(?:\/(submit|approve|partial-approve|decline|withdraw|cancel|return))?$/);
@@ -284,18 +414,25 @@ const server = http.createServer(async (req, res) => {
       if (index < 0) return json(res, 404, { ok: false, error: 'PTO request not found.' });
       const current = data.requests[index];
 
-      if (req.method === 'GET' && !action) return json(res, 200, { ok: true, request: current, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+      if (req.method === 'GET' && !action) {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only view your own PTO requests.' });
+        return json(res, 200, { ok: true, request: current, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+      }
 
       if (['approve', 'partial-approve', 'decline', 'cancel', 'return'].includes(action)) {
         return json(res, 403, { ok: false, error: 'Approvals and declines are handled on the internal dashboard, not the public PTO link.' });
       }
 
+      if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only edit your own PTO requests.' });
+      if (mustChangePassword) return json(res, 403, { ok: false, error: 'Please change your temporary password before editing a request.' });
+
       const body = await readJsonBody(req);
       const now = new Date().toISOString();
-      const user = String(body.user || current.employeeEmail || 'Rep');
+      const user = identity;
 
       if (req.method === 'PUT' && !action) {
         if (['APPROVED', 'PARTIALLY_APPROVED'].includes(current.status)) return json(res, 403, { ok: false, error: 'Approved requests can only be revised on the internal dashboard.' });
+        body.employeeEmail = identity;
         const [roster, schedules] = await Promise.all([loadRosterSnapshot(), loadScheduleSnapshot()]);
         const next = ptoLogic.normalizePtoRequest(body, { roster: roster.records || [], schedules }, current);
         const conflicts = ptoLogic.ptoConflictsFor(next, data.requests, requestId);
@@ -339,7 +476,8 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Public PTO server running on port ${PORT}`);
-    console.log(`Share links as: https://<your-render-host>/pto?key=<PTO_ACCESS_KEY>`);
+    console.log(`Reps sign in individually at: https://<your-render-host>/pto`);
+    if (!ADMIN_KEY) console.log('Note: PTO_ADMIN_KEY is not set - the admin credential-reset endpoint will refuse all requests until it is configured.');
   });
 }
 

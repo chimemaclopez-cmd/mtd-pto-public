@@ -59,10 +59,18 @@ async function kvGetJson(key, fallback) {
   try { return JSON.parse(result); } catch { return fallback; }
 }
 
-async function kvSetJson(key, value) {
-  const { result, error } = await command(['SET', key, JSON.stringify(value)]);
+async function kvSetJson(key, value, { exSeconds } = {}) {
+  const args = ['SET', key, JSON.stringify(value)];
+  if (exSeconds) args.push('EX', String(exSeconds));
+  const { result, error } = await command(args);
   if (error) throw new Error(`Upstash SET ${key} failed: ${error}`);
   return result;
 }
 
-module.exports = { isConfigured, kvGetJson, kvSetJson };
+async function kvDel(key) {
+  const { result, error } = await command(['DEL', key]);
+  if (error) throw new Error(`Upstash DEL ${key} failed: ${error}`);
+  return result;
+}
+
+module.exports = { isConfigured, kvGetJson, kvSetJson, kvDel };
