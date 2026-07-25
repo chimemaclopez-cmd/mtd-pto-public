@@ -45,7 +45,9 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .announcementCard .head b{font-size:15px}
 .announcementCard .body{white-space:pre-wrap;line-height:1.5}
 .announcementCard .meta{color:var(--muted);font-size:11px;margin-top:8px}
-.headerRight{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.headerRight{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#signedInActions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.headerButtonRow{display:flex;gap:8px}
 .phoneField{display:flex;gap:6px}
 .phoneField .phoneCode{flex:none;width:92px}
 .phoneField .phoneLocal{flex:1;min-width:0}
@@ -65,7 +67,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 #profileCard .profileGrid .item label{display:block;font-size:11px;text-transform:uppercase;font-weight:800;color:var(--muted)}
 #profileCard .profileGrid .item .value{font-size:13px;color:var(--ink);margin-top:3px}
 </style></head><body><div class="wrap">
-<header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — PTO requests, performance, and more.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><span class="sub" id="whoami"></span> <button class="btn" id="changePasswordBtn">Change Password</button> <button class="btn" id="logoutBtn">Log Out</button></div></div></header>
+<header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — PTO requests, performance, and more.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><span class="sub" id="whoami"></span><div class="headerButtonRow"><button class="btn" id="changePasswordBtn">Change Password</button><button class="btn" id="logoutBtn">Log Out</button></div></div></div></header>
 <div id="message" class="message" hidden></div>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
 <div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button></div>
