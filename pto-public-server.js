@@ -51,7 +51,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function json(res, status, body) {
@@ -338,6 +338,43 @@ const server = http.createServer(async (req, res) => {
       pending[identity] = { employeeEmail: identity, ...update, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson('mtdkpi:roster-contact-updates', pending);
       return json(res, 200, { ok: true, employee: roster.records[index] });
+    }
+
+    if (parsed.pathname === '/api/chat/messages' && req.method === 'GET') {
+      const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
+      return json(res, 200, { ok: true, messages });
+    }
+
+    if (parsed.pathname === '/api/chat/messages' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const text = String(body.text || '').trim().slice(0, 2000);
+      if (!text) return json(res, 400, { ok: false, error: 'Message text is required.' });
+      const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
+      const message = { id: crypto.randomBytes(8).toString('hex'), senderEmail: identity, senderName: session.employeeName, text, sentAt: new Date().toISOString() };
+      messages.push(message);
+      while (messages.length > 200) messages.shift();
+      await cloudStore.kvSetJson('mtdkpi:chat:messages', messages);
+      const presence = await cloudStore.kvGetJson('mtdkpi:chat:presence', {});
+      presence[identity] = { name: session.employeeName, lastSeenAt: new Date().toISOString() };
+      await cloudStore.kvSetJson('mtdkpi:chat:presence', presence);
+      return json(res, 200, { ok: true, message });
+    }
+
+    if (parsed.pathname === '/api/chat/presence' && req.method === 'POST') {
+      const presence = await cloudStore.kvGetJson('mtdkpi:chat:presence', {});
+      presence[identity] = { name: session.employeeName, lastSeenAt: new Date().toISOString() };
+      await cloudStore.kvSetJson('mtdkpi:chat:presence', presence);
+      return json(res, 200, { ok: true });
+    }
+
+    if (parsed.pathname === '/api/chat/presence' && req.method === 'GET') {
+      const presence = await cloudStore.kvGetJson('mtdkpi:chat:presence', {});
+      const cutoff = Date.now() - 60000;
+      const online = Object.entries(presence)
+        .filter(([, v]) => new Date(v.lastSeenAt).getTime() >= cutoff)
+        .map(([email, v]) => ({ email, name: v.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return json(res, 200, { ok: true, online });
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
