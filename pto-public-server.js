@@ -342,7 +342,7 @@ const server = http.createServer(async (req, res) => {
         const latestPeriod = results[0].period;
         const periodRows = periods[latestPeriod] || [];
         teamLeadName = results[0].teamLeadName || '';
-        const teammates = teamLeadName ? periodRows.filter(x => x.teamLeadName === teamLeadName && Number.isFinite(+x.finalKpi)) : [];
+        const teammates = teamLeadName ? periodRows.filter(x => x.teamLeadName === teamLeadName && x.finalKpi != null && Number.isFinite(+x.finalKpi)) : [];
         teamSize = teammates.length;
         if (teamSize) teamAverage = teammates.reduce((sum, x) => sum + Number(x.finalKpi), 0) / teamSize;
       }
