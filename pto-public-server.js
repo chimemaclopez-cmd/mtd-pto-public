@@ -256,7 +256,7 @@ const server = http.createServer(async (req, res) => {
         employeeEmail: email,
         employeeName: employee.employeeName,
         passwordHash: ptoPassword.hashPassword(body.temporaryPassword),
-        mustChangePassword: true,
+        mustChangePassword: body.mustChangePassword !== false,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
         lastLoginAt: existing?.lastLoginAt || null
@@ -337,7 +337,16 @@ const server = http.createServer(async (req, res) => {
       const results = Object.entries(periods)
         .flatMap(([period, rows]) => (rows || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => ({ period, ...x })))
         .sort((a, b) => b.period.localeCompare(a.period));
-      return json(res, 200, { ok: true, results });
+      let teamAverage = null, teamLeadName = '', teamSize = 0;
+      if (results.length) {
+        const latestPeriod = results[0].period;
+        const periodRows = periods[latestPeriod] || [];
+        teamLeadName = results[0].teamLeadName || '';
+        const teammates = teamLeadName ? periodRows.filter(x => x.teamLeadName === teamLeadName && Number.isFinite(+x.finalKpi)) : [];
+        teamSize = teammates.length;
+        if (teamSize) teamAverage = teammates.reduce((sum, x) => sum + Number(x.finalKpi), 0) / teamSize;
+      }
+      return json(res, 200, { ok: true, results, teamAverage, teamLeadName, teamSize });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
