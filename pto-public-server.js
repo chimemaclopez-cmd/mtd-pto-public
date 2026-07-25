@@ -51,7 +51,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function json(res, status, body) {
@@ -133,6 +133,7 @@ async function loadRosterSnapshot() { return getSnapshot('roster', 'mtdkpi:snaps
 async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:snapshot:schedules', { schedules: [], overrides: [] }); }
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
+async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
@@ -375,6 +376,14 @@ const server = http.createServer(async (req, res) => {
         .map(([email, v]) => ({ email, name: v.name }))
         .sort((a, b) => a.name.localeCompare(b.name));
       return json(res, 200, { ok: true, online });
+    }
+
+    if (parsed.pathname === '/api/my/announcements' && req.method === 'GET') {
+      const snapshot = await loadAnnouncementsSnapshot();
+      const announcements = (snapshot.announcements || [])
+        .filter(x => x.active !== false)
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      return json(res, 200, { ok: true, announcements });
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
