@@ -1,0 +1,17 @@
+{
+  "name": "Lofty Support Portal",
+  "short_name": "Lofty Support",
+  "description": "Your personal Lofty workspace — PTO requests, performance, and more.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#3b5cde",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "shared/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "shared/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "shared/img/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

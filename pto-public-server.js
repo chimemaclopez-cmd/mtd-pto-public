@@ -52,7 +52,7 @@ if (!cloudStore.isConfigured()) {
 }
 
 const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
-const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png']);
+const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -73,6 +73,7 @@ function contentTypeFor(file) {
   if (file.endsWith('.js')) return 'text/javascript; charset=utf-8';
   if (file.endsWith('.css')) return 'text/css; charset=utf-8';
   if (file.endsWith('.png')) return 'image/png';
+  if (file.endsWith('.json')) return 'application/json; charset=utf-8';
   return 'text/plain; charset=utf-8';
 }
 
@@ -200,6 +201,14 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/' || parsed.pathname === '/pto') {
       const filePath = path.join(MTD_ROOT, 'pto-public.html');
       return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), 'text/html; charset=utf-8');
+    }
+
+    if (parsed.pathname === '/manifest.json') {
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'manifest.json'), 'utf8'), 'application/json; charset=utf-8');
+    }
+
+    if (parsed.pathname === '/sw.js') {
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'sw.js'), 'utf8'), 'text/javascript; charset=utf-8');
     }
 
     const sharedBinaryMatch = parsed.pathname.match(/^\/shared\/([a-zA-Z0-9._/-]+)$/);
