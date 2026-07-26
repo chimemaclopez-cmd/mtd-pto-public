@@ -4,3 +4,4 @@ export const loadChatMessages=()=>api('/api/chat/messages');
 export const sendChatMessage=(text)=>api('/api/chat/messages',{method:'POST',body:JSON.stringify({text})});
 export const sendChatHeartbeat=()=>api('/api/chat/presence',{method:'POST'});
 export const loadChatPresence=()=>api('/api/chat/presence');
+export const deleteChatMessage=id=>api(`/api/chat/messages/${encodeURIComponent(id)}`,{method:'DELETE'});

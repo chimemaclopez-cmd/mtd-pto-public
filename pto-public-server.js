@@ -154,10 +154,10 @@ function sessionKey(token) { return SESSION_KEY_PREFIX + token; }
 async function loadCredential(email) { return cloudStore.kvGetJson(credentialKey(email), null); }
 async function saveCredential(record) { await cloudStore.kvSetJson(credentialKey(record.employeeEmail), record); }
 
-async function createSession(employeeEmail, employeeName) {
+async function createSession(employeeEmail, employeeName, sessionVersion = 0) {
   const token = crypto.randomBytes(32).toString('base64url');
   const now = Date.now();
-  const record = { employeeEmail, employeeName, issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + SESSION_TTL_SECONDS * 1000).toISOString() };
+  const record = { employeeEmail, employeeName, sessionVersion, issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + SESSION_TTL_SECONDS * 1000).toISOString() };
   await cloudStore.kvSetJson(sessionKey(token), record, { exSeconds: SESSION_TTL_SECONDS });
   return token;
 }
@@ -176,6 +176,8 @@ async function destroySession(token) {
 
 // In-memory login rate limiting (per process - acceptable for a single-instance Render deploy).
 const loginAttempts = new Map();
+const chatLastPostAt = new Map();
+const CHAT_POST_COOLDOWN_MS = 1200;
 function assertNotLockedOut(email) {
   const entry = loginAttempts.get(email);
   if (entry && entry.lockedUntil && entry.lockedUntil > Date.now()) {
@@ -240,7 +242,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 401, { ok: false, error: 'Invalid email or password.' });
       }
       clearLoginFailures(email);
-      const token = await createSession(credential.employeeEmail, credential.employeeName);
+      const token = await createSession(credential.employeeEmail, credential.employeeName, credential.sessionVersion || 0);
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
@@ -267,9 +269,11 @@ const server = http.createServer(async (req, res) => {
         employeeName: employee.employeeName,
         passwordHash: ptoPassword.hashPassword(body.temporaryPassword),
         mustChangePassword: body.mustChangePassword !== false,
+        sessionVersion: (existing?.sessionVersion || 0) + 1,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
-        lastLoginAt: existing?.lastLoginAt || null
+        lastLoginAt: existing?.lastLoginAt || null,
+        tourSeen: Boolean(existing?.tourSeen)
       };
       await saveCredential(record);
       return json(res, 200, { ok: true, employeeEmail: email });
@@ -295,6 +299,14 @@ const server = http.createServer(async (req, res) => {
 
     const identity = ptoLogic.cleanEmail(session.employeeEmail);
     const credential = await loadCredential(identity);
+
+    if (credential && (session.sessionVersion || 0) !== (credential.sessionVersion || 0)) {
+      await destroySession(sessionToken);
+      res.setHeader('Set-Cookie', clearSessionCookieHeader(isSecureReq));
+      if (parsed.pathname === '/api/auth/session' && req.method === 'GET') return json(res, 200, { ok: true, authenticated: false });
+      return json(res, 401, { ok: false, error: 'Your session has expired. Please sign in again.' });
+    }
+
     const mustChangePassword = Boolean(credential?.mustChangePassword);
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
@@ -316,8 +328,12 @@ const server = http.createServer(async (req, res) => {
       }
       credential.passwordHash = ptoPassword.hashPassword(body.newPassword);
       credential.mustChangePassword = false;
+      credential.sessionVersion = (credential.sessionVersion || 0) + 1;
       credential.updatedAt = new Date().toISOString();
       await saveCredential(credential);
+      await destroySession(sessionToken);
+      const newToken = await createSession(credential.employeeEmail, credential.employeeName, credential.sessionVersion);
+      res.setHeader('Set-Cookie', sessionCookieHeader(newToken, isSecureReq));
       return json(res, 200, { ok: true });
     }
 
@@ -352,9 +368,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/chat/messages' && req.method === 'POST') {
+      const lastPostAt = chatLastPostAt.get(identity) || 0;
+      if (Date.now() - lastPostAt < CHAT_POST_COOLDOWN_MS) return json(res, 429, { ok: false, error: 'You are sending messages too quickly. Please slow down.' });
       const body = await readJsonBody(req);
       const text = String(body.text || '').trim().slice(0, 2000);
       if (!text) return json(res, 400, { ok: false, error: 'Message text is required.' });
+      chatLastPostAt.set(identity, Date.now());
       const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
       const message = { id: crypto.randomBytes(8).toString('hex'), senderEmail: identity, senderName: session.employeeName, text, sentAt: new Date().toISOString() };
       messages.push(message);
@@ -364,6 +383,18 @@ const server = http.createServer(async (req, res) => {
       presence[identity] = { name: session.employeeName, lastSeenAt: new Date().toISOString() };
       await cloudStore.kvSetJson('mtdkpi:chat:presence', presence);
       return json(res, 200, { ok: true, message });
+    }
+
+    const chatMessageMatch = parsed.pathname.match(/^\/api\/chat\/messages\/([^/]+)$/);
+    if (chatMessageMatch && req.method === 'DELETE') {
+      const messageId = decodeURIComponent(chatMessageMatch[1]);
+      const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
+      const index = messages.findIndex(x => x.id === messageId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Message not found.' });
+      if (messages[index].senderEmail !== identity) return json(res, 403, { ok: false, error: 'You can only delete your own messages.' });
+      messages.splice(index, 1);
+      await cloudStore.kvSetJson('mtdkpi:chat:messages', messages);
+      return json(res, 200, { ok: true, deleted: messageId });
     }
 
     if (parsed.pathname === '/api/chat/presence' && req.method === 'POST') {
