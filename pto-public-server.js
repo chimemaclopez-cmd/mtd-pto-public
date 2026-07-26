@@ -244,7 +244,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -298,7 +298,12 @@ const server = http.createServer(async (req, res) => {
     const mustChangePassword = Boolean(credential?.mustChangePassword);
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen) });
+    }
+
+    if (parsed.pathname === '/api/my/tour-complete' && req.method === 'POST') {
+      if (credential) { credential.tourSeen = true; await saveCredential(credential); }
+      return json(res, 200, { ok: true });
     }
 
     if (parsed.pathname === '/api/auth/change-password' && req.method === 'POST') {
