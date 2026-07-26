@@ -150,14 +150,18 @@ document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.
 const TOUR_STEPS=[
 {getEl:()=>document.querySelector('[data-tab="profile"]'),title:'Your Profile',body:'This is your profile — team lead, KPI type, and contact info. Keep it current with Edit Contact Info.'},
 {getEl:()=>document.querySelector('[data-tab="kpi"]'),title:'KPI Scores',body:'Check your KPI scores here. Click any metric row to see exactly how it was calculated — including which CSAT tickets counted as good or bad.'},
+{getEl:()=>document.querySelector('[data-tab="schedule"]'),title:'My Schedule',body:'See your upcoming shifts and rest days here.'},
+{getEl:()=>document.querySelector('[data-tab="attendance"]'),title:'My Attendance',body:'Check your attendance record for the month here.'},
 {getEl:()=>document.querySelector('[data-tab="pto"]'),title:'PTO Requests',body:'File and track your PTO requests here, and see their approval status.'},
 {getEl:()=>document.querySelector('[data-tab="announcements"]'),title:'Announcements',body:'Official updates from your Team Lead or Admin show up here.'},
+{getEl:()=>document.getElementById('changePasswordBtn'),title:'Change Password',body:'Update your password anytime from here.'},
+{getEl:()=>document.getElementById('logoutBtn'),title:'Log Out',body:'Sign out of the portal from here when you\'re done.'},
 {getEl:()=>document.getElementById('chatBubbleBtn'),title:'Team Chat',body:'Chat with your teammates anytime from this bubble — drag it anywhere on screen.'}
 ];
 let tourIndex=0;
 function positionTour(){const step=TOUR_STEPS[tourIndex],el=step.getEl();if(!el){tourNext();return}const rect=el.getBoundingClientRect(),pad=6;$('tourSpotlight').style.left=`${rect.left-pad}px`;$('tourSpotlight').style.top=`${rect.top-pad}px`;$('tourSpotlight').style.width=`${rect.width+pad*2}px`;$('tourSpotlight').style.height=`${rect.height+pad*2}px`;$('tourStepCount').textContent=`Step ${tourIndex+1} of ${TOUR_STEPS.length}`;$('tourTitle').textContent=step.title;$('tourBody').textContent=step.body;$('tourBack').hidden=tourIndex===0;$('tourNext').textContent=tourIndex===TOUR_STEPS.length-1?'Got it':'Next';const tooltip=$('tourTooltip'),margin=12,tw=tooltip.offsetWidth||280,th=tooltip.offsetHeight||200,openBelow=rect.bottom+th+20<innerHeight;tooltip.style.top=openBelow?`${rect.bottom+14}px`:'auto';tooltip.style.bottom=openBelow?'auto':`${Math.max(margin,innerHeight-rect.top+14)}px`;tooltip.style.right='auto';tooltip.style.left=`${Math.min(Math.max(rect.left+rect.width/2-tw/2,margin),innerWidth-tw-margin)}px`}
 let tourRepositionTimer=null;
-function startTour(){if(sessionUser?.tourSeen)return;const firstName=(sessionUser?.employeeName||'').split(' ')[0]||'there';$('tourWelcomeTitle').textContent=`Welcome, ${firstName}!`;$('tourWelcomeBody').textContent="This is your Lofty Support Portal — your KPI scores, PTO requests, announcements, and team chat all in one place. Want a quick 5-step look around?";$('tourWelcomeModal').hidden=false}
+function startTour(){if(sessionUser?.tourSeen)return;const firstName=(sessionUser?.employeeName||'').split(' ')[0]||'there';$('tourWelcomeTitle').textContent=`Welcome, ${firstName}!`;$('tourWelcomeBody').textContent=`This is your Lofty Support Portal — your KPI scores, schedule, attendance, PTO requests, announcements, and team chat all in one place. Want a quick ${TOUR_STEPS.length}-step look around?`;$('tourWelcomeModal').hidden=false}
 function beginTourSteps(){$('tourWelcomeModal').hidden=true;tourIndex=0;$('tourOverlay').hidden=false;positionTour();clearInterval(tourRepositionTimer);tourRepositionTimer=setInterval(positionTour,250)}
 function endTour(){$('tourWelcomeModal').hidden=true;$('tourOverlay').hidden=true;clearInterval(tourRepositionTimer);tourRepositionTimer=null;if(sessionUser)sessionUser.tourSeen=true;markTourComplete().catch(()=>{})}
 function tourNext(){if(tourIndex>=TOUR_STEPS.length-1){endTour();return}tourIndex++;positionTour()}
