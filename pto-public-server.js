@@ -291,6 +291,28 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, employeeEmail: email });
     }
 
+    // Admin-only: send a one-off test email to confirm SendGrid sending/sender-verification works,
+    // without creating any dispute record. Gated by the same admin secret as credential resets.
+    if (parsed.pathname === '/api/admin/test-email' && req.method === 'POST') {
+      const suppliedAdminKey = req.headers['x-admin-key'] || '';
+      if (!ADMIN_KEY || !suppliedAdminKey || !timingSafeEqualStr(suppliedAdminKey, ADMIN_KEY)) {
+        return json(res, 403, { ok: false, error: 'A valid admin key is required.' });
+      }
+      const body = await readJsonBody(req);
+      const to = String(body.to || '').trim();
+      if (!to) return json(res, 400, { ok: false, error: 'to is required.' });
+      try {
+        await emailService.send({
+          to,
+          subject: 'Lofty Support Portal - Test Email',
+          html: `<p>This is a test email from the Lofty Support Portal to confirm SendGrid delivery is working.</p><p>Sent at ${escapeHtml(new Date().toISOString())}.</p>`
+        });
+        return json(res, 200, { ok: true, sent: true });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: error.message });
+      }
+    }
+
     // --- Everything below requires a signed-in session ---
     const sessionToken = cookies[SESSION_COOKIE_NAME];
     const session = await loadSession(sessionToken);
