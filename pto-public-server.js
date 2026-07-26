@@ -35,6 +35,7 @@ const crypto = require('crypto');
 const cloudStore = require('./server/kv-store.js');
 const ptoLogic = require('./server/pto-logic.js');
 const ptoPassword = require('./server/password.js');
+const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
@@ -51,8 +52,12 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -114,6 +119,8 @@ function clearSessionCookieHeader(isSecureReq) {
 }
 
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
+const DISPUTE_CC_EMAIL = process.env.DISPUTE_CC_EMAIL || 'charlotte@lofty.com';
+const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 const PTO_KEY = 'mtdkpi:pto-requests';
 const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
@@ -178,6 +185,11 @@ async function destroySession(token) {
 const loginAttempts = new Map();
 const chatLastPostAt = new Map();
 const CHAT_POST_COOLDOWN_MS = 1200;
+const CHAT_MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
+function pruneExpiredChatMessages(messages) {
+  const cutoff = Date.now() - CHAT_MESSAGE_TTL_MS;
+  return (messages || []).filter(m => !m.sentAt || new Date(m.sentAt).getTime() >= cutoff);
+}
 function assertNotLockedOut(email) {
   const entry = loginAttempts.get(email);
   if (entry && entry.lockedUntil && entry.lockedUntil > Date.now()) {
@@ -364,7 +376,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/chat/messages' && req.method === 'GET') {
       const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
-      return json(res, 200, { ok: true, messages });
+      return json(res, 200, { ok: true, messages: pruneExpiredChatMessages(messages) });
     }
 
     if (parsed.pathname === '/api/chat/messages' && req.method === 'POST') {
@@ -374,7 +386,7 @@ const server = http.createServer(async (req, res) => {
       const text = String(body.text || '').trim().slice(0, 2000);
       if (!text) return json(res, 400, { ok: false, error: 'Message text is required.' });
       chatLastPostAt.set(identity, Date.now());
-      const messages = await cloudStore.kvGetJson('mtdkpi:chat:messages', []);
+      const messages = pruneExpiredChatMessages(await cloudStore.kvGetJson('mtdkpi:chat:messages', []));
       const message = { id: crypto.randomBytes(8).toString('hex'), senderEmail: identity, senderName: session.employeeName, text, sentAt: new Date().toISOString() };
       messages.push(message);
       while (messages.length > 200) messages.shift();
@@ -412,6 +424,76 @@ const server = http.createServer(async (req, res) => {
         .map(([email, v]) => ({ email, name: v.name }))
         .sort((a, b) => a.name.localeCompare(b.name));
       return json(res, 200, { ok: true, online });
+    }
+
+    if (parsed.pathname === '/api/my/csat-disputes' && req.method === 'GET') {
+      const disputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
+      const mine = disputes.filter(x => x.employeeEmail === identity);
+      return json(res, 200, { ok: true, disputes: mine });
+    }
+
+    if (parsed.pathname === '/api/my/csat-disputes' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const ticketId = String(body.ticketId || '').trim();
+      const period = String(body.period || '').trim();
+      const reason = String(body.reason || '').trim();
+      if (!ticketId || !period || !reason) return json(res, 400, { ok: false, error: 'ticketId, period, and reason are required.' });
+
+      const kpiResults = await loadKpiResultsSnapshot();
+      const rows = (kpiResults.periods || {})[period] || [];
+      const row = rows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      if (!row) return json(res, 404, { ok: false, error: 'KPI result not found for that period.' });
+      const ticket = (row.csat?.badTickets || []).find(t => String(t.ticketId) === ticketId);
+      if (!ticket) return json(res, 404, { ok: false, error: 'That ticket was not found among your bad-rated CSAT tickets for this period.' });
+
+      const disputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
+      const existing = disputes.find(x => x.employeeEmail === identity && String(x.ticketId) === ticketId && ['PENDING', 'APPROVED'].includes(x.status));
+      if (existing) return json(res, 409, { ok: false, error: `This ticket already has a dispute (${existing.status}).` });
+
+      const roster = await loadRosterSnapshot();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      const teamLeadEmail = employee?.teamLeadEmail ? ptoLogic.cleanEmail(employee.teamLeadEmail) : '';
+
+      const now = new Date().toISOString();
+      const dispute = {
+        id: `DISPUTE-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+        employeeEmail: identity,
+        employeeName: session.employeeName,
+        ticketId,
+        ticketSubject: ticket.subject || '',
+        surveyDate: ticket.surveyDate || '',
+        comment: ticket.comment || '',
+        period,
+        reason,
+        status: 'PENDING',
+        createdAt: now,
+        decidedAt: null,
+        decidedBy: '',
+        decisionNotes: ''
+      };
+      disputes.push(dispute);
+      await cloudStore.kvSetJson(DISPUTES_KEY, disputes);
+
+      const recipients = [teamLeadEmail].filter(Boolean);
+      let emailSent = false, emailError = '';
+      try {
+        await emailService.send({
+          to: recipients.length ? recipients : [DISPUTE_CC_EMAIL],
+          cc: recipients.length ? [DISPUTE_CC_EMAIL] : [],
+          subject: `CSAT Dispute Filed - ${session.employeeName} - Ticket #${ticketId}`,
+          html: `<p><b>${escapeHtml(session.employeeName)}</b> (${escapeHtml(identity)}) has filed a dispute for a bad CSAT rating.</p>` +
+            `<p><b>Ticket:</b> #${escapeHtml(ticketId)} - ${escapeHtml(ticket.subject || '(no subject)')}<br>` +
+            `<b>Period:</b> ${escapeHtml(period)}<br>` +
+            `<b>Survey Date:</b> ${escapeHtml(ticket.surveyDate ? new Date(ticket.surveyDate).toLocaleDateString() : 'Unknown')}</p>` +
+            (ticket.comment ? `<p><b>Customer comment:</b> "${escapeHtml(ticket.comment)}"</p>` : '') +
+            `<p><b>Rep's reason for dispute:</b><br>${escapeHtml(reason)}</p>` +
+            `<p>Please review and approve or reject this dispute on the internal admin dashboard.</p>`
+        });
+        emailSent = true;
+      } catch (error) {
+        emailError = error.message;
+      }
+      return json(res, 201, { ok: true, dispute, emailSent, emailError: emailError || undefined });
     }
 
     if (parsed.pathname === '/api/my/announcements' && req.method === 'GET') {
