@@ -1,11 +1,15 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Status Wall</title><link rel="stylesheet" href="shared/kpi.css"><style>
-.wallMeta{display:flex;justify-content:space-between;align-items:center;margin:14px 0}
-.flaggedRow td{background:#fdecec!important;color:#8b1f1f}
+.wallMeta{display:flex;justify-content:space-between;align-items:center;margin:14px 0;flex-wrap:wrap;gap:10px}
+.statRow{display:flex;gap:28px;align-items:baseline}
+.statRow .stat b{font-size:24px;font-weight:850;margin-right:7px}
+.statRow .stat{color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:800}
+.flaggedRow td{color:#8b1f1f;font-weight:700;animation:rowBlink 1s steps(1,end) infinite}
 .flaggedRow .flagReasonCell{font-weight:800;color:var(--red)}
 .durationCell{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@keyframes rowBlink{0%,49%{background-color:#fdecec}50%,100%{background-color:#f6a9a9}}
 </style></head><body><div class="wrap">
 <header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Status Wall</div><div class="sub">Live rep status · flagged for late login, break over 15 min, or lunch over 60 min · America/New_York</div></div></header>
-<div class="wallMeta"><div class="cards" id="cards" style="margin:0"></div><div class="sub" id="meta"></div></div>
+<div class="wallMeta"><div class="statRow" id="cards"></div><div class="sub" id="meta"></div></div>
 <div id="message" class="message" hidden></div>
 <div class="tableWrap"><table><thead><tr><th>Employee</th><th>Status</th><th>Duration</th><th>Flag</th></tr></thead><tbody id="wallBody"></tbody></table></div>
 </div>
@@ -35,7 +39,7 @@ function tick(){
     tr.classList.toggle('flaggedRow',flagged);
     if(flagged)flaggedCount++;
   });
-  document.getElementById('cards').innerHTML=[['Total Reps',rows.length],['Flagged',flaggedCount],['On Track',rows.length-flaggedCount]].map(([a,b])=>`<div class="card"><div class="label">${a}</div><div class="value">${b}</div></div>`).join('');
+  document.getElementById('cards').innerHTML=[['Total Reps',rows.length],['Flagged',flaggedCount],['On Track',rows.length-flaggedCount]].map(([a,b])=>`<div class="stat"><b>${b}</b>${a}</div>`).join('');
 }
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
 async function load(){
