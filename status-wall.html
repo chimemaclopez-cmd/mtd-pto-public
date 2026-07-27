@@ -19,26 +19,38 @@ async function api(path){const response=await fetch(path+(path.includes('?')?'&'
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function formatDuration(totalSeconds){const s=Math.max(0,Math.floor(totalSeconds)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${m}:${String(sec).padStart(2,'0')}`}
 let rows=[];
-function render(){
-  document.getElementById('wallBody').innerHTML=rows.map(r=>`<tr data-wall-row="${esc(r.employeeEmail)}"><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.teamLeadName)}</span></td><td class="statusCell">${esc(r.statusLabel)}</td><td class="durationCell">—</td><td class="flagReasonCell"></td></tr>`).join('')||'<tr><td colspan="4">No reps are currently on shift or reporting in.</td></tr>';
-  tick();
+// Sort tiers, top to bottom: Flagged (late login / break or lunch exceeded) > Long Call (on an
+// online status over 15 min, not otherwise flagged) > Avail (online, under 15 min) > everything
+// else (break/lunch/offline/offline task/not started/off shift/clocked-in-no-status).
+function computeLive(row,now){
+  if(!row.sinceIso)return{row,flagged:false,flagReason:'',elapsedSec:null};
+  const elapsedSec=(now-new Date(row.sinceIso).getTime())/1000;
+  const overCap=row.capMinutes!=null&&elapsedSec/60>row.capMinutes;
+  const flagged=row.lateFlag||overCap;
+  const flagReason=row.lateFlag?'Late Login':(overCap?(row.capMinutes===15?'Break Exceeded':'Lunch Exceeded'):'');
+  return{row,flagged,flagReason,elapsedSec};
+}
+function tierOf(c){
+  if(c.flagged)return 0;
+  if(c.row.online&&c.elapsedSec!=null&&c.elapsedSec/60>15)return 1;
+  if(c.row.online)return 2;
+  return 3;
 }
 function tick(){
   const now=Date.now();
-  let flaggedCount=0;
-  document.querySelectorAll('[data-wall-row]').forEach(tr=>{
-    const row=rows.find(r=>r.employeeEmail===tr.dataset.wallRow);
-    if(!row)return;
-    if(!row.sinceIso){tr.classList.remove('flaggedRow');return}
-    const elapsedSec=(now-new Date(row.sinceIso).getTime())/1000;
-    const overCap=row.capMinutes!=null&&elapsedSec/60>row.capMinutes;
-    const flagged=row.lateFlag||overCap;
-    const flagReason=row.lateFlag?'Late Login':(overCap?(row.capMinutes===15?'Break Exceeded':'Lunch Exceeded'):'');
-    tr.querySelector('.durationCell').textContent=formatDuration(elapsedSec);
-    tr.querySelector('.flagReasonCell').textContent=flagReason;
-    tr.classList.toggle('flaggedRow',flagged);
-    if(flagged)flaggedCount++;
+  const computed=rows.map(r=>computeLive(r,now));
+  computed.sort((a,b)=>{
+    const t=tierOf(a)-tierOf(b);
+    if(t!==0)return t;
+    const ea=a.elapsedSec??-1,eb=b.elapsedSec??-1;
+    if(eb!==ea)return eb-ea;
+    return a.row.employeeName.localeCompare(b.row.employeeName);
   });
+  document.getElementById('wallBody').innerHTML=computed.map(c=>{
+    const r=c.row,durationText=c.elapsedSec!=null?formatDuration(c.elapsedSec):'—';
+    return`<tr class="${c.flagged?'flaggedRow':''}"><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.teamLeadName)}</span></td><td>${esc(r.statusLabel)}</td><td class="durationCell">${durationText}</td><td class="flagReasonCell">${esc(c.flagReason)}</td></tr>`;
+  }).join('')||'<tr><td colspan="4">No reps are currently on shift or reporting in.</td></tr>';
+  const flaggedCount=computed.filter(c=>c.flagged).length;
   document.getElementById('cards').innerHTML=[['Total Reps',rows.length],['Flagged',flaggedCount],['On Track',rows.length-flaggedCount]].map(([a,b])=>`<div class="stat"><b>${b}</b>${a}</div>`).join('');
 }
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -47,7 +59,7 @@ async function load(){
     const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
     const data=await api(`/api/status-wall${key}`);
     rows=data.rows||[];
-    render();
+    tick();
     document.getElementById('meta').textContent=`Updated ${new Date(data.generatedAt).toLocaleTimeString()}`;
     setMessage('')
   }catch(error){

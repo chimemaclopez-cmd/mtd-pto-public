@@ -231,7 +231,8 @@ async function computeStatusWall() {
       statusLabel,
       sinceIso,
       capMinutes,
-      lateFlag
+      lateFlag,
+      online: hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId)
     });
   }
   return { ok: true, generatedAt: new Date().toISOString(), breakMaxMinutes: STATUS_WALL_BREAK_MAX_MINUTES, lunchMaxMinutes: STATUS_WALL_LUNCH_MAX_MINUTES, rows };
