@@ -26,6 +26,10 @@
     PTO_ADMIN_KEY                                      - admin-only credential reset endpoint
   Optional:
     PORT (default 3050)
+    STATUS_WALL_KEY - shared secret for the read-only /status-wall board (a link, not a
+      per-person login, meant for a floor TV/monitor). Set it to any random string and
+      share the link as https://<host>/status-wall?key=<that value>; the key is stored in
+      an HttpOnly cookie after the first visit so it doesn't have to stay in the URL bar.
 */
 
 const http = require('http');
@@ -39,6 +43,8 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
+const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence'];
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
@@ -52,7 +58,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -118,6 +124,95 @@ function clearSessionCookieHeader(isSecureReq) {
   return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecureReq ? '; Secure' : ''}`;
 }
 
+function statusWallKeyMatches(parsed, cookies) {
+  if (!STATUS_WALL_KEY) return false;
+  const supplied = parsed.searchParams.get('key') || cookies[STATUS_WALL_COOKIE_NAME] || '';
+  return timingSafeEqualStr(supplied, STATUS_WALL_KEY);
+}
+function statusWallCookieHeader(isSecureReq) {
+  return `${STATUS_WALL_COOKIE_NAME}=${STATUS_WALL_KEY}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}${isSecureReq ? '; Secure' : ''}`;
+}
+
+// --- Status Wall: a read-only, floor-display view of every rep's self-reported status,
+// flagged against simple time rules (late login, break/lunch overrun). Deliberately doesn't
+// need Zendesk at all - it only compares the self-reported status (rep-status.json) against
+// the resolved schedule (which already accounts for any approved shift-change request), so a
+// moved shift naturally stops counting as "late" without any special-case logic here.
+const STATUS_WALL_BREAK_MAX_MINUTES = 15;
+const STATUS_WALL_LUNCH_MAX_MINUTES = 60;
+const STATUS_WALL_QUEUE_IDS = new Set(['CALL', 'CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT', 'SENIOR_TSR']);
+const STATUS_WALL_ACTIVITY_NAMES = {
+  CALL: 'Call', CHAT: 'Chat', EMAIL: 'Email', EMAIL_CHAT: 'Email / Chat', LEAD_IMPORT: 'Lead Import', SENIOR_TSR: 'Senior TSR',
+  SHORT_BREAK: 'Break', LUNCH: 'Lunch',
+  COACHING: 'Coaching', TRAINING: 'Training', TEAM_HUDDLE: 'Team Huddle', ONE_ON_ONE: '1:1 Session', QA_REVIEW: 'QA Review',
+  MEETING: 'Meeting', CALIBRATION: 'Calibration', SIDE_BY_SIDE: 'Side-by-Side', PROJECT_WORK: 'Project Work', ADMIN: 'Admin',
+  DOCUMENTATION: 'Documentation', CASE_REVIEW: 'Case Review', OTHER_OFFLINE: 'Other Offline Task'
+};
+function easternDateParts(date) {
+  const out = {};
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+    .formatToParts(date).forEach(p => { if (p.type !== 'literal') out[p.type] = p.value; });
+  return out;
+}
+async function computeStatusWall() {
+  const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR'].includes(x.kpiType));
+  const schedules = await loadScheduleSnapshot();
+  const repStatusData = await loadRepStatus();
+  const statuses = repStatusData.statuses || {};
+  const nowMs = Date.now();
+  const nowParts = easternDateParts(new Date(nowMs));
+  const todayDate = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
+  const nowMinutes = Number(nowParts.hour) * 60 + Number(nowParts.minute);
+  const rows = roster.map(emp => {
+    const email = ptoLogic.cleanEmail(emp.employeeEmail);
+    const resolved = ptoLogic.scheduleForDate(schedules, email, todayDate);
+    const t = resolved.template;
+    const entry = statuses[email] || null;
+    const activityId = entry?.activityId || '';
+    const updatedAtMs = entry?.updatedAt ? new Date(entry.updatedAt).getTime() : null;
+    const reportedToday = updatedAtMs != null && (() => { const p = easternDateParts(new Date(updatedAtMs)); return `${p.year}-${p.month}-${p.day}` === todayDate; })();
+    const minutesInStatus = updatedAtMs != null ? Math.max(0, Math.round((nowMs - updatedAtMs) / 60000)) : null;
+    let flagged = false, flagReason = '', statusLabel = 'Not Reported';
+    if (resolved.missingSchedule) {
+      statusLabel = 'No Schedule';
+    } else if (!t || t.off) {
+      statusLabel = 'Rest Day';
+    } else {
+      const shiftStart = ptoLogic.minutesOf(t.shiftStartEastern);
+      const shiftEndRaw = ptoLogic.minutesOf(t.shiftEndEastern);
+      const shiftEnd = shiftEndRaw + (t.overnight && shiftEndRaw <= shiftStart ? 1440 : 0);
+      let effectiveNow = nowMinutes;
+      if (t.overnight && effectiveNow < shiftStart) effectiveNow += 1440;
+      const onShift = effectiveNow >= shiftStart && effectiveNow < shiftEnd;
+      if (!onShift) {
+        statusLabel = effectiveNow < shiftStart ? 'Not Started' : 'Off Shift';
+      } else if (!reportedToday) {
+        flagged = true; flagReason = 'Late Login'; statusLabel = 'Not Reported';
+      } else {
+        const name = STATUS_WALL_ACTIVITY_NAMES[activityId] || activityId;
+        statusLabel = STATUS_WALL_QUEUE_IDS.has(activityId) ? `Online (${name})` : name;
+        if (activityId === 'SHORT_BREAK' && minutesInStatus != null && minutesInStatus > STATUS_WALL_BREAK_MAX_MINUTES) {
+          flagged = true; flagReason = 'Break Exceeded';
+        } else if (activityId === 'LUNCH' && minutesInStatus != null && minutesInStatus > STATUS_WALL_LUNCH_MAX_MINUTES) {
+          flagged = true; flagReason = 'Lunch Exceeded';
+        }
+      }
+    }
+    return {
+      employeeEmail: email,
+      employeeName: emp.employeeName,
+      teamLeadName: emp.teamLeadName,
+      kpiType: emp.kpiType,
+      statusLabel,
+      minutesInStatus,
+      capMinutes: activityId === 'SHORT_BREAK' ? STATUS_WALL_BREAK_MAX_MINUTES : activityId === 'LUNCH' ? STATUS_WALL_LUNCH_MAX_MINUTES : null,
+      flagged,
+      flagReason
+    };
+  });
+  return { ok: true, generatedAt: new Date().toISOString(), rows };
+}
+
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
 const DISPUTE_CC_EMAIL = process.env.DISPUTE_CC_EMAIL || 'charlotte@lofty.com';
 const DISPUTES_KEY = 'mtdkpi:csat-disputes';
@@ -126,6 +221,8 @@ const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
 const SCHEDULE_REQUESTS_KEY = 'mtdkpi:schedule-requests';
 const SCHEDULE_REQUEST_AUDIT_KEY = 'mtdkpi:schedule-request-audit';
+const REP_STATUS_KEY = 'mtdkpi:rep-status';
+const VALID_STATUS_ACTIVITY_IDS = new Set(['CALL', 'CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT', 'SENIOR_TSR', 'SHORT_BREAK', 'LUNCH', 'COACHING', 'TRAINING', 'TEAM_HUDDLE', 'ONE_ON_ONE', 'QA_REVIEW', 'MEETING', 'CALIBRATION', 'SIDE_BY_SIDE', 'PROJECT_WORK', 'ADMIN', 'DOCUMENTATION', 'CASE_REVIEW', 'OTHER_OFFLINE']);
 const CREDENTIAL_KEY_PREFIX = 'mtdkpi:pto-credential:';
 const SESSION_KEY_PREFIX = 'mtdkpi:pto-session:';
 const snapshotCache = new Map();
@@ -165,6 +262,13 @@ async function appendScheduleRequestAudit(requestId, action, { user = 'Rep', not
   const data = await loadScheduleRequestAudit();
   data.events.push({ auditId: `SCHEDREQ-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, requestId, action, user: String(user || 'Rep'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveScheduleRequestAudit(data);
+}
+
+// --- Rep self-reported status (Online/Break/Lunch/Offline Task) - a live "what am I doing right
+// now" flag reps set themselves, separate from the schedule. Admins compare it against the
+// resolved schedule and the live Zendesk signal on the Schedule Adherence dashboard.
+async function loadRepStatus() { return cloudStore.kvGetJson(REP_STATUS_KEY, { version: 1, statuses: {} }); }
+async function saveRepStatus(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(REP_STATUS_KEY, data); return data;
 }
 const PLANNED_OFFLINE_ACTIVITY_IDS = ['COACHING','TRAINING','TEAM_HUDDLE','ONE_ON_ONE','QA_REVIEW','MEETING','CALIBRATION','SIDE_BY_SIDE','PROJECT_WORK','ADMIN','DOCUMENTATION','CASE_REVIEW','OTHER_OFFLINE'];
 function validScheduleTimeSlot(value) { return /^([01]\d|2[0-3]):[03]0$/.test(String(value || '')); }
@@ -359,6 +463,19 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         return json(res, 502, { ok: false, error: error.message });
       }
+    }
+
+    // --- Status Wall: key-gated (not session-gated) - a shareable floor-display link ---
+    if (parsed.pathname === '/status-wall') {
+      if (!statusWallKeyMatches(parsed, cookies)) return sendText(res, 401, 'Not authorized. Use the link provided to you.', 'text/plain; charset=utf-8');
+      if (parsed.searchParams.get('key')) res.setHeader('Set-Cookie', statusWallCookieHeader(isSecureReq));
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'status-wall.html'), 'utf8'), 'text/html; charset=utf-8');
+    }
+
+    if (parsed.pathname === '/api/status-wall' && req.method === 'GET') {
+      if (!statusWallKeyMatches(parsed, cookies)) return json(res, 401, { ok: false, error: 'Not authorized.' });
+      const data = await computeStatusWall();
+      return json(res, 200, data);
     }
 
     // --- Everything below requires a signed-in session ---
@@ -610,10 +727,30 @@ const server = http.createServer(async (req, res) => {
           off: t ? Boolean(t.off) : null,
           shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null),
           shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null),
-          overnight: Boolean(t?.overnight)
+          overnight: Boolean(t?.overnight),
+          assignments: t && !t.off ? (t.assignments || {}) : {},
+          exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || []
         };
       });
       return json(res, 200, { ok: true, days });
+    }
+
+    if (parsed.pathname === '/api/my/status' && req.method === 'GET') {
+      const data = await loadRepStatus();
+      const entry = data.statuses?.[identity] || null;
+      return json(res, 200, { ok: true, activityId: entry?.activityId || '', updatedAt: entry?.updatedAt || '' });
+    }
+
+    if (parsed.pathname === '/api/my/status' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const activityId = String(body.activityId || '').trim().toUpperCase();
+      if (!VALID_STATUS_ACTIVITY_IDS.has(activityId)) return json(res, 400, { ok: false, error: 'Unrecognized status.' });
+      const data = await loadRepStatus();
+      data.statuses = data.statuses || {};
+      const now = new Date().toISOString();
+      data.statuses[identity] = { activityId, updatedAt: now };
+      await saveRepStatus(data);
+      return json(res, 200, { ok: true, activityId, updatedAt: now });
     }
 
     if (parsed.pathname === '/api/my/attendance' && req.method === 'GET') {

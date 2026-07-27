@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Status Wall</title><link rel="stylesheet" href="shared/kpi.css"><style>
+body{background:#12142080}
+.wrap{max-width:none;padding:20px 28px}
+.header{border-bottom-color:transparent}
+.title{font-size:30px}
+.wallGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:16px}
+.wallCard{border-radius:14px;padding:14px 16px;background:#fff;border:2px solid var(--line);transition:transform .15s}
+.wallCard.flagged{border-color:var(--red);background:#fdecec;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(194,49,58,.35)}50%{box-shadow:0 0 0 6px rgba(194,49,58,0)}}
+.wallCard .name{font-weight:850;font-size:15px}
+.wallCard .lead{color:var(--muted);font-size:11px;margin-top:1px}
+.wallCard .status{font-size:17px;font-weight:800;margin-top:10px}
+.wallCard.flagged .status{color:var(--red)}
+.wallCard .flagReason{font-size:12px;font-weight:800;color:var(--red);margin-top:4px}
+.wallCard .minutes{font-size:11px;color:var(--muted);margin-top:4px}
+.wallMeta{display:flex;justify-content:space-between;align-items:center;margin:14px 0}
+</style></head><body><div class="wrap">
+<header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Status Wall</div><div class="sub">Live rep status · flagged for late login, break over 15 min, or lunch over 60 min · America/New_York</div></div></header>
+<div class="wallMeta"><div class="cards" id="cards" style="margin:0"></div><div class="sub" id="meta"></div></div>
+<div id="message" class="message" hidden></div>
+<div class="wallGrid" id="wallGrid"></div>
+</div>
+<script type="module">
+const params=new URLSearchParams(location.search);
+async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let rows=[];
+function render(){
+  document.getElementById('wallGrid').innerHTML=rows.map(x=>`<div class="wallCard${x.flagged?' flagged':''}"><div class="name">${esc(x.employeeName)}</div><div class="lead">${esc(x.teamLeadName)}</div><div class="status">${esc(x.statusLabel)}</div>${x.flagged?`<div class="flagReason">${esc(x.flagReason)}</div>`:''}${x.minutesInStatus!=null?`<div class="minutes">${x.minutesInStatus} min${x.capMinutes?` / ${x.capMinutes} min cap`:''}</div>`:''}</div>`).join('')||'<div class="sub">No active reps to show.</div>';
+  const flaggedCount=rows.filter(x=>x.flagged).length;
+  document.getElementById('cards').innerHTML=[['Total Reps',rows.length],['Flagged',flaggedCount],['On Track',rows.length-flaggedCount]].map(([a,b])=>`<div class="card"><div class="label">${a}</div><div class="value">${b}</div></div>`).join('');
+}
+function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
+async function load(){
+  try{
+    const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
+    const data=await api(`/api/status-wall${key}`);
+    rows=data.rows||[];
+    render();
+    document.getElementById('meta').textContent=`Updated ${new Date(data.generatedAt).toLocaleTimeString()}`;
+    setMessage('')
+  }catch(error){
+    setMessage(error.status===401?'This link is not authorized. Ask your administrator for the correct Status Wall link.':`Could not load status wall. ${error.response?.error||error.message}`,'error')
+  }
+}
+load();
+setInterval(load,15000);
+</script>
+</body></html>
