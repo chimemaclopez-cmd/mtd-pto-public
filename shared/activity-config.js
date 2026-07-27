@@ -53,12 +53,14 @@ export function consolidateScheduleBlocks({assignments={},exactBlocks=[],shiftSt
   if(!shiftStartEastern||!shiftEndEastern)return[];
   const shiftStart=minutesOf(shiftStartEastern),shiftEndRaw=minutesOf(shiftEndEastern),shiftEnd=shiftEndRaw+(overnight&&shiftEndRaw<=shiftStart?1440:0);
   let segments=[];
-  const hasAssignments=Object.keys(assignments).length>0;
+  const normalizedAssignments=Object.fromEntries(Object.entries(assignments).map(([time,value])=>[time,normalizeActivityId(value)]));
+  const hasAssignments=Object.values(normalizedAssignments).some(Boolean);
   if(hasAssignments){
-    for(const[time,value]of Object.entries(assignments)){
+    for(const[time,activityId]of Object.entries(normalizedAssignments)){
+      if(!activityId&&!defaultActivityId)continue;
       let start=minutesOf(time);
       if(start<shiftStart&&shiftEnd>1440)start+=1440;
-      segments.push({start,end:Math.min(start+30,shiftEnd),activityId:normalizeActivityId(value)});
+      segments.push({start,end:Math.min(start+30,shiftEnd),activityId:activityId||defaultActivityId});
     }
   }else if(defaultActivityId){
     segments.push({start:shiftStart,end:shiftEnd,activityId:normalizeActivityId(defaultActivityId)});

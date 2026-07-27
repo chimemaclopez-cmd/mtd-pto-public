@@ -261,6 +261,27 @@ async function getSnapshot(name, key, fallback) {
 }
 
 async function loadRosterSnapshot() { return getSnapshot('roster', 'mtdkpi:snapshot:roster', { records: [] }); }
+
+// Ported from shared/activity-config.js's defaultAssignmentFor (that file is an ES module and
+// can't be require()'d here) - used only as a last-resort fallback when a schedule record has no
+// defaultAssignment stored (older schedules created before that field existed).
+function serverDefaultAssignmentFor(employee) {
+  const kpi = String(employee?.kpiType || '').toLowerCase();
+  const channel = String(employee?.primaryChannel || '').toLowerCase();
+  const status = String(employee?.employmentStatus || '').toLowerCase();
+  if (employee?.active === false || kpi.includes('excluded') || status.includes('inactive')) return '';
+  if (kpi.includes('trainee') || status.includes('trainee')) return 'TRAINING';
+  if (kpi.includes('non-voice')) {
+    if (channel.includes('lead import')) return 'LEAD_IMPORT';
+    if ((channel.includes('email') && channel.includes('chat')) || channel.includes('email / chat')) return 'EMAIL_CHAT';
+    if (channel.includes('chat')) return 'CHAT';
+    if (channel.includes('phone') || channel.includes('voice')) return 'EMAIL';
+    if (channel.includes('email')) return 'EMAIL';
+  }
+  if (kpi.includes('voice jr')) return 'CALL';
+  if (kpi.includes('senior')) return 'SENIOR_TSR';
+  return 'CALL';
+}
 async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:snapshot:schedules', { schedules: [], overrides: [] }); }
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
@@ -736,6 +757,8 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
       const schedules = await loadScheduleSnapshot();
+      const roster = await loadRosterSnapshot();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const today = new Date();
       const startDate = parsed.searchParams.get('startDate') || new Date(today.getTime() - 3 * 86400000).toISOString().slice(0, 10);
       const endDate = parsed.searchParams.get('endDate') || new Date(today.getTime() + 10 * 86400000).toISOString().slice(0, 10);
@@ -755,7 +778,7 @@ const server = http.createServer(async (req, res) => {
           overnight: Boolean(t?.overnight),
           assignments: t && !t.off ? (t.assignments || {}) : {},
           exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || [],
-          defaultActivityId: t?.defaultAssignment || resolved.record?.defaultAssignment || ''
+          defaultActivityId: t?.defaultAssignment || resolved.record?.defaultAssignment || serverDefaultAssignmentFor(employee) || 'CALL'
         };
       });
       return json(res, 200, { ok: true, days });

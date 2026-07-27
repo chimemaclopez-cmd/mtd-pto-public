@@ -156,11 +156,12 @@ $('timeOutBtn').onclick=async()=>{if(!confirm('Time out? This clears your curren
 function scheduleDayCell(d){
   if(d.missingSchedule)return'<span class="pill status-missing-attendance">Not scheduled yet</span>';
   if(d.off)return'<span class="pill status-no-data">Rest Day</span>';
-  const defaultActivityId=d.defaultActivityId||defaultAssignmentFor(profile);
+  const defaultActivityId=d.defaultActivityId||defaultAssignmentFor(profile)||'CALL';
   const blocks=consolidateScheduleBlocks({assignments:d.assignments,exactBlocks:d.exactActivities,shiftStartEastern:d.shiftStartEastern,shiftEndEastern:d.shiftEndEastern,overnight:d.overnight,defaultActivityId});
-  if(!blocks.length)return`${formatTime12(d.shiftStartEastern)} – ${formatTime12(d.shiftEndEastern)} ET${d.overnight?' (overnight)':''}`;
+  const shiftSummary=`<div class="sub" style="margin-bottom:6px">Shift: ${esc(formatTime12(d.shiftStartEastern))} – ${esc(formatTime12(d.shiftEndEastern))} ET${d.overnight?' (overnight)':''}</div>`;
+  if(!blocks.length)return shiftSummary;
   const map=activityMap(BUILTIN_ACTIVITIES);
-  return`<div class="scheduleBlockCard">${blocks.map(b=>`<div class="metricDetailRow"><b>${esc(formatTimeRangeLabel(b.startTime,b.endTime))}${b.spansMidnight?' <span class="muted">(+1 day)</span>':''}</b><span>${esc(map.get(b.activityId)?.name||b.activityId)}</span></div>`).join('')}</div>`;
+  return shiftSummary+`<div class="scheduleBlockCard">${blocks.map(b=>`<div class="metricDetailRow"><b>${esc(formatTimeRangeLabel(b.startTime,b.endTime))}${b.spansMidnight?' <span class="muted">(+1 day)</span>':''}</b><span>${esc(map.get(b.activityId)?.name||b.activityId)}</span></div>`).join('')}</div>`;
 }
 function renderScheduleToday(){const today=todayET(),d=scheduleDays.find(x=>x.date===today);$('scheduleTodayMeta').textContent=d?`Today · ${esc(weekday(d.date))}, ${d.date}`:'';$('scheduleTodayBody').innerHTML=d?scheduleDayCell(d):'<span class="muted">No schedule data available.</span>'}
 function renderScheduleWeek(){$('scheduleMeta').textContent=scheduleDays.length?`Showing ${scheduleDays[0].date} through ${scheduleDays[scheduleDays.length-1].date}`:'';$('scheduleBody').innerHTML=scheduleDays.map(d=>`<tr><td><b>${esc(d.date)}</b></td><td>${esc(weekday(d.date))}</td><td>${scheduleDayCell(d)}</td></tr>`).join('')||'<tr><td colspan="3">No schedule data available.</td></tr>'}
