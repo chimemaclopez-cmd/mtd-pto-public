@@ -19,6 +19,7 @@ export function defaultAssignmentFor(employee,configured=''){
     if(channel.includes('chat'))return'CHAT';
     if(channel.includes('phone')||channel.includes('voice'))return normalizeActivityId(configured)||'EMAIL';
     if(channel.includes('email'))return'EMAIL';
+    return normalizeActivityId(configured)||'EMAIL';
   }
   if(kpi.includes('voice jr'))return'CALL';
   if(kpi.includes('senior'))return'SENIOR_TSR';

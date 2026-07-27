@@ -277,6 +277,7 @@ function serverDefaultAssignmentFor(employee) {
     if (channel.includes('chat')) return 'CHAT';
     if (channel.includes('phone') || channel.includes('voice')) return 'EMAIL';
     if (channel.includes('email')) return 'EMAIL';
+    return 'EMAIL';
   }
   if (kpi.includes('voice jr')) return 'CALL';
   if (kpi.includes('senior')) return 'SENIOR_TSR';
@@ -778,7 +779,11 @@ const server = http.createServer(async (req, res) => {
           overnight: Boolean(t?.overnight),
           assignments: t && !t.off ? (t.assignments || {}) : {},
           exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || [],
-          defaultActivityId: t?.defaultAssignment || resolved.record?.defaultAssignment || serverDefaultAssignmentFor(employee) || 'CALL'
+          // KPI type/channel decides the default queue activity, not whatever the schedule record
+          // happens to have stored - schedules are often created from a template and never get
+          // their defaultAssignment corrected for Non-Voice/Senior reps, which otherwise silently
+          // shows everyone as "Call".
+          defaultActivityId: serverDefaultAssignmentFor(employee) || t?.defaultAssignment || resolved.record?.defaultAssignment || 'CALL'
         };
       });
       return json(res, 200, { ok: true, days });
