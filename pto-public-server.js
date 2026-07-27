@@ -52,7 +52,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -124,6 +124,8 @@ const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 const PTO_KEY = 'mtdkpi:pto-requests';
 const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
+const SCHEDULE_REQUESTS_KEY = 'mtdkpi:schedule-requests';
+const SCHEDULE_REQUEST_AUDIT_KEY = 'mtdkpi:schedule-request-audit';
 const CREDENTIAL_KEY_PREFIX = 'mtdkpi:pto-credential:';
 const SESSION_KEY_PREFIX = 'mtdkpi:pto-session:';
 const snapshotCache = new Map();
@@ -153,6 +155,52 @@ async function appendAudit(requestId, action, { user = 'Rep', notes = '', previo
   data.events.push({ auditId: `PTO-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, requestId, action, user: String(user || 'Rep'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveAudit(data);
 }
+
+// --- Schedule Requests (Shift Change + Offline Task) - mirrors the PTO storage helpers above ---
+async function loadScheduleRequests() { return cloudStore.kvGetJson(SCHEDULE_REQUESTS_KEY, { version: 1, sequenceByYear: {}, requests: [] }); }
+async function saveScheduleRequests(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(SCHEDULE_REQUESTS_KEY, data); return data; }
+async function loadScheduleRequestAudit() { return cloudStore.kvGetJson(SCHEDULE_REQUEST_AUDIT_KEY, { version: 1, events: [] }); }
+async function saveScheduleRequestAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(SCHEDULE_REQUEST_AUDIT_KEY, data); return data; }
+async function appendScheduleRequestAudit(requestId, action, { user = 'Rep', notes = '', previousValue = null, newValue = null } = {}) {
+  const data = await loadScheduleRequestAudit();
+  data.events.push({ auditId: `SCHEDREQ-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, requestId, action, user: String(user || 'Rep'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
+  await saveScheduleRequestAudit(data);
+}
+const PLANNED_OFFLINE_ACTIVITY_IDS = ['COACHING','TRAINING','TEAM_HUDDLE','ONE_ON_ONE','QA_REVIEW','MEETING','CALIBRATION','SIDE_BY_SIDE','PROJECT_WORK','ADMIN','DOCUMENTATION','CASE_REVIEW','OTHER_OFFLINE'];
+function validScheduleTimeSlot(value) { return /^([01]\d|2[0-3]):[03]0$/.test(String(value || '')); }
+function minutesOfSlot(value) { const [h, m] = String(value).split(':').map(Number); return h * 60 + m; }
+function normalizeScheduleRequestBody(body, roster, current = null) {
+  const email = ptoLogic.cleanEmail(body.employeeEmail);
+  const employee = (roster || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+  if (!employee) throw Object.assign(new Error('Employee must exist in the roster.'), { statusCode: 400 });
+  const date = String(body.date ?? current?.date ?? '');
+  if (!ptoLogic.validDate(date)) throw Object.assign(new Error('A valid request date is required.'), { statusCode: 400 });
+  const requestType = String(body.requestType ?? current?.requestType ?? '');
+  if (!['SHIFT_CHANGE', 'OFFLINE_TASK'].includes(requestType)) throw Object.assign(new Error('Request type must be SHIFT_CHANGE or OFFLINE_TASK.'), { statusCode: 400 });
+  const reason = String(body.reason ?? current?.reason ?? '').trim();
+  if (!reason) throw Object.assign(new Error('Reason is required.'), { statusCode: 400 });
+  const now = new Date().toISOString();
+  const out = { ...current, ...body, employeeEmail: email, employeeName: employee.employeeName, teamLeadName: employee.teamLeadName, teamLeadEmail: employee.teamLeadEmail || '', kpiType: employee.kpiType, date, requestType, reason, createdBy: String(body.createdBy ?? current?.createdBy ?? email), updatedAt: now };
+  if (requestType === 'SHIFT_CHANGE') {
+    out.requestedOff = body.requestedOff === true || body.requestedOff === 'true';
+    if (!out.requestedOff) {
+      out.requestedShiftStartEastern = String(body.requestedShiftStartEastern ?? current?.requestedShiftStartEastern ?? '');
+      out.requestedShiftEndEastern = String(body.requestedShiftEndEastern ?? current?.requestedShiftEndEastern ?? '');
+      if (!validScheduleTimeSlot(out.requestedShiftStartEastern) || !validScheduleTimeSlot(out.requestedShiftEndEastern)) throw Object.assign(new Error('A valid requested shift start and end time (30-minute increments) are required.'), { statusCode: 400 });
+    } else { out.requestedShiftStartEastern = null; out.requestedShiftEndEastern = null; }
+    out.activityId = null; out.startTime = null; out.endTime = null;
+  } else {
+    const activityId = String(body.activityId ?? current?.activityId ?? '').toUpperCase();
+    if (!PLANNED_OFFLINE_ACTIVITY_IDS.includes(activityId)) throw Object.assign(new Error('A valid offline-task activity is required.'), { statusCode: 400 });
+    const startTime = String(body.startTime ?? current?.startTime ?? ''), endTime = String(body.endTime ?? current?.endTime ?? '');
+    if (!validScheduleTimeSlot(startTime) || !validScheduleTimeSlot(endTime) || minutesOfSlot(endTime) <= minutesOfSlot(startTime)) throw Object.assign(new Error('A valid start and end time (30-minute increments, end after start) are required.'), { statusCode: 400 });
+    out.activityId = activityId; out.startTime = startTime; out.endTime = endTime;
+    out.requestedOff = null; out.requestedShiftStartEastern = null; out.requestedShiftEndEastern = null;
+  }
+  return out;
+}
+const SCHEDULE_REQUEST_ACTIVE_STATUSES = new Set(['SUBMITTED', 'PENDING', 'APPROVED']);
+function scheduleRequestConflicts(candidate, requests, excludeId = '') { return (requests || []).filter(x => x.requestId !== excludeId && ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(candidate.employeeEmail) && SCHEDULE_REQUEST_ACTIVE_STATUSES.has(x.status) && x.date === candidate.date); }
 
 // --- Rep accounts (credentials + sessions) ---
 function credentialKey(email) { return CREDENTIAL_KEY_PREFIX + ptoLogic.cleanEmail(email); }
@@ -737,6 +785,93 @@ const server = http.createServer(async (req, res) => {
         data.requests[index] = { ...current, status: 'WITHDRAWN', withdrawalReason: String(body.reason || ''), updatedAt: now };
         await savePto(data);
         await appendAudit(requestId, 'WITHDRAWN', { user, previousValue: current.status, newValue: 'WITHDRAWN', notes: body.reason });
+        return json(res, 200, { ok: true, request: data.requests[index], lastUpdated: data.lastUpdated });
+      }
+    }
+
+    // Schedule Requests (Shift Change + Offline Task) - mirrors the PTO request block above.
+    if (parsed.pathname === '/api/my/schedule-requests' && req.method === 'GET') {
+      const data = await loadScheduleRequests();
+      const status = String(parsed.searchParams.get('status') || '');
+      const requests = (data.requests || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && (!status || x.status === status));
+      return json(res, 200, { ok: true, requests, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+    }
+
+    if (parsed.pathname === '/api/my/schedule-requests' && req.method === 'POST') {
+      if (mustChangePassword) return json(res, 403, { ok: false, error: 'Please change your temporary password before filing a request.' });
+      const body = await readJsonBody(req);
+      body.employeeEmail = identity;
+      const [roster, data] = await Promise.all([loadRosterSnapshot(), loadScheduleRequests()]);
+      const normalized = normalizeScheduleRequestBody(body, roster.records || []);
+      const conflicts = scheduleRequestConflicts(normalized, data.requests || []);
+      if (conflicts.length) return json(res, 409, { ok: false, error: 'This request overlaps an existing active schedule request for this date.', conflicts });
+      const year = normalized.date.slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const requestId = `SCHEDREQ-${year}-${String(sequence).padStart(4, '0')}`;
+      const now = new Date().toISOString();
+      const request = { ...normalized, requestId, status: body.status === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT', approverEmail: null, approverName: '', approverNotes: '', decisionDate: null, integrationStatus: 'Not Applied', createdAt: now, updatedAt: now };
+      data.sequenceByYear[year] = sequence;
+      data.requests.push(request);
+      await saveScheduleRequests(data);
+      await appendScheduleRequestAudit(requestId, request.status === 'DRAFT' ? 'REQUEST_CREATED' : 'REQUEST_SUBMITTED', { user: identity, newValue: request, notes: request.reason });
+      return json(res, 201, { ok: true, request, lastUpdated: data.lastUpdated });
+    }
+
+    const scheduleRequestMatch = parsed.pathname.match(/^\/api\/my\/schedule-requests\/([^/]+)(?:\/(submit|approve|decline|withdraw|cancel))?$/);
+    if (scheduleRequestMatch) {
+      const requestId = decodeURIComponent(scheduleRequestMatch[1]);
+      const action = scheduleRequestMatch[2] || '';
+      const data = await loadScheduleRequests();
+      const index = (data.requests || []).findIndex(x => x.requestId === requestId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Schedule request not found.' });
+      const current = data.requests[index];
+
+      if (req.method === 'GET' && !action) {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only view your own schedule requests.' });
+        return json(res, 200, { ok: true, request: current, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+      }
+
+      if (['approve', 'decline', 'cancel'].includes(action)) {
+        return json(res, 403, { ok: false, error: 'Approvals and declines are handled on the internal dashboard, not the public PTO link.' });
+      }
+
+      if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only edit your own schedule requests.' });
+      if (mustChangePassword) return json(res, 403, { ok: false, error: 'Please change your temporary password before editing a request.' });
+
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      const user = identity;
+
+      if (req.method === 'PUT' && !action) {
+        if (current.status === 'APPROVED') return json(res, 403, { ok: false, error: 'Approved requests can only be revised on the internal dashboard.' });
+        body.employeeEmail = identity;
+        const roster = await loadRosterSnapshot();
+        const next = normalizeScheduleRequestBody(body, roster.records || [], current);
+        const conflicts = scheduleRequestConflicts(next, data.requests, requestId);
+        if (conflicts.length) return json(res, 409, { ok: false, error: 'The revision overlaps another active schedule request for this date.', conflicts });
+        data.requests[index] = next;
+        await saveScheduleRequests(data);
+        await appendScheduleRequestAudit(requestId, 'REQUEST_EDITED', { user, previousValue: current, newValue: next, notes: body.revisionReason });
+        return json(res, 200, { ok: true, request: next, lastUpdated: data.lastUpdated });
+      }
+
+      if (req.method !== 'POST' || !action) return json(res, 405, { ok: false, error: 'Method not allowed.' });
+
+      if (action === 'submit') {
+        if (!['DRAFT', 'SUBMITTED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft request can be submitted.' });
+        const conflicts = scheduleRequestConflicts(current, data.requests, requestId);
+        if (conflicts.length) return json(res, 409, { ok: false, error: 'The request overlaps another active schedule request for this date.', conflicts });
+        data.requests[index] = { ...current, status: 'PENDING', submittedAt: now, updatedAt: now };
+        await saveScheduleRequests(data);
+        await appendScheduleRequestAudit(requestId, 'REQUEST_SUBMITTED', { user, previousValue: current.status, newValue: 'PENDING' });
+        return json(res, 200, { ok: true, request: data.requests[index], lastUpdated: data.lastUpdated });
+      }
+
+      if (action === 'withdraw') {
+        if (!['DRAFT', 'SUBMITTED', 'PENDING'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft or pending request can be withdrawn.' });
+        data.requests[index] = { ...current, status: 'WITHDRAWN', withdrawalReason: String(body.reason || ''), updatedAt: now };
+        await saveScheduleRequests(data);
+        await appendScheduleRequestAudit(requestId, 'WITHDRAWN', { user, previousValue: current.status, newValue: 'WITHDRAWN', notes: body.reason });
         return json(res, 200, { ok: true, request: data.requests[index], lastUpdated: data.lastUpdated });
       }
     }
