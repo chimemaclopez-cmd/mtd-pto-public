@@ -7,3 +7,5 @@ export const getMyAttendance=(month='',endDate='')=>{const query=new URLSearchPa
 export const updateMyContact=(payload)=>api('/api/my/contact',{method:'PUT',body:JSON.stringify(payload)});
 export const getMyStatus=()=>api('/api/my/status');
 export const setMyStatus=(activityId)=>api('/api/my/status',{method:'POST',body:JSON.stringify({activityId})});
+export const clockInStatus=()=>api('/api/my/status/clock-in',{method:'POST'});
+export const clockOutStatus=()=>api('/api/my/status/clock-out',{method:'POST'});

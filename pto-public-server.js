@@ -146,7 +146,7 @@ const STATUS_WALL_ACTIVITY_NAMES = {
   SHORT_BREAK: 'Break', LUNCH: 'Lunch',
   COACHING: 'Coaching', TRAINING: 'Training', TEAM_HUDDLE: 'Team Huddle', ONE_ON_ONE: '1:1 Session', QA_REVIEW: 'QA Review',
   MEETING: 'Meeting', CALIBRATION: 'Calibration', SIDE_BY_SIDE: 'Side-by-Side', PROJECT_WORK: 'Project Work', ADMIN: 'Admin',
-  DOCUMENTATION: 'Documentation', CASE_REVIEW: 'Case Review', OTHER_OFFLINE: 'Other Offline Task'
+  DOCUMENTATION: 'Documentation', CASE_REVIEW: 'Case Review', OTHER_OFFLINE: 'Other Offline Task', OFFLINE: 'Offline'
 };
 function easternDateParts(date) {
   const out = {};
@@ -154,63 +154,87 @@ function easternDateParts(date) {
     .formatToParts(date).forEach(p => { if (p.type !== 'literal') out[p.type] = p.value; });
   return out;
 }
+// Finds the UTC instant that corresponds to a given Eastern wall-clock date+time, correcting once
+// for the DST offset (same technique as zendesk-proxy.js's easternEpoch) - used to give the client
+// a stable "since" timestamp for the Late Login case (how long past their scheduled shift start).
+// A rep must Time In before their status can change - clockedInAt is set on Time In, cleared
+// (with the status too) on Time Out, so "clocked in" always means "clocked in TODAY", not stale
+// from a prior day.
+function repStatusClockedInToday(entry) {
+  if (!entry?.clockedInAt) return false;
+  const now = easternDateParts(new Date());
+  const then = easternDateParts(new Date(entry.clockedInAt));
+  return `${now.year}-${now.month}-${now.day}` === `${then.year}-${then.month}-${then.day}`;
+}
+function easternEpochMs(dateStr, minutesSinceMidnight) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const hours = Math.floor(minutesSinceMidnight / 60), mins = minutesSinceMidnight % 60;
+  const guess = Date.UTC(y, m - 1, d, hours, mins);
+  const parts = easternDateParts(new Date(guess));
+  const represented = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return guess - (represented - guess);
+}
 async function computeStatusWall() {
   const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR'].includes(x.kpiType));
   const schedules = await loadScheduleSnapshot();
   const repStatusData = await loadRepStatus();
   const statuses = repStatusData.statuses || {};
-  const nowMs = Date.now();
-  const nowParts = easternDateParts(new Date(nowMs));
+  const nowParts = easternDateParts(new Date());
   const todayDate = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
   const nowMinutes = Number(nowParts.hour) * 60 + Number(nowParts.minute);
-  const rows = roster.map(emp => {
+  const rows = [];
+  for (const emp of roster) {
     const email = ptoLogic.cleanEmail(emp.employeeEmail);
     const resolved = ptoLogic.scheduleForDate(schedules, email, todayDate);
     const t = resolved.template;
     const entry = statuses[email] || null;
+    const clockedInTodayFlag = repStatusClockedInToday(entry);
     const activityId = entry?.activityId || '';
     const updatedAtMs = entry?.updatedAt ? new Date(entry.updatedAt).getTime() : null;
-    const reportedToday = updatedAtMs != null && (() => { const p = easternDateParts(new Date(updatedAtMs)); return `${p.year}-${p.month}-${p.day}` === todayDate; })();
-    const minutesInStatus = updatedAtMs != null ? Math.max(0, Math.round((nowMs - updatedAtMs) / 60000)) : null;
-    let flagged = false, flagReason = '', statusLabel = 'Not Reported';
-    if (resolved.missingSchedule) {
-      statusLabel = 'No Schedule';
-    } else if (!t || t.off) {
-      statusLabel = 'Rest Day';
-    } else {
-      const shiftStart = ptoLogic.minutesOf(t.shiftStartEastern);
+    const hasActivityToday = clockedInTodayFlag && Boolean(activityId) && updatedAtMs != null;
+    const scheduledToday = !resolved.missingSchedule && Boolean(t) && !t.off;
+
+    let shiftStart = 0, shiftEnd = 0, onShiftNow = false;
+    if (scheduledToday) {
+      shiftStart = ptoLogic.minutesOf(t.shiftStartEastern);
       const shiftEndRaw = ptoLogic.minutesOf(t.shiftEndEastern);
-      const shiftEnd = shiftEndRaw + (t.overnight && shiftEndRaw <= shiftStart ? 1440 : 0);
+      shiftEnd = shiftEndRaw + (t.overnight && shiftEndRaw <= shiftStart ? 1440 : 0);
       let effectiveNow = nowMinutes;
       if (t.overnight && effectiveNow < shiftStart) effectiveNow += 1440;
-      const onShift = effectiveNow >= shiftStart && effectiveNow < shiftEnd;
-      if (!onShift) {
-        statusLabel = effectiveNow < shiftStart ? 'Not Started' : 'Off Shift';
-      } else if (!reportedToday) {
-        flagged = true; flagReason = 'Late Login'; statusLabel = 'Not Reported';
-      } else {
-        const name = STATUS_WALL_ACTIVITY_NAMES[activityId] || activityId;
-        statusLabel = STATUS_WALL_QUEUE_IDS.has(activityId) ? `Online (${name})` : name;
-        if (activityId === 'SHORT_BREAK' && minutesInStatus != null && minutesInStatus > STATUS_WALL_BREAK_MAX_MINUTES) {
-          flagged = true; flagReason = 'Break Exceeded';
-        } else if (activityId === 'LUNCH' && minutesInStatus != null && minutesInStatus > STATUS_WALL_LUNCH_MAX_MINUTES) {
-          flagged = true; flagReason = 'Lunch Exceeded';
-        }
-      }
+      onShiftNow = effectiveNow >= shiftStart && effectiveNow < shiftEnd;
     }
-    return {
+    const wentOnlineAnyway = !scheduledToday && hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
+    if (!scheduledToday && !wentOnlineAnyway) continue; // not supposed to be on shift and didn't go online - leave off the wall
+
+    let statusLabel, sinceIso = null, capMinutes = null, lateFlag = false;
+    if (hasActivityToday) {
+      const name = STATUS_WALL_ACTIVITY_NAMES[activityId] || activityId;
+      statusLabel = STATUS_WALL_QUEUE_IDS.has(activityId) ? `Online (${name})` : name;
+      sinceIso = new Date(updatedAtMs).toISOString();
+      if (activityId === 'SHORT_BREAK') capMinutes = STATUS_WALL_BREAK_MAX_MINUTES;
+      else if (activityId === 'LUNCH') capMinutes = STATUS_WALL_LUNCH_MAX_MINUTES;
+    } else if (clockedInTodayFlag) {
+      statusLabel = 'Clocked In';
+      sinceIso = entry.clockedInAt;
+    } else if (onShiftNow) {
+      statusLabel = 'Not Reported'; lateFlag = true;
+      const shiftStartMs = easternEpochMs(todayDate, shiftStart);
+      sinceIso = new Date(updatedAtMs != null && updatedAtMs > shiftStartMs ? updatedAtMs : shiftStartMs).toISOString();
+    } else {
+      statusLabel = nowMinutes < shiftStart ? 'Not Started' : 'Off Shift';
+    }
+    rows.push({
       employeeEmail: email,
       employeeName: emp.employeeName,
       teamLeadName: emp.teamLeadName,
       kpiType: emp.kpiType,
       statusLabel,
-      minutesInStatus,
-      capMinutes: activityId === 'SHORT_BREAK' ? STATUS_WALL_BREAK_MAX_MINUTES : activityId === 'LUNCH' ? STATUS_WALL_LUNCH_MAX_MINUTES : null,
-      flagged,
-      flagReason
-    };
-  });
-  return { ok: true, generatedAt: new Date().toISOString(), rows };
+      sinceIso,
+      capMinutes,
+      lateFlag
+    });
+  }
+  return { ok: true, generatedAt: new Date().toISOString(), breakMaxMinutes: STATUS_WALL_BREAK_MAX_MINUTES, lunchMaxMinutes: STATUS_WALL_LUNCH_MAX_MINUTES, rows };
 }
 
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
@@ -222,7 +246,7 @@ const SETTINGS_KEY = 'mtdkpi:pto-settings';
 const SCHEDULE_REQUESTS_KEY = 'mtdkpi:schedule-requests';
 const SCHEDULE_REQUEST_AUDIT_KEY = 'mtdkpi:schedule-request-audit';
 const REP_STATUS_KEY = 'mtdkpi:rep-status';
-const VALID_STATUS_ACTIVITY_IDS = new Set(['CALL', 'CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT', 'SENIOR_TSR', 'SHORT_BREAK', 'LUNCH', 'COACHING', 'TRAINING', 'TEAM_HUDDLE', 'ONE_ON_ONE', 'QA_REVIEW', 'MEETING', 'CALIBRATION', 'SIDE_BY_SIDE', 'PROJECT_WORK', 'ADMIN', 'DOCUMENTATION', 'CASE_REVIEW', 'OTHER_OFFLINE']);
+const VALID_STATUS_ACTIVITY_IDS = new Set(['CALL', 'CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT', 'SENIOR_TSR', 'SHORT_BREAK', 'LUNCH', 'COACHING', 'TRAINING', 'TEAM_HUDDLE', 'ONE_ON_ONE', 'QA_REVIEW', 'MEETING', 'CALIBRATION', 'SIDE_BY_SIDE', 'PROJECT_WORK', 'ADMIN', 'DOCUMENTATION', 'CASE_REVIEW', 'OTHER_OFFLINE', 'OFFLINE']);
 const CREDENTIAL_KEY_PREFIX = 'mtdkpi:pto-credential:';
 const SESSION_KEY_PREFIX = 'mtdkpi:pto-session:';
 const snapshotCache = new Map();
@@ -738,7 +762,25 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/status' && req.method === 'GET') {
       const data = await loadRepStatus();
       const entry = data.statuses?.[identity] || null;
-      return json(res, 200, { ok: true, activityId: entry?.activityId || '', updatedAt: entry?.updatedAt || '' });
+      return json(res, 200, { ok: true, activityId: entry?.activityId || '', updatedAt: entry?.updatedAt || '', clockedInAt: entry?.clockedInAt || null, clockedIn: repStatusClockedInToday(entry) });
+    }
+
+    if (parsed.pathname === '/api/my/status/clock-in' && req.method === 'POST') {
+      const data = await loadRepStatus();
+      data.statuses = data.statuses || {};
+      const now = new Date().toISOString();
+      data.statuses[identity] = { clockedInAt: now, activityId: '', updatedAt: now };
+      await saveRepStatus(data);
+      return json(res, 200, { ok: true, clockedInAt: now, activityId: '', updatedAt: now });
+    }
+
+    if (parsed.pathname === '/api/my/status/clock-out' && req.method === 'POST') {
+      const data = await loadRepStatus();
+      data.statuses = data.statuses || {};
+      const now = new Date().toISOString();
+      data.statuses[identity] = { clockedInAt: null, activityId: '', updatedAt: now };
+      await saveRepStatus(data);
+      return json(res, 200, { ok: true, clockedInAt: null, activityId: '', updatedAt: now });
     }
 
     if (parsed.pathname === '/api/my/status' && req.method === 'POST') {
@@ -747,10 +789,12 @@ const server = http.createServer(async (req, res) => {
       if (!VALID_STATUS_ACTIVITY_IDS.has(activityId)) return json(res, 400, { ok: false, error: 'Unrecognized status.' });
       const data = await loadRepStatus();
       data.statuses = data.statuses || {};
+      const current = data.statuses[identity] || null;
+      if (!repStatusClockedInToday(current)) return json(res, 400, { ok: false, error: 'Time in before setting a status.' });
       const now = new Date().toISOString();
-      data.statuses[identity] = { activityId, updatedAt: now };
+      data.statuses[identity] = { ...current, activityId, updatedAt: now };
       await saveRepStatus(data);
-      return json(res, 200, { ok: true, activityId, updatedAt: now });
+      return json(res, 200, { ok: true, activityId, updatedAt: now, clockedInAt: current.clockedInAt });
     }
 
     if (parsed.pathname === '/api/my/attendance' && req.method === 'GET') {
