@@ -35,20 +35,38 @@ export const activityGroups=[
 const minutesOf=v=>{const[h,m]=String(v).split(':').map(Number);return h*60+m};
 const clockOf=m=>{const wrapped=((m%1440)+1440)%1440;return`${String(Math.floor(wrapped/60)).padStart(2,'0')}:${String(wrapped%60).padStart(2,'0')}`};
 
+// Defaults applied only when a day has no exactActivities plotted at all - 15-min break at
+// 2h into the shift, 60-min lunch at 4h, second 15-min break at 6h, each skipped if it would
+// run past shift end (e.g. a short shift). This is a display-time fallback only - it doesn't
+// change stored schedule data, just fills in what most shifts look like when never customized.
+const DEFAULT_BREAK_OFFSETS=[
+  {offsetMinutes:120,durationMinutes:15,activityId:'SHORT_BREAK'},
+  {offsetMinutes:240,durationMinutes:60,activityId:'LUNCH'},
+  {offsetMinutes:360,durationMinutes:15,activityId:'SHORT_BREAK'}
+];
+
 // Merges the 30-min assignment grid with any finer exactActivities blocks (breaks/lunch)
 // into a consolidated, human-readable list of contiguous same-activity time ranges - same
 // segment-splice-then-merge approach as zendesk-proxy.js's buildAdherenceBlocks, just without
 // the adherence-specific metadata, so both the rep and admin schedule views render one shape.
-export function consolidateScheduleBlocks({assignments={},exactBlocks=[],shiftStartEastern,shiftEndEastern,overnight=false}){
+export function consolidateScheduleBlocks({assignments={},exactBlocks=[],shiftStartEastern,shiftEndEastern,overnight=false,defaultActivityId=''}){
   if(!shiftStartEastern||!shiftEndEastern)return[];
   const shiftStart=minutesOf(shiftStartEastern),shiftEndRaw=minutesOf(shiftEndEastern),shiftEnd=shiftEndRaw+(overnight&&shiftEndRaw<=shiftStart?1440:0);
   let segments=[];
-  for(const[time,value]of Object.entries(assignments)){
-    let start=minutesOf(time);
-    if(start<shiftStart&&shiftEnd>1440)start+=1440;
-    segments.push({start,end:Math.min(start+30,shiftEnd),activityId:normalizeActivityId(value)});
+  const hasAssignments=Object.keys(assignments).length>0;
+  if(hasAssignments){
+    for(const[time,value]of Object.entries(assignments)){
+      let start=minutesOf(time);
+      if(start<shiftStart&&shiftEnd>1440)start+=1440;
+      segments.push({start,end:Math.min(start+30,shiftEnd),activityId:normalizeActivityId(value)});
+    }
+  }else if(defaultActivityId){
+    segments.push({start:shiftStart,end:shiftEnd,activityId:normalizeActivityId(defaultActivityId)});
   }
-  for(const exact of exactBlocks){
+  const effectiveExactBlocks=exactBlocks.length?exactBlocks:DEFAULT_BREAK_OFFSETS
+    .filter(b=>shiftStart+b.offsetMinutes+b.durationMinutes<=shiftEnd)
+    .map(b=>{const s=shiftStart+b.offsetMinutes;return{activityId:b.activityId,startTime:clockOf(s),endTime:clockOf(s+b.durationMinutes),durationMinutes:b.durationMinutes}});
+  for(const exact of effectiveExactBlocks){
     let start=minutesOf(exact.startTime),end=exact.endTime?minutesOf(exact.endTime):start+Number(exact.durationMinutes||0);
     if(start<shiftStart&&shiftEnd>1440)start+=1440;
     if(end<=start)end+=1440;

@@ -754,7 +754,8 @@ const server = http.createServer(async (req, res) => {
           shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null),
           overnight: Boolean(t?.overnight),
           assignments: t && !t.off ? (t.assignments || {}) : {},
-          exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || []
+          exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || [],
+          defaultActivityId: t?.defaultAssignment || resolved.record?.defaultAssignment || ''
         };
       });
       return json(res, 200, { ok: true, days });
