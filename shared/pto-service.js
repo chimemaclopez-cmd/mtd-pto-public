@@ -1,8 +1,9 @@
 import {api} from './ui-utils.js';
 
-export const PTO_STATUSES=['DRAFT','SUBMITTED','PENDING','APPROVED','PARTIALLY_APPROVED','DECLINED','CANCELLED','WITHDRAWN'];
-export const PTO_STATUS_LABELS={DRAFT:'Draft',SUBMITTED:'Submitted',PENDING:'Pending',APPROVED:'Approved',PARTIALLY_APPROVED:'Partially Approved',DECLINED:'Declined',CANCELLED:'Cancelled',WITHDRAWN:'Withdrawn'};
+export const PTO_STATUSES=['DRAFT','SUBMITTED','PENDING','PRE_APPROVED','FINAL_APPROVAL_QUEUED','FINAL_APPROVAL_APPLYING','APPROVED','PARTIALLY_APPROVED','DECLINED','CANCELLED','WITHDRAWN'];
+export const PTO_STATUS_LABELS={DRAFT:'Draft',SUBMITTED:'Submitted',PENDING:'Pending Team Lead Review',PRE_APPROVED:'Pre-Approved · Awaiting Final Approval',FINAL_APPROVAL_QUEUED:'Final Approval Queued',FINAL_APPROVAL_APPLYING:'Applying Final Approval',APPROVED:'Approved',PARTIALLY_APPROVED:'Partially Approved',DECLINED:'Declined',CANCELLED:'Cancelled',WITHDRAWN:'Withdrawn'};
 export const loadPtoRequests=(filters={})=>{const query=new URLSearchParams(Object.entries(filters).filter(([,value])=>value));return api(`/api/pto/requests${query.size?`?${query}`:''}`)};
+export const loadTeamPtoRequests=()=>api('/api/pto/team-requests');
 export const createPtoRequest=request=>api('/api/pto/requests',{method:'POST',body:JSON.stringify(request)});
 export const loadPtoRequest=requestId=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`);
 export const updatePtoRequest=(requestId,request)=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`,{method:'PUT',body:JSON.stringify(request)});

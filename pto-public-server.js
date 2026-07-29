@@ -8,9 +8,11 @@
   Zendesk credentials, the roster/schedule/attendance WRITE endpoints, KPI
   results, or any of the internal monitoring dashboards.
 
-  Approvals/declines/threshold settings stay on the local admin dashboard
-  (zendesk-proxy.js) - this server only allows: list/create/edit-draft/submit/
-  withdraw, and only ever as the signed-in rep themselves.
+  Team leaders may review and pre-approve requests for their direct reports.
+  Charlotte Sanchez may submit a final-approval decision, which is queued for
+  the local admin server to apply together with schedule/attendance integration.
+  Declines, partial approvals, cancellations, and threshold settings remain on
+  the local admin dashboard (zendesk-proxy.js).
 
   Auth: each rep has their own account (email + password), verified server-side.
   There is no shared link secret anymore - the login form is the gate, and
@@ -52,6 +54,11 @@ const MTD_ROOT = __dirname;
 const SNAPSHOT_MAX_AGE_MS = Number(process.env.PTO_SNAPSHOT_CACHE_MS || 15000);
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 10 minutes
+const FINAL_PTO_APPROVER_EMAIL = 'charlotte@lofty.com';
+
+ptoLogic.PTO_ACTIVE_STATUSES.add('PRE_APPROVED');
+ptoLogic.PTO_ACTIVE_STATUSES.add('FINAL_APPROVAL_QUEUED');
+ptoLogic.PTO_ACTIVE_STATUSES.add('FINAL_APPROVAL_APPLYING');
 
 if (!cloudStore.isConfigured()) {
   console.error('Missing UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN. The public PTO server has nowhere to store data - refusing to start.');
@@ -298,6 +305,28 @@ async function appendAudit(requestId, action, { user = 'Rep', notes = '', previo
   const data = await loadAudit();
   data.events.push({ auditId: `PTO-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, requestId, action, user: String(user || 'Rep'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveAudit(data);
+}
+
+async function ptoReviewAccess(identity, employeeName = '') {
+  const roster = await loadRosterSnapshot();
+  const records = roster.records || [];
+  const cleanIdentity = ptoLogic.cleanEmail(identity);
+  const self = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
+  const leaderName = String(self?.employeeName || employeeName || '').trim().toLowerCase();
+  const memberEmails = new Set(records.filter(x =>
+    ptoLogic.cleanEmail(x.employeeEmail) !== cleanIdentity &&
+    (ptoLogic.cleanEmail(x.teamLeadEmail) === cleanIdentity ||
+      (leaderName && String(x.teamLeadName || '').trim().toLowerCase() === leaderName))
+  ).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+  return {
+    memberEmails,
+    isTeamLeader: memberEmails.size > 0,
+    canFinalApprove: cleanIdentity === FINAL_PTO_APPROVER_EMAIL
+  };
+}
+
+function canReviewPtoRequest(access, request) {
+  return access.canFinalApprove || access.memberEmails.has(ptoLogic.cleanEmail(request.employeeEmail));
 }
 
 // --- Schedule Requests (Shift Change + Offline Task) - mirrors the PTO storage helpers above ---
@@ -890,6 +919,34 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, requests, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
     }
 
+    if (parsed.pathname === '/api/pto/team-requests' && req.method === 'GET') {
+      const [data, access] = await Promise.all([loadPto(), ptoReviewAccess(identity, session.employeeName)]);
+      const requests = (data.requests || []).filter(request =>
+        request.status !== 'DRAFT' && canReviewPtoRequest(access, request)
+      ).map(request => ({
+        ...request,
+        permissions: {
+          canPreApprove: access.memberEmails.has(ptoLogic.cleanEmail(request.employeeEmail)) &&
+            ['SUBMITTED', 'PENDING'].includes(request.status),
+          canFinalApprove: access.canFinalApprove &&
+            ptoLogic.cleanEmail(request.employeeEmail) !== identity &&
+            (request.status === 'PRE_APPROVED' ||
+              (['SUBMITTED', 'PENDING'].includes(request.status) &&
+                (ptoLogic.cleanEmail(request.teamLeadEmail) === identity ||
+                  String(request.teamLeadName || '').trim().toLowerCase() === 'charlotte sanchez')))
+        }
+      }));
+      return json(res, 200, {
+        ok: true,
+        requests,
+        isTeamLeader: access.isTeamLeader,
+        canFinalApprove: access.canFinalApprove,
+        finalApproverName: 'Charlotte Sanchez',
+        lastUpdated: data.lastUpdated || '',
+        dataStatus: 'Live'
+      });
+    }
+
     if (parsed.pathname === '/api/pto/requests' && req.method === 'POST') {
       if (mustChangePassword) return json(res, 403, { ok: false, error: 'Please change your temporary password before filing a request.' });
       const body = await readJsonBody(req);
@@ -918,7 +975,10 @@ const server = http.createServer(async (req, res) => {
       if (requestId) {
         const request = (pto.requests || []).find(x => x.requestId === requestId);
         if (!request) return json(res, 404, { ok: false, error: 'PTO request not found.' });
-        if (ptoLogic.cleanEmail(request.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only view the forecast for your own requests.' });
+        if (ptoLogic.cleanEmail(request.employeeEmail) !== identity) {
+          const access = await ptoReviewAccess(identity, session.employeeName);
+          if (!canReviewPtoRequest(access, request)) return json(res, 403, { ok: false, error: 'You can only view forecasts for your own requests or requests assigned to you for review.' });
+        }
         const forecastResult = ptoLogic.buildPtoForecast({ requestId }, ctx);
         if (forecastResult.forecastStatus === 'SCHEDULE_MISSING') return json(res, 200, forecastResult);
         return json(res, 200, ptoLogic.applyPtoCapacityLimits(forecastResult, request, ctx));
@@ -961,7 +1021,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, events, lastUpdated: audit.lastUpdated || '', dataStatus: 'Live' });
     }
 
-    const ptoRequestMatch = parsed.pathname.match(/^\/api\/pto\/requests\/([^/]+)(?:\/(submit|approve|partial-approve|decline|withdraw|cancel|return))?$/);
+    const ptoRequestMatch = parsed.pathname.match(/^\/api\/pto\/requests\/([^/]+)(?:\/(submit|pre-approve|final-approve|approve|partial-approve|decline|withdraw|cancel|return))?$/);
     if (ptoRequestMatch) {
       const requestId = decodeURIComponent(ptoRequestMatch[1]);
       const action = ptoRequestMatch[2] || '';
@@ -971,8 +1031,70 @@ const server = http.createServer(async (req, res) => {
       const current = data.requests[index];
 
       if (req.method === 'GET' && !action) {
-        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only view your own PTO requests.' });
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) {
+          const access = await ptoReviewAccess(identity, session.employeeName);
+          if (!canReviewPtoRequest(access, current)) return json(res, 403, { ok: false, error: 'You can only view your own PTO requests or requests assigned to you for review.' });
+        }
         return json(res, 200, { ok: true, request: current, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
+      }
+
+      if (['pre-approve', 'final-approve'].includes(action)) {
+        if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'Method not allowed.' });
+        const access = await ptoReviewAccess(identity, session.employeeName);
+        const body = await readJsonBody(req);
+        const now = new Date().toISOString();
+        const notes = String(body.approverNotes || '').trim();
+
+        if (action === 'pre-approve') {
+          if (!access.memberEmails.has(ptoLogic.cleanEmail(current.employeeEmail))) return json(res, 403, { ok: false, error: 'Only the employee’s assigned team leader can pre-approve this request.' });
+          if (!['SUBMITTED', 'PENDING'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a submitted or pending request can be pre-approved.' });
+          const next = {
+            ...current,
+            status: 'PRE_APPROVED',
+            preApproverEmail: identity,
+            preApproverName: session.employeeName,
+            preApproverNotes: notes,
+            preApprovalDate: now.slice(0, 10),
+            preApprovedAt: now,
+            updatedAt: now
+          };
+          data.requests[index] = next;
+          await savePto(data);
+          await appendAudit(requestId, 'PRE_APPROVED', { user: identity, previousValue: current.status, newValue: 'PRE_APPROVED', notes });
+          return json(res, 200, { ok: true, request: next, lastUpdated: data.lastUpdated });
+        }
+
+        if (!access.canFinalApprove) return json(res, 403, { ok: false, error: 'Final approval on the public portal is restricted to Charlotte Sanchez.' });
+        if (ptoLogic.cleanEmail(current.employeeEmail) === identity) return json(res, 403, { ok: false, error: 'Final approvers cannot approve their own PTO request.' });
+        if (!['SUBMITTED', 'PENDING', 'PRE_APPROVED'].includes(current.status)) return json(res, 409, { ok: false, error: 'This request is not awaiting final approval.' });
+        const finalApproverIsDirectLeader = ptoLogic.cleanEmail(current.teamLeadEmail) === identity ||
+          String(current.teamLeadName || '').trim().toLowerCase() === 'charlotte sanchez';
+        if (current.status !== 'PRE_APPROVED' && !finalApproverIsDirectLeader) return json(res, 409, { ok: false, error: 'The assigned team leader must pre-approve this request before final approval.' });
+        const [settings, roster, schedules, attendance] = await Promise.all([loadSettings(), loadRosterSnapshot(), loadScheduleSnapshot(), loadAttendanceSnapshot()]);
+        const ctx = { pto: data, settings, roster: roster.records || [], schedules, attendance };
+        const baseForecast = ptoLogic.buildPtoForecast({ requestId }, ctx);
+        if (baseForecast.forecastStatus === 'SCHEDULE_MISSING') return json(res, 409, { ok: false, error: 'Final approval cannot be queued until the employee schedule exists.', forecast: baseForecast });
+        const forecast = ptoLogic.applyPtoCapacityLimits(baseForecast, current, ctx);
+        const warnings = [
+          ...(forecast.dates || []).filter(x => ['Warning', 'Critical', 'Below Minimum'].includes(x.status)).map(x => `${x.date}: ${x.status}`),
+          ...(forecast.staffingWarnings || [])
+        ];
+        if (warnings.length && !notes) return json(res, 400, { ok: false, error: 'Final approver notes are required when staffing warnings are present.', warnings });
+        const next = {
+          ...current,
+          status: 'FINAL_APPROVAL_QUEUED',
+          approvedDates: [...(current.workDates || [])],
+          finalApproverEmail: identity,
+          finalApproverName: session.employeeName,
+          finalApproverNotes: notes,
+          finalApprovalRequestedAt: now,
+          integrationStatus: 'Queued for local admin integration',
+          updatedAt: now
+        };
+        data.requests[index] = next;
+        await savePto(data);
+        await appendAudit(requestId, 'FINAL_APPROVAL_QUEUED', { user: identity, previousValue: current.status, newValue: 'FINAL_APPROVAL_QUEUED', notes });
+        return json(res, 202, { ok: true, request: next, forecast, lastUpdated: data.lastUpdated });
       }
 
       if (['approve', 'partial-approve', 'decline', 'cancel', 'return'].includes(action)) {
@@ -1015,7 +1137,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (action === 'withdraw') {
-        if (!['DRAFT', 'SUBMITTED', 'PENDING'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft or pending request can be withdrawn.' });
+        if (!['DRAFT', 'SUBMITTED', 'PENDING', 'PRE_APPROVED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft, pending, or pre-approved request can be withdrawn.' });
         data.requests[index] = { ...current, status: 'WITHDRAWN', withdrawalReason: String(body.reason || ''), updatedAt: now };
         await savePto(data);
         await appendAudit(requestId, 'WITHDRAWN', { user, previousValue: current.status, newValue: 'WITHDRAWN', notes: body.reason });
