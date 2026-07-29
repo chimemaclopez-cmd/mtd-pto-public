@@ -184,7 +184,10 @@ async function computeStatusWall() {
   const repStatusData = await loadRepStatus();
   const statusSignals = await loadStatusSignalsSnapshot();
   const signalsFresh = Date.now() - new Date(statusSignals.generatedAt || 0).getTime() <= 2 * 60 * 1000;
-  const signalsAvailable = signalsFresh && Boolean(statusSignals.sources?.calls || statusSignals.sources?.availability);
+  const channelSignalsAvailable = signalsFresh && Boolean(statusSignals.sources?.calls || statusSignals.sources?.availability);
+  const ticketSignalsAvailable = signalsFresh && Boolean(statusSignals.sources?.zendeskTickets || statusSignals.sources?.jiraTickets);
+  const signalsAvailable = channelSignalsAvailable || ticketSignalsAvailable;
+  const workActivityMaxMinutes = Math.max(1, Number(statusSignals.workActivityMaxMinutes || 5));
   const statuses = repStatusData.statuses || {};
   const nowParts = easternDateParts(new Date());
   const todayDate = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
@@ -203,6 +206,14 @@ async function computeStatusWall() {
     const liveOnCall = Boolean(signal?.onCall);
     const liveOnChat = Boolean(signal?.onChat);
     const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat);
+    const zendeskActivityMs = signal?.zendeskActivityAt ? new Date(signal.zendeskActivityAt).getTime() : 0;
+    const jiraActivityMs = signal?.jiraActivityAt ? new Date(signal.jiraActivityAt).getTime() : 0;
+    const activityCutoffMs = Date.now() - workActivityMaxMinutes * 60 * 1000;
+    const recentZendeskWork = zendeskActivityMs >= activityCutoffMs;
+    const recentJiraWork = jiraActivityMs >= activityCutoffMs;
+    const latestWorkMs = Math.max(recentZendeskWork ? zendeskActivityMs : 0, recentJiraWork ? jiraActivityMs : 0);
+    const manualNonQueue = hasActivityToday && !STATUS_WALL_QUEUE_IDS.has(activityId);
+    const manualStatusIsNewer = manualNonQueue && updatedAtMs > latestWorkMs;
     const selfReportedQueue = hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
     const scheduledToday = !resolved.missingSchedule && Boolean(t) && !t.off;
 
@@ -215,10 +226,10 @@ async function computeStatusWall() {
       if (t.overnight && effectiveNow < shiftStart) effectiveNow += 1440;
       onShiftNow = effectiveNow >= shiftStart && effectiveNow < shiftEnd;
     }
-    const wentOnlineAnyway = !scheduledToday && (selfReportedQueue || liveOnline);
+    const wentOnlineAnyway = !scheduledToday && (selfReportedQueue || liveOnline || recentZendeskWork || recentJiraWork);
     if (!scheduledToday && !wentOnlineAnyway) continue; // not supposed to be on shift and didn't go online - leave off the wall
 
-    let statusLabel, statusCode = 'OTHER', sinceIso = null, capMinutes = null, lateFlag = false;
+    let statusLabel, statusCode = 'OTHER', statusDetail = '', sinceIso = null, capMinutes = null, lateFlag = false;
     if (liveOnCall) {
       statusLabel = 'On Call';
       statusCode = 'ON_CALL';
@@ -227,7 +238,17 @@ async function computeStatusWall() {
       statusLabel = 'On Chat';
       statusCode = 'ON_CHAT';
       sinceIso = signal.chatStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
-    } else if (hasActivityToday && !STATUS_WALL_QUEUE_IDS.has(activityId)) {
+    } else if (!manualStatusIsNewer && recentZendeskWork && zendeskActivityMs >= jiraActivityMs) {
+      statusLabel = 'Zendesk Ticket';
+      statusCode = 'ZENDESK_TICKET';
+      statusDetail = signal.zendeskTicketId ? `#${signal.zendeskTicketId}` : 'Recent activity';
+      sinceIso = signal.zendeskActivityAt;
+    } else if (!manualStatusIsNewer && recentJiraWork) {
+      statusLabel = 'Jira Ticket';
+      statusCode = 'JIRA_TICKET';
+      statusDetail = signal.jiraIssueKey || 'Recent activity';
+      sinceIso = signal.jiraActivityAt;
+    } else if (manualNonQueue) {
       const name = STATUS_WALL_ACTIVITY_NAMES[activityId] || activityId;
       statusLabel = name;
       sinceIso = new Date(updatedAtMs).toISOString();
@@ -254,6 +275,7 @@ async function computeStatusWall() {
       kpiType: emp.kpiType,
       statusLabel,
       statusCode,
+      statusDetail,
       sinceIso,
       capMinutes,
       lateFlag,
@@ -266,6 +288,9 @@ async function computeStatusWall() {
     signalsGeneratedAt: statusSignals.generatedAt || null,
     signalsFresh,
     signalsAvailable,
+    channelSignalsAvailable,
+    ticketSignalsAvailable,
+    workActivityMaxMinutes,
     signalWarnings: statusSignals.warnings || [],
     breakMaxMinutes: STATUS_WALL_BREAK_MAX_MINUTES,
     lunchMaxMinutes: STATUS_WALL_LUNCH_MAX_MINUTES,
