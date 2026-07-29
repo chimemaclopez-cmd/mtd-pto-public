@@ -140,11 +140,8 @@ function statusWallCookieHeader(isSecureReq) {
   return `${STATUS_WALL_COOKIE_NAME}=${STATUS_WALL_KEY}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}${isSecureReq ? '; Secure' : ''}`;
 }
 
-// --- Status Wall: a read-only, floor-display view of every rep's self-reported status,
-// flagged against simple time rules (late login, break/lunch overrun). Deliberately doesn't
-// need Zendesk at all - it only compares the self-reported status (rep-status.json) against
-// the resolved schedule (which already accounts for any approved shift-change request), so a
-// moved shift naturally stops counting as "late" without any special-case logic here.
+// --- Status Wall: a read-only, floor-display view combining the rep's clock/status with
+// short-lived Zendesk presence and assigned-work signals published by the local server.
 const STATUS_WALL_BREAK_MAX_MINUTES = 15;
 const STATUS_WALL_LUNCH_MAX_MINUTES = 60;
 const STATUS_WALL_QUEUE_IDS = new Set(['CALL', 'CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT', 'SENIOR_TSR']);
@@ -185,6 +182,9 @@ async function computeStatusWall() {
   const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR'].includes(x.kpiType));
   const schedules = await loadScheduleSnapshot();
   const repStatusData = await loadRepStatus();
+  const statusSignals = await loadStatusSignalsSnapshot();
+  const signalsFresh = Date.now() - new Date(statusSignals.generatedAt || 0).getTime() <= 2 * 60 * 1000;
+  const signalsAvailable = signalsFresh && Boolean(statusSignals.sources?.calls || statusSignals.sources?.availability);
   const statuses = repStatusData.statuses || {};
   const nowParts = easternDateParts(new Date());
   const todayDate = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
@@ -199,6 +199,11 @@ async function computeStatusWall() {
     const activityId = entry?.activityId || '';
     const updatedAtMs = entry?.updatedAt ? new Date(entry.updatedAt).getTime() : null;
     const hasActivityToday = clockedInTodayFlag && Boolean(activityId) && updatedAtMs != null;
+    const signal = signalsAvailable ? statusSignals.byEmail?.[email] || null : null;
+    const liveOnCall = Boolean(signal?.onCall);
+    const liveOnChat = Boolean(signal?.onChat);
+    const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat);
+    const selfReportedQueue = hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
     const scheduledToday = !resolved.missingSchedule && Boolean(t) && !t.off;
 
     let shiftStart = 0, shiftEnd = 0, onShiftNow = false;
@@ -210,16 +215,28 @@ async function computeStatusWall() {
       if (t.overnight && effectiveNow < shiftStart) effectiveNow += 1440;
       onShiftNow = effectiveNow >= shiftStart && effectiveNow < shiftEnd;
     }
-    const wentOnlineAnyway = !scheduledToday && hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
+    const wentOnlineAnyway = !scheduledToday && (selfReportedQueue || liveOnline);
     if (!scheduledToday && !wentOnlineAnyway) continue; // not supposed to be on shift and didn't go online - leave off the wall
 
-    let statusLabel, sinceIso = null, capMinutes = null, lateFlag = false;
-    if (hasActivityToday) {
+    let statusLabel, statusCode = 'OTHER', sinceIso = null, capMinutes = null, lateFlag = false;
+    if (liveOnCall) {
+      statusLabel = 'On Call';
+      statusCode = 'ON_CALL';
+      sinceIso = signal.callStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
+    } else if (liveOnChat) {
+      statusLabel = 'On Chat';
+      statusCode = 'ON_CHAT';
+      sinceIso = signal.chatStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
+    } else if (hasActivityToday && !STATUS_WALL_QUEUE_IDS.has(activityId)) {
       const name = STATUS_WALL_ACTIVITY_NAMES[activityId] || activityId;
-      statusLabel = STATUS_WALL_QUEUE_IDS.has(activityId) ? `Online (${name})` : name;
+      statusLabel = name;
       sinceIso = new Date(updatedAtMs).toISOString();
       if (activityId === 'SHORT_BREAK') capMinutes = STATUS_WALL_BREAK_MAX_MINUTES;
       else if (activityId === 'LUNCH') capMinutes = STATUS_WALL_LUNCH_MAX_MINUTES;
+    } else if (liveOnline || selfReportedQueue) {
+      statusLabel = 'Avail';
+      statusCode = 'AVAIL';
+      sinceIso = signal?.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (clockedInTodayFlag) {
       statusLabel = 'Clocked In';
       sinceIso = entry.clockedInAt;
@@ -236,13 +253,24 @@ async function computeStatusWall() {
       teamLeadName: emp.teamLeadName,
       kpiType: emp.kpiType,
       statusLabel,
+      statusCode,
       sinceIso,
       capMinutes,
       lateFlag,
-      online: hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId)
+      online: ['AVAIL', 'ON_CALL', 'ON_CHAT'].includes(statusCode)
     });
   }
-  return { ok: true, generatedAt: new Date().toISOString(), breakMaxMinutes: STATUS_WALL_BREAK_MAX_MINUTES, lunchMaxMinutes: STATUS_WALL_LUNCH_MAX_MINUTES, rows };
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    signalsGeneratedAt: statusSignals.generatedAt || null,
+    signalsFresh,
+    signalsAvailable,
+    signalWarnings: statusSignals.warnings || [],
+    breakMaxMinutes: STATUS_WALL_BREAK_MAX_MINUTES,
+    lunchMaxMinutes: STATUS_WALL_LUNCH_MAX_MINUTES,
+    rows
+  };
 }
 
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
@@ -294,6 +322,7 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
+async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
