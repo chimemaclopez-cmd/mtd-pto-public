@@ -739,21 +739,44 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
-      const kpiResults = await loadKpiResultsSnapshot();
+      const [kpiResults, roster] = await Promise.all([loadKpiResultsSnapshot(), loadRosterSnapshot()]);
       const periods = kpiResults.periods || {};
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const results = Object.entries(periods)
         .flatMap(([period, rows]) => (rows || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => ({ period, ...x })))
         .sort((a, b) => b.period.localeCompare(a.period));
-      let teamAverage = null, teamLeadName = '', teamSize = 0;
-      if (results.length) {
-        const latestPeriod = results[0].period;
-        const periodRows = periods[latestPeriod] || [];
-        teamLeadName = results[0].teamLeadName || '';
-        const teammates = teamLeadName ? periodRows.filter(x => x.teamLeadName === teamLeadName && x.finalKpi != null && Number.isFinite(+x.finalKpi)) : [];
-        teamSize = teammates.length;
-        if (teamSize) teamAverage = teammates.reduce((sum, x) => sum + Number(x.finalKpi), 0) / teamSize;
+      const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim(),leaderEmail=ptoLogic.cleanEmail(signedInEmployee?.employeeEmail||identity);
+      const assignedMembers=(roster.records||[]).filter(x=>x.active!==false&&ptoLogic.cleanEmail(x.employeeEmail)!==identity&&(ptoLogic.cleanEmail(x.teamLeadEmail)===leaderEmail||String(x.teamLeadName||'').trim()===leaderName));
+      const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
+      const latestTeamPeriod=Object.keys(periods).sort((a,b)=>b.localeCompare(a)).find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))))||'';
+      const periodResultsByEmail=new Map((latestTeamPeriod?(periods[latestTeamPeriod]||[]):[]).map(x=>[ptoLogic.cleanEmail(x.employeeEmail),x]));
+      const teamResults=assignedMembers.map(member=>{
+        const saved=periodResultsByEmail.get(ptoLogic.cleanEmail(member.employeeEmail));
+        return saved
+          ? {period:latestTeamPeriod,...saved}
+          : {
+              period:latestTeamPeriod,
+              employeeEmail:ptoLogic.cleanEmail(member.employeeEmail),
+              employeeName:member.employeeName||member.employeeEmail,
+              teamLeadName:member.teamLeadName||leaderName,
+              kpiType:member.kpiType||'',
+              primaryChannel:member.primaryChannel||'',
+              eligibleWorkdays:null,
+              baseKpi:null,
+              finalKpi:null,
+              performanceStatus:'Not Rated',
+              dataStatus:'No KPI result'
+            };
+      });
+      const validTeamResults=teamResults.filter(x=>x.finalKpi!=null&&Number.isFinite(+x.finalKpi));
+      let teamAverage=validTeamResults.length?validTeamResults.reduce((sum,x)=>sum+Number(x.finalKpi),0)/validTeamResults.length:null;
+      let teamLeadName=assignedMembers.length?leaderName:(results[0]?.teamLeadName||''),teamSize=teamResults.length;
+      if(!assignedMembers.length&&results.length){
+        const latestPeriod=results[0].period,periodRows=periods[latestPeriod]||[],teammates=teamLeadName?periodRows.filter(x=>x.teamLeadName===teamLeadName&&x.finalKpi!=null&&Number.isFinite(+x.finalKpi)):[];
+        teamSize=teammates.length;
+        if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
-      return json(res, 200, { ok: true, results, teamAverage, teamLeadName, teamSize });
+      return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length});
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
