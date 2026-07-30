@@ -3,10 +3,9 @@
 # automatically by zendesk-proxy.js after every coaching sync tick (send, acknowledge) -
 # one-way mirror (portal -> PDF), same convention as export-attendance-xlsx.py. The
 # portal (team lead's create/send flow, rep's sign flow) is authoritative; these PDFs are
-# a read-only record of what happened, matching the layout of HR's own
-# Coaching_Form_Lofty_Truckerpath.docx template (scripts/templates/).
+# a read-only record of what happened.
 #
-# Layout: Lofty TSR/Reps/<Employee Name>/Coaching/<Year>/Coaching Session <N> - <date>.pdf
+# Layout: Lofty TSR/Reps/<Employee Name>/Coaching/<Year>/Coaching - <date> - <category>.pdf
 # One PDF per coaching session. Draft records (not yet sent) are skipped - they're still
 # being written and aren't a real record yet.
 import json
@@ -29,6 +28,13 @@ MOATABLE_LOGO_PATH = os.path.join(SCRIPT_DIR, '..', 'shared', 'img', 'moatable-l
 NAVY = colors.HexColor('#2E46B8')
 LINE = colors.HexColor('#DFE2EA')
 
+ACKNOWLEDGMENT_SCRIPT = (
+    "I acknowledge that I have reviewed and discussed the coaching session detailed above "
+    "with my Team Lead. I understand the observations, expectations, and any action items "
+    "outlined, and I have had the opportunity to share my feedback on this session. My "
+    "electronic signature below confirms that this discussion took place."
+)
+
 
 def sanitize_folder_name(name, fallback):
     cleaned = re.sub(r'[/\\:*?"<>|]', '-', str(name or '')).strip()
@@ -50,6 +56,21 @@ def format_timestamp(iso_value):
         return str(iso_value)
 
 
+def standing_summary(standing):
+    if not standing:
+        return 'No standing snapshot available.'
+    parts = []
+    if standing.get('kpiPeriod'):
+        score = standing.get('finalKpi')
+        score_text = f"{score:.1f}%" if isinstance(score, (int, float)) else 'N/A'
+        parts.append(f"KPI {standing['kpiPeriod']}: {score_text} ({standing.get('performanceStatus', 'Not Rated')})")
+    counts = standing.get('last30DayAttendanceCounts') or {}
+    if counts:
+        flags = ', '.join(f"{code} x{count}" for code, count in sorted(counts.items()))
+        parts.append(f"Last 30 days: {flags}")
+    return ' | '.join(parts) if parts else 'No attendance flags in the last 30 days.'
+
+
 def build_styles():
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle('FormTitle', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=18, spaceAfter=2))
@@ -57,8 +78,8 @@ def build_styles():
     styles.add(ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, textColor=NAVY, spaceBefore=14, spaceAfter=6))
     styles.add(ParagraphStyle('FieldLabel', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9.5, spaceAfter=1))
     styles.add(ParagraphStyle('FieldValue', parent=styles['Normal'], fontName='Helvetica', fontSize=9.5, spaceAfter=8, leading=13))
-    styles.add(ParagraphStyle('CellHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.white))
     styles.add(ParagraphStyle('CellBody', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12))
+    styles.add(ParagraphStyle('AckScript', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=9, textColor=colors.HexColor('#444444'), leading=13, spaceBefore=4, spaceAfter=14))
     return styles
 
 
@@ -70,9 +91,8 @@ def header_table(styles, record):
     def cell(label, value):
         return Paragraph(f"<b>{label}:</b> {value or ''}", styles['CellBody'])
     rows = [
-        [cell('Date', record.get('coachingDate', '')), cell('Coach', record.get('teamLeadName', ''))],
-        [cell('Employee Name', record.get('employeeName', '')), cell('Session No.', str(record.get('sessionNumber', '')))],
-        [cell('Entity', record.get('entity', 'Lofty')), cell('Role / Department', record.get('roleDepartment', ''))],
+        [cell('Date', record.get('coachingDate', '')), cell('Team Lead', record.get('teamLeadName', ''))],
+        [cell('Employee', record.get('employeeName', '')), cell('Category', record.get('category', ''))],
     ]
     table = Table(rows, colWidths=[3.15 * inch, 3.15 * inch])
     table.setStyle(TableStyle([
@@ -82,13 +102,23 @@ def header_table(styles, record):
     return table
 
 
-def grid_table(styles, headers, rows, col_widths):
-    data = [[Paragraph(h, styles['CellHeader']) for h in headers]]
-    for row in rows:
-        data.append([Paragraph(str(v) if v else '&nbsp;', styles['CellBody']) for v in row])
-    table = Table(data, colWidths=col_widths, repeatRows=1)
+def signature_table(styles, record):
+    ack = record.get('acknowledgment') or {}
+    employee_cell = (
+        f"{ack.get('signedName', '')}<br/>Electronically acknowledged on {format_timestamp(ack.get('signedAt'))}."
+        if ack.get('signedName') else 'Awaiting electronic acknowledgment.'
+    )
+    lead_cell = f"{record.get('teamLeadName', '')}"
+    if record.get('sentAt'):
+        lead_cell += f"<br/>Session shared on {format_timestamp(record.get('sentAt'))}."
+    data = [
+        [Paragraph('Employee', styles['FieldLabel']), Paragraph('Team Lead', styles['FieldLabel'])],
+        [Paragraph(employee_cell, styles['CellBody']), Paragraph(lead_cell, styles['CellBody'])],
+    ]
+    table = Table(data, colWidths=[3.15 * inch, 3.15 * inch])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), NAVY), ('BOX', (0, 0), (-1, -1), 0.75, LINE), ('INNERGRID', (0, 0), (-1, -1), 0.75, LINE),
+        ('BACKGROUND', (0, 0), (-1, 0), NAVY), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BOX', (0, 0), (-1, -1), 0.75, LINE), ('INNERGRID', (0, 0), (-1, -1), 0.75, LINE),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 8), ('TOPPADDING', (0, 0), (-1, -1), 6), ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
     return table
@@ -113,44 +143,26 @@ def build_pdf(out_path, record):
         Paragraph('COACHING FORM', styles['FormTitle']),
         Paragraph('A record of a coaching conversation between a Lofty team lead and team member.', styles['FormSubtitle']),
         header_table(styles, record),
-        Paragraph('I. PRELIMINARIES', styles['SectionHeading']),
-        *field_block(styles, 'Goal for today', record.get('goalForToday')),
-        *field_block(styles, 'Specific Issues', record.get('specificIssues')),
-        Paragraph('II. REFLECTION FROM LAST SESSION', styles['SectionHeading']),
-        *field_block(styles, 'Wins and Successes', record.get('winsAndSuccesses')),
-        *field_block(styles, 'Challenges', record.get('challenges')),
-        Paragraph("III. TODAY'S AGENDA", styles['SectionHeading']),
-        grid_table(styles, ['Review of Action Items from Last Session', 'New Topics or Concerns'],
-                   [[record.get('reviewActionItems', ''), record.get('newTopicsOrConcerns', '')]], [3.15 * inch, 3.15 * inch]),
-        Spacer(1, 12),
-        Paragraph('IV. COACHING DISCUSSION', styles['SectionHeading']),
-        grid_table(styles, ['Discussion Point', 'Insight / Learning', 'Action Plan', 'Resources or Support'],
-                   [[r.get('discussionPoint', ''), r.get('insightLearning', ''), r.get('actionPlan', ''), r.get('resourcesSupport', '')] for r in (record.get('discussionRows') or [{}])],
-                   [1.65 * inch, 1.65 * inch, 1.65 * inch, 1.35 * inch]),
-        Spacer(1, 12),
-        Paragraph("V. COACHEE'S FEEDBACK ON THE SESSION", styles['SectionHeading']),
+        Paragraph('Current Standing', styles['SectionHeading']),
+        Paragraph(standing_summary(record.get('currentStanding')), styles['FieldValue']),
+        Paragraph('Specific Observation', styles['SectionHeading']),
+        Paragraph(record.get('observation') or '&nbsp;', styles['FieldValue']),
+        Paragraph('Discussion &amp; Development Plan', styles['SectionHeading']),
+        *field_block(styles, 'Discussion Summary', record.get('discussionSummary')),
+        *field_block(styles, 'Action Plan', record.get('actionPlan')),
+        *field_block(styles, 'Follow-Up Date', record.get('targetFollowUpDate')),
     ]
     ack = record.get('acknowledgment') or {}
-    if ack:
+    if ack.get('repComments'):
         story += [
-            *field_block(styles, 'What is most valuable', ack.get('coacheeValuable')),
-            *field_block(styles, 'What could be improved', ack.get('coacheeImprove')),
+            Paragraph('Employee Comments', styles['SectionHeading']),
+            Paragraph(ack.get('repComments'), styles['FieldValue']),
         ]
-    else:
-        story.append(Paragraph('(Not yet completed by the coachee)', styles['FieldValue']))
     story += [
-        Paragraph("VI. COACH'S NOTES", styles['SectionHeading']),
-        grid_table(styles, ['Coach Reflections', 'Next Session Focus', 'Next Session Date'],
-                   [[record.get('coachReflections', ''), record.get('nextSessionFocus', ''), record.get('nextSessionDate', '')]],
-                   [2.3 * inch, 2.3 * inch, 1.7 * inch]),
-        Spacer(1, 18),
-        Paragraph('Acknowledgment', styles['SectionHeading']),
-        grid_table(styles, ['Coachee', 'Coach'], [[
-            f"{ack.get('signedName', '')}<br/>Electronically acknowledged via the Lofty Support Portal on {format_timestamp(ack.get('signedAt'))}."
-            if ack.get('signedName') else 'Awaiting electronic acknowledgment by the coachee.',
-            f"{record.get('teamLeadName', '')}<br/>Session shared with the coachee via the Lofty Support Portal on {format_timestamp(record.get('sentAt'))}."
-            if record.get('sentAt') else record.get('teamLeadName', ''),
-        ]], [3.15 * inch, 3.15 * inch]),
+        Spacer(1, 6),
+        Paragraph(ACKNOWLEDGMENT_SCRIPT, styles['AckScript']),
+        Paragraph('Signatures', styles['SectionHeading']),
+        signature_table(styles, record),
     ]
     doc.build(story)
 
@@ -203,7 +215,7 @@ def main():
                 continue
             year_dir = os.path.join(REPS_ROOT, folder_name, 'Coaching', year)
             os.makedirs(year_dir, exist_ok=True)
-            filename = sanitize_filename(f"Coaching Session {record.get('sessionNumber', '?')} - {record.get('coachingDate', '')}") + '.pdf'
+            filename = sanitize_filename(f"Coaching - {record.get('coachingDate', '')} - {record.get('category', '')}") + '.pdf'
             build_pdf(os.path.join(year_dir, filename), record)
         written += 1
 

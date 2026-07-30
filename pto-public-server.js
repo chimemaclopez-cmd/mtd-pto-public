@@ -460,7 +460,7 @@ async function appendScheduleRequestAudit(requestId, action, { user = 'Rep', not
 // this feature live on this server.
 const COACHING_KEY = 'mtdkpi:coaching-records';
 const COACHING_AUDIT_KEY = 'mtdkpi:coaching-audit';
-const COACHING_ENTITIES = ['Lofty', 'Truckerpath'];
+const COACHING_CATEGORIES = ['Performance / KPI', 'Attendance & Punctuality', 'Schedule Adherence', 'Quality / CSAT', 'Behavior & Conduct', 'Productivity', 'Policy / Compliance', 'Other'];
 async function loadCoaching() { return cloudStore.kvGetJson(COACHING_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
 async function saveCoaching(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(COACHING_KEY, data); return data; }
 async function loadCoachingAudit() { return cloudStore.kvGetJson(COACHING_AUDIT_KEY, { version: 1, events: [] }); }
@@ -470,15 +470,32 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
   data.events.push({ auditId: `COACH-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, coachingId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveCoachingAudit(data);
 }
-function normalizeDiscussionRows(rows) {
-  if (!Array.isArray(rows)) return [];
-  return rows.map(r => ({
-    discussionPoint: String(r?.discussionPoint || '').trim(),
-    insightLearning: String(r?.insightLearning || '').trim(),
-    actionPlan: String(r?.actionPlan || '').trim(),
-    resourcesSupport: String(r?.resourcesSupport || '').trim()
-  })).filter(r => r.discussionPoint || r.insightLearning || r.actionPlan || r.resourcesSupport);
+// Snapshot of the employee's standing at the moment a coaching record is created - frozen
+// at creation time (never recomputed later), so the record stays an honest account of what
+// was true when the conversation happened, same principle as a PTO request's approvedDates.
+async function buildCoachingStandingSnapshot(email) {
+  const [kpiResults, attendance] = await Promise.all([loadKpiResultsSnapshot(), loadAttendanceSnapshot()]);
+  const periods = kpiResults.periods || {};
+  const latestPeriod = Object.keys(periods).sort((a, b) => b.localeCompare(a)).find(period => (periods[period] || []).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email)) || '';
+  const kpiRow = latestPeriod ? (periods[latestPeriod] || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email) : null;
+  const today = todayEasternDate();
+  const last30 = ptoLogic.dateRange(shiftDate(today, -30), today);
+  const counts = {};
+  for (const date of last30) {
+    const code = ptoLogic.attendanceCodeOnDate(attendance, email, date);
+    if (code && code !== 'ONSITE' && code !== 'WFH' && code !== 'RD') counts[code] = (counts[code] || 0) + 1;
+  }
+  return {
+    kpiPeriod: latestPeriod || null,
+    kpiType: kpiRow?.kpiType || null,
+    finalKpi: kpiRow?.finalKpi ?? null,
+    performanceStatus: kpiRow?.performanceStatus || 'Not Rated',
+    last30DayAttendanceCounts: counts,
+    snapshotTakenAt: new Date().toISOString()
+  };
 }
+function todayEasternDate() { const p = easternDateParts(new Date()); return `${p.year}-${p.month}-${p.day}`; }
+function shiftDate(dateStr, deltaDays) { const [y, m, d] = dateStr.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d)); dt.setUTCDate(dt.getUTCDate() + deltaDays); return dt.toISOString().slice(0, 10); }
 
 // --- Rep self-reported status (Online/Break/Lunch/Offline Task) - a live "what am I doing right
 // now" flag reps set themselves, separate from the schedule. Admins compare it against the
@@ -1246,43 +1263,38 @@ const server = http.createServer(async (req, res) => {
       const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       const data = await loadCoaching();
       const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, entities: COACHING_ENTITIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, roleDepartment: [x.kpiType, x.primaryChannel].filter(Boolean).join(' / ') })), records, lastUpdated: data.lastUpdated || '' });
+      return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, categories: COACHING_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/my/team-coaching' && req.method === 'POST') {
       const body = await readJsonBody(req);
       const email = ptoLogic.cleanEmail(body.employeeEmail || '');
       const coachingDate = String(body.coachingDate || '');
+      const category = String(body.category || '');
+      const observation = String(body.observation || '').trim();
       if (!email || !ptoLogic.validDate(coachingDate)) return json(res, 400, { ok: false, error: 'A valid employee and coaching date are required.' });
+      if (!COACHING_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid coaching category is required.' });
+      if (!observation) return json(res, 400, { ok: false, error: 'A specific observation is required.' });
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
       const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
       if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const currentStanding = await buildCoachingStandingSnapshot(email);
       const data = await loadCoaching();
       const year = coachingDate.slice(0, 4);
       const sequence = (data.sequenceByYear[year] || 0) + 1;
       const coachingId = `COACH-${year}-${String(sequence).padStart(4, '0')}`;
-      const sessionNumber = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === email).length + 1;
       const now = new Date().toISOString();
       const status = body.status === 'SENT' ? 'SENT' : 'DRAFT';
       const record = {
         coachingId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
         teamLeadEmail: identity, teamLeadName: leaderName || session.employeeName || '',
-        coachingDate, sessionNumber,
-        entity: COACHING_ENTITIES.includes(body.entity) ? body.entity : 'Lofty',
-        roleDepartment: String(body.roleDepartment || [employee.kpiType, employee.primaryChannel].filter(Boolean).join(' / ')).trim(),
-        goalForToday: String(body.goalForToday || '').trim(),
-        specificIssues: String(body.specificIssues || '').trim(),
-        winsAndSuccesses: String(body.winsAndSuccesses || '').trim(),
-        challenges: String(body.challenges || '').trim(),
-        reviewActionItems: String(body.reviewActionItems || '').trim(),
-        newTopicsOrConcerns: String(body.newTopicsOrConcerns || '').trim(),
-        discussionRows: normalizeDiscussionRows(body.discussionRows),
-        coachReflections: String(body.coachReflections || '').trim(),
-        nextSessionFocus: String(body.nextSessionFocus || '').trim(),
-        nextSessionDate: ptoLogic.validDate(body.nextSessionDate) ? body.nextSessionDate : null,
+        coachingDate, category, currentStanding, observation,
+        discussionSummary: String(body.discussionSummary || '').trim(),
+        actionPlan: String(body.actionPlan || '').trim(),
+        targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : null,
         status, createdAt: now, updatedAt: now, sentAt: status === 'SENT' ? now : null,
         acknowledgment: null, createdBy: identity
       };
@@ -1313,18 +1325,11 @@ const server = http.createServer(async (req, res) => {
         if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft coaching record can be edited.' });
         const next = {
           ...current,
-          entity: COACHING_ENTITIES.includes(body.entity) ? body.entity : current.entity,
-          roleDepartment: String(body.roleDepartment ?? current.roleDepartment).trim(),
-          goalForToday: String(body.goalForToday ?? current.goalForToday).trim(),
-          specificIssues: String(body.specificIssues ?? current.specificIssues).trim(),
-          winsAndSuccesses: String(body.winsAndSuccesses ?? current.winsAndSuccesses).trim(),
-          challenges: String(body.challenges ?? current.challenges).trim(),
-          reviewActionItems: String(body.reviewActionItems ?? current.reviewActionItems).trim(),
-          newTopicsOrConcerns: String(body.newTopicsOrConcerns ?? current.newTopicsOrConcerns).trim(),
-          discussionRows: body.discussionRows !== undefined ? normalizeDiscussionRows(body.discussionRows) : current.discussionRows,
-          coachReflections: String(body.coachReflections ?? current.coachReflections).trim(),
-          nextSessionFocus: String(body.nextSessionFocus ?? current.nextSessionFocus).trim(),
-          nextSessionDate: body.nextSessionDate !== undefined ? (ptoLogic.validDate(body.nextSessionDate) ? body.nextSessionDate : null) : current.nextSessionDate,
+          category: COACHING_CATEGORIES.includes(body.category) ? body.category : current.category,
+          observation: String(body.observation ?? current.observation).trim(),
+          discussionSummary: String(body.discussionSummary ?? current.discussionSummary).trim(),
+          actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
+          targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : (body.targetFollowUpDate === null ? null : current.targetFollowUpDate),
           updatedAt: now
         };
         data.records[index] = next;
@@ -1355,7 +1360,7 @@ const server = http.createServer(async (req, res) => {
         if (current.status !== 'SENT') return json(res, 409, { ok: false, error: 'Only a sent coaching record can be acknowledged.' });
         const signedName = String(body.signedName || '').trim();
         if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
-        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, coacheeValuable: String(body.coacheeValuable || '').trim(), coacheeImprove: String(body.coacheeImprove || '').trim() } };
+        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, repComments: String(body.repComments || '').trim() } };
         data.records[index] = next;
         await saveCoaching(data);
         await appendCoachingAudit(coachingId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
