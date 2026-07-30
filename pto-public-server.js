@@ -48,6 +48,10 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
+// Mirrors shared/kpi-config.js's ATTENDANCE_CODES - duplicated here (like ROSTER_CONTACT_FIELDS
+// above) since this file is CommonJS and that config lives in an ES module.
+const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
+const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -998,6 +1002,73 @@ const server = http.createServer(async (req, res) => {
         code: ptoLogic.attendanceCodeOnDate(attendance, identity, date) || null
       }));
       return json(res, 200, { ok: true, days });
+    }
+
+    if (parsed.pathname === '/api/my/team-attendance' && req.method === 'GET') {
+      const month = parsed.searchParams.get('month') || '', endDate = parsed.searchParams.get('endDate') || '';
+      if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      if (!assignedMembers.length) return json(res, 200, { ok: true, isTeamLeader: false, month, endDate, dates: [], members: [] });
+      const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
+      const dates = ptoLogic.dateRange(`${month}-01`, endDate);
+      const members = assignedMembers.map(emp => {
+        const email = ptoLogic.cleanEmail(emp.employeeEmail);
+        const days = dates.map(date => {
+          const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+          const eligible = !resolved.missingSchedule && Boolean(resolved.template) && !resolved.template.off;
+          const auto = attendance.autoEntries?.[email]?.[date] || null;
+          const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
+          return { date, eligible, locked: Boolean(auto), code, displayLabel: auto?.displayLabel || '' };
+        });
+        return { employeeEmail: email, employeeName: emp.employeeName, days };
+      });
+      return json(res, 200, { ok: true, isTeamLeader: true, month, endDate, dates, members });
+    }
+
+    if (parsed.pathname === '/api/my/team-attendance' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const month = String(body.month || ''), endDate = String(body.endDate || '');
+      if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
+      if (!body.entries || typeof body.entries !== 'object') return json(res, 400, { ok: false, error: 'Attendance entries are required.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      if (!memberEmails.size) return json(res, 403, { ok: false, error: 'You do not have any direct reports.' });
+      const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
+      const accepted = {}, skipped = [];
+      for (const [rawEmail, byDate] of Object.entries(body.entries)) {
+        const email = ptoLogic.cleanEmail(rawEmail);
+        if (!memberEmails.has(email)) { skipped.push({ employeeEmail: email, reason: 'Not your direct report.' }); continue; }
+        for (const [date, rawCode] of Object.entries(byDate || {})) {
+          const code = String(rawCode || '').trim().toUpperCase();
+          if (!ptoLogic.validDate(date) || !date.startsWith(month)) { skipped.push({ employeeEmail: email, date, reason: 'Date outside the selected month.' }); continue; }
+          if (code && !ATTENDANCE_CODES.includes(code)) { skipped.push({ employeeEmail: email, date, reason: 'Invalid attendance code.' }); continue; }
+          if (attendance.autoEntries?.[email]?.[date]) { skipped.push({ employeeEmail: email, date, reason: 'Protected by an approved PTO request.' }); continue; }
+          const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+          if (resolved.missingSchedule || !resolved.template || resolved.template.off) { skipped.push({ employeeEmail: email, date, reason: 'Not a scheduled workday.' }); continue; }
+          accepted[email] ??= {};
+          accepted[email][date] = code;
+        }
+      }
+      if (Object.keys(accepted).length) {
+        const pending = await cloudStore.kvGetJson(ATTENDANCE_UPDATES_KEY, []);
+        pending.push({ month, endDate, entries: accepted, updatedBy: identity, updatedAt: new Date().toISOString() });
+        await cloudStore.kvSetJson(ATTENDANCE_UPDATES_KEY, pending);
+        // Optimistic local reflection so the team lead sees their own change immediately on
+        // the next GET, without waiting for zendesk-proxy's next sync tick to merge it into
+        // the canonical local attendance.json.
+        const key = `${month}|${endDate}`;
+        attendance.periods ??= {};
+        attendance.periods[key] ??= {};
+        for (const [email, byDate] of Object.entries(accepted)) attendance.periods[key][email] = { ...(attendance.periods[key][email] || {}), ...byDate };
+        await cloudStore.kvSetJson('mtdkpi:snapshot:attendance', attendance);
+        snapshotCache.set('mtdkpi:snapshot:attendance', { value: attendance, at: Date.now() });
+      }
+      return json(res, 200, { ok: true, accepted, skipped });
     }
 
     if (parsed.pathname === '/api/pto/settings' && req.method === 'GET') {

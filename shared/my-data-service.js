@@ -10,3 +10,5 @@ export const setMyStatus=(activityId)=>api('/api/my/status',{method:'POST',body:
 export const clockInStatus=()=>api('/api/my/status/clock-in',{method:'POST'});
 export const clockOutStatus=()=>api('/api/my/status/clock-out',{method:'POST'});
 export const getMyNotifications=()=>api('/api/my/notifications');
+export const getMyTeamAttendance=(month,endDate)=>api(`/api/my/team-attendance?month=${encodeURIComponent(month)}&endDate=${encodeURIComponent(endDate)}`);
+export const saveMyTeamAttendance=(payload)=>api('/api/my/team-attendance',{method:'POST',body:JSON.stringify(payload)});
