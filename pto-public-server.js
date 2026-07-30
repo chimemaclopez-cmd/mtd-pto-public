@@ -48,6 +48,13 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
+// Broader than ROSTER_CONTACT_FIELDS - what a team lead can edit on a direct report's full
+// profile via /api/my/team-roster. Deliberately excludes employeeEmail (their login
+// identity), teamLeadName/teamLeadEmail (re-org), employmentStatus/active/separationDate
+// (HR-sensitive, stays admin-only on MTD_Roster_Management.html) - only day-to-day profile
+// fields a lead would reasonably self-serve, plus employeeId which is admin/lead-set only
+// (never in ROSTER_CONTACT_FIELDS, so a rep can never set their own).
+const TEAM_EDITABLE_PROFILE_FIELDS = ['employeeName','employeeId','primaryChannel','kpiType','hireDate','scheduleGroup','seniorTsrAssignment','notes',...ROSTER_CONTACT_FIELDS];
 // Mirrors shared/kpi-config.js's ATTENDANCE_CODES - duplicated here (like ROSTER_CONTACT_FIELDS
 // above) since this file is CommonJS and that config lives in an ES module.
 const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
@@ -723,7 +730,45 @@ const server = http.createServer(async (req, res) => {
       await cloudStore.kvSetJson('mtdkpi:snapshot:roster', roster);
       snapshotCache.set('mtdkpi:snapshot:roster', { value: roster, at: Date.now() });
       const pending = await cloudStore.kvGetJson('mtdkpi:roster-contact-updates', {});
-      pending[identity] = { employeeEmail: identity, ...update, updatedAt: new Date().toISOString() };
+      // Merge onto any not-yet-synced pending entry rather than replacing it outright - a
+      // team lead editing this same employee's full profile via /api/my/team-roster within
+      // the same ~30s sync window would otherwise have their update silently discarded (or
+      // vice versa) by whichever write lands last.
+      pending[identity] = { ...(pending[identity] || {}), employeeEmail: identity, ...update, updatedAt: new Date().toISOString() };
+      await cloudStore.kvSetJson('mtdkpi:roster-contact-updates', pending);
+      return json(res, 200, { ok: true, employee: roster.records[index] });
+    }
+
+    if (parsed.pathname === '/api/my/team-roster' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, members: assignedMembers });
+    }
+
+    if (parsed.pathname === '/api/my/team-roster' && req.method === 'PUT') {
+      const body = await readJsonBody(req);
+      const targetEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+      if (!targetEmail) return json(res, 400, { ok: false, error: 'employeeEmail is required.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      if (!memberEmails.has(targetEmail)) return json(res, 403, { ok: false, error: 'That employee is not on your team.' });
+      const index = (roster.records || []).findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail);
+      if (index < 0) return json(res, 400, { ok: false, error: 'Employee not found in the roster.' });
+      const update = {};
+      for (const field of TEAM_EDITABLE_PROFILE_FIELDS) update[field] = String(body[field] || '').trim();
+      if (!update.employeeName) return json(res, 400, { ok: false, error: 'Employee name is required.' });
+      if (update.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(update.contactEmail)) return json(res, 400, { ok: false, error: 'Contact email is invalid.' });
+      if (update.birthday && !ptoLogic.validDate(update.birthday)) return json(res, 400, { ok: false, error: 'Birthday must be a valid date.' });
+      if (update.hireDate && !ptoLogic.validDate(update.hireDate)) return json(res, 400, { ok: false, error: 'Hire date must be a valid date.' });
+      roster.records[index] = { ...roster.records[index], ...update };
+      await cloudStore.kvSetJson('mtdkpi:snapshot:roster', roster);
+      snapshotCache.set('mtdkpi:snapshot:roster', { value: roster, at: Date.now() });
+      const pending = await cloudStore.kvGetJson('mtdkpi:roster-contact-updates', {});
+      pending[targetEmail] = { ...(pending[targetEmail] || {}), employeeEmail: targetEmail, ...update, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson('mtdkpi:roster-contact-updates', pending);
       return json(res, 200, { ok: true, employee: roster.records[index] });
     }
