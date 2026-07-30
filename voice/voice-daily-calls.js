@@ -1,0 +1,3 @@
+import {scoreVoiceCalls} from '../shared/scoring.js';
+export function voiceDailyCalls(metric={},eligibleWorkdays){if(eligibleWorkdays==null)return{...metric,eligibleWorkdays,dailyAverage:null,points:null,status:'Missing Attendance'};if(eligibleWorkdays<=0)return{...metric,eligibleWorkdays,dailyAverage:null,points:null,status:'No Data',error:'Zero eligible workdays.'};const accepted=Number(metric.accepted||0),dailyAverage=accepted/eligibleWorkdays;return{...metric,accepted,eligibleWorkdays,dailyAverage,...scoreVoiceCalls(dailyAverage),status:'Ready',formula:`${accepted} / ${eligibleWorkdays}`}}
+

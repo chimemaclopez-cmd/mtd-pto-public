@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {scoreCsat,scoreVoiceCalls,scoreLongCallRate,scoreFRT,scoreBonus,scoreTickets,scoreSeniorTeam,scoreSeniorTickets} from './shared/scoring.js';
+const scores=(fn,values)=>values.map(v=>fn(v)?.score);
+assert.deepEqual(scores(scoreCsat,[79.99,80,84.99,85,89.99,90,94.99,95]),[1,2,2,3,3,4,4,5]);
+assert.deepEqual(scores(scoreVoiceCalls,[10.99,11,12.99,13,14.99,15,16.99,17]),[1,2,2,3,3,4,4,5]);
+assert.deepEqual(scores(scoreLongCallRate,[4.99,5,6,6.01,8,8.01,10,10.01]),[5,4,4,3,3,2,2,1]);
+assert.deepEqual(scores(v=>scoreFRT(v),[1,1.0001,4,4.0001,8,8.0001,12,12.0001]),[5,4,4,3,3,2,2,1]);
+assert.equal(scoreFRT(null,true).score,1);assert.equal(scoreFRT(null),null);
+assert.deepEqual(scores(v=>scoreBonus(v,5),[0,.01,.99,1,1.99,2,2.99,3,3.99,4]),[0,1,1,2,2,3,3,4,4,5]);
+assert.deepEqual(scores(v=>scoreBonus(v,10),[0,.01,.99,1,1.99,2,2.99,3,3.99,4]),[0,1,1,2,2,3,3,4,4,5]);
+assert.equal(scoreBonus(0,5).points,0);
+assert.equal(scoreBonus(0,10).points,0);
+assert.deepEqual(scores(scoreTickets,[99,100,149,150,199,200,249,250]),[1,2,2,3,3,4,4,5]);
+assert.deepEqual(scores(scoreSeniorTeam,[79.99,80,84.99,85,89.99,90,94.99,95]),[1,2,2,3,3,4,4,5]);
+assert.deepEqual(scores(scoreSeniorTickets,[99,100,149,150,199,200,249,250]),[1,2,2,3,3,4,4,5]);
+console.log('All scoring boundary tests passed.');

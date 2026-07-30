@@ -1,0 +1,3 @@
+import {scoreSeniorTeam} from '../shared/scoring.js';
+export function seniorTeamLevel(metric={}){const included=metric.included||[],excluded=metric.excluded||[],valid=included.filter(x=>Number.isFinite(+x.baseKpi));if(!valid.length)return{...metric,assignedCount:included.length+excluded.length,validCount:0,average:null,points:null,status:'No Data'};const average=valid.reduce((s,x)=>s+Number(x.baseKpi),0)/valid.length;return{...metric,included:valid,excluded,assignedCount:included.length+excluded.length,validCount:valid.length,average,...scoreSeniorTeam(average),status:'Ready',formula:`Sum of ${valid.length} Jr base KPIs / ${valid.length}`}}
+

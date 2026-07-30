@@ -1,0 +1,3 @@
+import {scoreBonus} from '../shared/scoring.js';
+export function voiceEmailChatBonus(metric={},eligibleWorkdays){if(eligibleWorkdays==null)return{...metric,bonus:null,status:'Missing Attendance'};if(eligibleWorkdays<=0)return{...metric,bonus:null,status:'No Data'};const email=Number(metric.email||0),chat=Number(metric.chat||0),combined=email+chat,dailyAverage=combined/eligibleWorkdays;const s=scoreBonus(dailyAverage,5);return{...metric,email,chat,combined,eligibleWorkdays,dailyAverage,score:s.score,multiplier:s.multiplier,bonus:s.points,status:'Ready',formula:`(${email} + ${chat}) / ${eligibleWorkdays}`}}
+

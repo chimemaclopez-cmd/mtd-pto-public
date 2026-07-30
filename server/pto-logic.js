@@ -28,8 +28,7 @@ function rosterActiveOn(employee, date) {
   return Boolean(employee) && employee.active !== false &&
     !['Resigned', 'Terminated', 'Inactive'].includes(employee.employmentStatus) &&
     (!employee.hireDate || employee.hireDate <= date) &&
-    (!employee.separationDate || employee.separationDate >= date) &&
-    (!employee.effectiveDate || employee.effectiveDate <= date);
+    (!employee.separationDate || employee.separationDate >= date);
 }
 
 function normalizeScheduleActivity(value) { return String(value ?? '').trim(); }
