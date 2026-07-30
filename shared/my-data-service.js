@@ -9,3 +9,4 @@ export const getMyStatus=()=>api('/api/my/status');
 export const setMyStatus=(activityId)=>api('/api/my/status',{method:'POST',body:JSON.stringify({activityId})});
 export const clockInStatus=()=>api('/api/my/status/clock-in',{method:'POST'});
 export const clockOutStatus=()=>api('/api/my/status/clock-out',{method:'POST'});
+export const getMyNotifications=()=>api('/api/my/notifications');

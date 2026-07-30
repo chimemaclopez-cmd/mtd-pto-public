@@ -47,7 +47,7 @@ const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
-const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence'];
+const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -158,6 +158,36 @@ function easternDateParts(date) {
     .formatToParts(date).forEach(p => { if (p.type !== 'literal') out[p.type] = p.value; });
   return out;
 }
+function addMonthsToDate(dateStr, months) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + months, d)).toISOString().slice(0, 10);
+}
+function daysBetweenDates(fromDate, toDate) {
+  return Math.round((new Date(toDate + 'T00:00:00Z').getTime() - new Date(fromDate + 'T00:00:00Z').getTime()) / 86400000);
+}
+// Next occurrence of a rep's month/day from today (year-agnostic - the stored birthday's
+// year is irrelevant, only month/day repeats annually).
+function nextBirthdayInfo(birthday, todayDate) {
+  if (!ptoLogic.validDate(birthday)) return null;
+  const [, bm, bd] = birthday.split('-');
+  const thisYear = todayDate.slice(0, 4);
+  let next = `${thisYear}-${bm}-${bd}`;
+  if (next < todayDate) next = `${Number(thisYear) + 1}-${bm}-${bd}`;
+  return { nextDate: next, daysUntil: daysBetweenDates(todayDate, next), isToday: next === todayDate };
+}
+// A rep is "on probation" for their first 5 full months of tenure - one monthly eval per
+// month, ending at the month-5 mark (regularization decision). dueDate is the boundary of
+// the CURRENT eval month (always today or in the future, by construction of monthsEmployed),
+// so daysUntilDue tells a team lead how much runway is left to complete that month's eval.
+function probationEvalInfo(hireDate, todayDate) {
+  if (!ptoLogic.validDate(hireDate) || hireDate > todayDate) return null;
+  let monthsEmployed = 0;
+  while (monthsEmployed < 6 && addMonthsToDate(hireDate, monthsEmployed + 1) <= todayDate) monthsEmployed++;
+  if (monthsEmployed >= 5) return null;
+  const evalMonth = monthsEmployed + 1;
+  const dueDate = addMonthsToDate(hireDate, evalMonth);
+  return { evalMonth, dueDate, daysUntilDue: daysBetweenDates(todayDate, dueDate) };
+}
 // Finds the UTC instant that corresponds to a given Eastern wall-clock date+time, correcting once
 // for the DST offset (same technique as zendesk-proxy.js's easternEpoch) - used to give the client
 // a stable "since" timestamp for the Late Login case (how long past their scheduled shift start).
@@ -233,10 +263,12 @@ async function computeStatusWall() {
     if (liveOnCall) {
       statusLabel = 'On Call';
       statusCode = 'ON_CALL';
+      statusDetail = signal.callTicketId ? `#${signal.callTicketId}` : '';
       sinceIso = signal.callStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (liveOnChat) {
-      statusLabel = 'On Chat';
+      statusLabel = 'On Chat/Email';
       statusCode = 'ON_CHAT';
+      statusDetail = signal.chatTicketId ? `#${signal.chatTicketId}` : '';
       sinceIso = signal.chatStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (!manualStatusIsNewer && recentZendeskWork && zendeskActivityMs >= jiraActivityMs) {
       statusLabel = 'Zendesk Ticket';
@@ -679,6 +711,7 @@ const server = http.createServer(async (req, res) => {
       const update = {};
       for (const field of ROSTER_CONTACT_FIELDS) update[field] = String(body[field] || '').trim();
       if (update.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(update.contactEmail)) return json(res, 400, { ok: false, error: 'Contact email is invalid.' });
+      if (update.birthday && !ptoLogic.validDate(update.birthday)) return json(res, 400, { ok: false, error: 'Birthday must be a valid date.' });
       const roster = await loadRosterSnapshot();
       const index = (roster.records || []).findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
       if (index < 0) return json(res, 400, { ok: false, error: 'Employee not found in the roster.' });
@@ -860,6 +893,25 @@ const server = http.createServer(async (req, res) => {
         if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
       return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length});
+    }
+
+    if (parsed.pathname === '/api/my/notifications' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const leaderEmail = ptoLogic.cleanEmail(signedInEmployee?.employeeEmail || identity);
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === leaderEmail || String(x.teamLeadName || '').trim() === leaderName));
+      const todayParts = easternDateParts(new Date());
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const birthdays = assignedMembers
+        .map(m => { const info = nextBirthdayInfo(m.birthday, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, ...info } : null; })
+        .filter(Boolean).filter(x => x.daysUntil <= 30)
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+      const evaluations = assignedMembers
+        .map(m => { const info = probationEvalInfo(m.hireDate, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, hireDate: m.hireDate, ...info } : null; })
+        .filter(Boolean)
+        .sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
