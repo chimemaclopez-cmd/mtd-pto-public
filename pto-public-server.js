@@ -58,6 +58,9 @@ const TEAM_EDITABLE_PROFILE_FIELDS = ['employeeName','employeeId','primaryChanne
 // Mirrors shared/kpi-config.js's ATTENDANCE_CODES - duplicated here (like ROSTER_CONTACT_FIELDS
 // above) since this file is CommonJS and that config lives in an ES module.
 const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
+// Mirrors shared/scoring.js's performanceStatus() tiering (best to worst), duplicated here
+// for the same CommonJS/ES-module reason as ATTENDANCE_CODES above.
+const PERFORMANCE_TIER = { Exceptional: 4, Exceeds: 3, Meets: 2, Watch: 1, Intervention: 0 };
 const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
@@ -185,6 +188,18 @@ function nextBirthdayInfo(birthday, todayDate) {
   let next = `${thisYear}-${bm}-${bd}`;
   if (next < todayDate) next = `${Number(thisYear) + 1}-${bm}-${bd}`;
   return { nextDate: next, daysUntil: daysBetweenDates(todayDate, next), isToday: next === todayDate };
+}
+// Next work-anniversary occurrence from Hire Date - same year-agnostic month/day logic as
+// nextBirthdayInfo, plus the year count that anniversary actually completes.
+function nextAnniversaryInfo(hireDate, todayDate) {
+  if (!ptoLogic.validDate(hireDate) || hireDate > todayDate) return null;
+  const [hy, hm, hd] = hireDate.split('-');
+  const thisYear = todayDate.slice(0, 4);
+  let next = `${thisYear}-${hm}-${hd}`;
+  if (next < todayDate) next = `${Number(thisYear) + 1}-${hm}-${hd}`;
+  const yearsCompleted = Number(next.slice(0, 4)) - Number(hy);
+  if (yearsCompleted < 1) return null; // hasn't reached a first anniversary yet
+  return { nextDate: next, daysUntil: daysBetweenDates(todayDate, next), isToday: next === todayDate, years: yearsCompleted };
 }
 // A rep is "on probation" for their first 5 full months of tenure - one monthly eval per
 // month, ending at the month-5 mark (regularization decision). dueDate is the boundary of
@@ -956,11 +971,64 @@ const server = http.createServer(async (req, res) => {
         .map(m => { const info = nextBirthdayInfo(m.birthday, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, ...info } : null; })
         .filter(Boolean).filter(x => x.daysUntil <= 30)
         .sort((a, b) => a.daysUntil - b.daysUntil);
-      const evaluations = assignedMembers
+      const probationInfo = assignedMembers
         .map(m => { const info = probationEvalInfo(m.hireDate, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, hireDate: m.hireDate, ...info } : null; })
-        .filter(Boolean)
-        .sort((a, b) => a.daysUntilDue - b.daysUntilDue);
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations });
+        .filter(Boolean);
+      const evaluations = probationInfo.filter(x => x.evalMonth < 5).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+      // Month 5 is the regularization decision itself, not just another monthly check-in -
+      // called out as its own, more prominent list rather than buried in "evaluations".
+      const regularizations = probationInfo.filter(x => x.evalMonth === 5).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+      const anniversaries = assignedMembers
+        .map(m => { const info = nextAnniversaryInfo(m.hireDate, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, ...info } : null; })
+        .filter(Boolean).filter(x => x.daysUntil <= 30)
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+
+      const [schedules, attendance, kpiResults, pto, ptoAccess] = await Promise.all([
+        loadScheduleSnapshot(), loadAttendanceSnapshot(), loadKpiResultsSnapshot(), loadPto(), ptoReviewAccess(identity, session.employeeName)
+      ]);
+
+      // KPI performance: flag anyone currently Watch/Intervention, or whose tier dropped
+      // from their prior rated period - lets a lead step in before it hits a formal review.
+      const periodsSorted = Object.keys(kpiResults.periods || {}).sort((a, b) => b.localeCompare(a));
+      const kpiAlerts = assignedMembers.map(m => {
+        const email = ptoLogic.cleanEmail(m.employeeEmail);
+        const rated = periodsSorted.map(p => (kpiResults.periods[p] || []).find(r => ptoLogic.cleanEmail(r.employeeEmail) === email && r.finalKpi != null)).filter(Boolean);
+        if (!rated.length) return null;
+        const [latest, previous] = rated;
+        const latestTier = PERFORMANCE_TIER[latest.performanceStatus] ?? null;
+        const previousTier = previous ? (PERFORMANCE_TIER[previous.performanceStatus] ?? null) : null;
+        const isLow = latestTier != null && latestTier <= PERFORMANCE_TIER.Watch;
+        const dropped = latestTier != null && previousTier != null && latestTier < previousTier;
+        if (!isLow && !dropped) return null;
+        return { employeeEmail: email, employeeName: m.employeeName, period: latest.period, finalKpi: latest.finalKpi, performanceStatus: latest.performanceStatus, previousPerformanceStatus: previous?.performanceStatus || null, dropped };
+      }).filter(Boolean);
+
+      // Attendance red flags: this month only, computed directly from raw entries (same
+      // source MTD_Attendance_Eligible_Workdays.html's own late/missing counts use) rather
+      // than attendanceSummaries.json, since that stored summary doesn't carry a lateDays
+      // count today.
+      const monthStart = `${today.slice(0, 7)}-01`;
+      const priorDates = ptoLogic.dateRange(monthStart, today).filter(d => d < today);
+      const attendanceFlags = assignedMembers.map(m => {
+        const email = ptoLogic.cleanEmail(m.employeeEmail);
+        let lateCount = 0, missingCount = 0;
+        for (const date of ptoLogic.dateRange(monthStart, today)) {
+          const code = ptoLogic.attendanceCodeOnDate(attendance, email, date);
+          if (code === 'LATE') lateCount++;
+        }
+        for (const date of priorDates) {
+          const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+          const eligible = !resolved.missingSchedule && Boolean(resolved.template) && !resolved.template.off;
+          if (!eligible) continue;
+          if (!ptoLogic.attendanceCodeOnDate(attendance, email, date)) missingCount++;
+        }
+        if (lateCount < 3 && missingCount < 1) return null;
+        return { employeeEmail: email, employeeName: m.employeeName, lateCount, missingCount };
+      }).filter(Boolean);
+
+      const pendingApprovals = (pto.requests || []).filter(request => request.status !== 'DRAFT' && canReviewPtoRequest(ptoAccess, request) && ['SUBMITTED', 'PENDING'].includes(request.status)).length;
+
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
