@@ -62,6 +62,9 @@ const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','E
 // for the same CommonJS/ES-module reason as ATTENDANCE_CODES above.
 const PERFORMANCE_TIER = { Exceptional: 4, Exceeds: 3, Meets: 2, Watch: 1, Intervention: 0 };
 const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
+const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
+const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
+const MAX_ATTACHMENT_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB original file, base64-encoded
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -1182,6 +1185,29 @@ const server = http.createServer(async (req, res) => {
         snapshotCache.set('mtdkpi:snapshot:attendance', { value: attendance, at: Date.now() });
       }
       return json(res, 200, { ok: true, accepted, skipped });
+    }
+
+    if (parsed.pathname === '/api/my/team-attendance/attachment' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const date = String(body.date || '');
+      const filename = String(body.filename || '').trim();
+      const contentBase64 = String(body.contentBase64 || '');
+      if (!email || !ptoLogic.validDate(date)) return json(res, 400, { ok: false, error: 'A valid employee and date are required.' });
+      if (!filename || !contentBase64) return json(res, 400, { ok: false, error: 'A file is required.' });
+      if (contentBase64.length > MAX_ATTACHMENT_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'File is too large. Please attach a file under 3MB.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      if (!memberEmails.has(email)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const attendance = await loadAttendanceSnapshot();
+      const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
+      if (!ATTACHMENT_LEAVE_CODES.includes(code)) return json(res, 400, { ok: false, error: 'Attachments can only be added to a day currently marked Sick Leave or Emergency Leave.' });
+      const queue = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENTS_KEY, []);
+      queue.push({ employeeEmail: email, date, code, filename, contentBase64, uploadedBy: identity, uploadedAt: new Date().toISOString() });
+      await cloudStore.kvSetJson(ATTENDANCE_ATTACHMENTS_KEY, queue);
+      return json(res, 200, { ok: true, code });
     }
 
     if (parsed.pathname === '/api/pto/settings' && req.method === 'GET') {
