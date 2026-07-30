@@ -169,6 +169,23 @@ function attendanceCodeOnDate(attendance, email, date) {
   return '';
 }
 
+// Reads the extra `minutesLate` field a manual "Late" entry can carry (stored as
+// {status:'LATE', minutesLate:N} instead of a bare string) - mirrors
+// attendanceCodeOnDate's exact same auto-entry-first-else-period-lookup priority so the
+// two never disagree about which record wins.
+function attendanceMinutesLateOnDate(attendance, email, date) {
+  const auto = attendance.autoEntries?.[email]?.[date];
+  if (auto) return typeof auto === 'object' && Number.isFinite(auto.minutesLate) ? auto.minutesLate : null;
+  const matches = Object.entries(attendance.periods || {})
+    .filter(([key]) => key.startsWith(date.slice(0, 7) + '|') && key.split('|')[1] >= date)
+    .sort(([a], [b]) => b.localeCompare(a));
+  for (const [, period] of matches) {
+    const value = period?.[email]?.[date];
+    if (value) return typeof value === 'object' && Number.isFinite(value.minutesLate) ? value.minutesLate : null;
+  }
+  return null;
+}
+
 // Date-level forecast only (Sufficient / Warning / Critical / Below Minimum per date).
 // See module scope note above re: what's intentionally left out vs. zendesk-proxy.js.
 function buildPtoForecast(input, { pto, settings, roster, schedules, attendance }) {
@@ -250,6 +267,6 @@ module.exports = {
   PTO_ACTIVE_STATUSES, PTO_KPI_GROUPS,
   cleanEmail, validDate, validTime, minutesOf, dateRange, weekdayForDate,
   rosterActiveOn, scheduleForDate, calculatePtoWorkdays, ptoConflictsFor,
-  normalizePtoRequest, ptoThreshold, forecastStatus, attendanceCodeOnDate,
+  normalizePtoRequest, ptoThreshold, forecastStatus, attendanceCodeOnDate, attendanceMinutesLateOnDate,
   buildPtoForecast, applyPtoCapacityLimits
 };

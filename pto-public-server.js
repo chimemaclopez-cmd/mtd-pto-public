@@ -82,7 +82,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -453,6 +453,31 @@ async function appendScheduleRequestAudit(requestId, action, { user = 'Rep', not
   const data = await loadScheduleRequestAudit();
   data.events.push({ auditId: `SCHEDREQ-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, requestId, action, user: String(user || 'Rep'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveScheduleRequestAudit(data);
+}
+
+// --- Coaching (team lead creates/sends, rep views/signs) - mirrors the PTO storage
+// helpers above; fully cloud-native, no snapshot/queue indirection, since both sides of
+// this feature live on this server.
+const COACHING_KEY = 'mtdkpi:coaching-records';
+const COACHING_AUDIT_KEY = 'mtdkpi:coaching-audit';
+const COACHING_ENTITIES = ['Lofty', 'Truckerpath'];
+async function loadCoaching() { return cloudStore.kvGetJson(COACHING_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
+async function saveCoaching(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(COACHING_KEY, data); return data; }
+async function loadCoachingAudit() { return cloudStore.kvGetJson(COACHING_AUDIT_KEY, { version: 1, events: [] }); }
+async function saveCoachingAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(COACHING_AUDIT_KEY, data); return data; }
+async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
+  const data = await loadCoachingAudit();
+  data.events.push({ auditId: `COACH-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, coachingId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
+  await saveCoachingAudit(data);
+}
+function normalizeDiscussionRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(r => ({
+    discussionPoint: String(r?.discussionPoint || '').trim(),
+    insightLearning: String(r?.insightLearning || '').trim(),
+    actionPlan: String(r?.actionPlan || '').trim(),
+    resourcesSupport: String(r?.resourcesSupport || '').trim()
+  })).filter(r => r.discussionPoint || r.insightLearning || r.actionPlan || r.resourcesSupport);
 }
 
 // --- Rep self-reported status (Online/Break/Lunch/Offline Task) - a live "what am I doing right
@@ -1137,7 +1162,8 @@ const server = http.createServer(async (req, res) => {
           const eligible = !resolved.missingSchedule && Boolean(resolved.template) && !resolved.template.off;
           const auto = attendance.autoEntries?.[email]?.[date] || null;
           const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
-          return { date, eligible, locked: Boolean(auto), code, displayLabel: auto?.displayLabel || '' };
+          const minutesLate = ptoLogic.attendanceMinutesLateOnDate(attendance, email, date);
+          return { date, eligible, locked: Boolean(auto), code, minutesLate, displayLabel: auto?.displayLabel || '' };
         });
         return { employeeEmail: email, employeeName: emp.employeeName, days };
       });
@@ -1159,15 +1185,17 @@ const server = http.createServer(async (req, res) => {
       for (const [rawEmail, byDate] of Object.entries(body.entries)) {
         const email = ptoLogic.cleanEmail(rawEmail);
         if (!memberEmails.has(email)) { skipped.push({ employeeEmail: email, reason: 'Not your direct report.' }); continue; }
-        for (const [date, rawCode] of Object.entries(byDate || {})) {
-          const code = String(rawCode || '').trim().toUpperCase();
+        for (const [date, rawValue] of Object.entries(byDate || {})) {
+          const isObj = rawValue && typeof rawValue === 'object';
+          const code = String((isObj ? rawValue.code : rawValue) || '').trim().toUpperCase();
           if (!ptoLogic.validDate(date) || !date.startsWith(month)) { skipped.push({ employeeEmail: email, date, reason: 'Date outside the selected month.' }); continue; }
           if (code && !ATTENDANCE_CODES.includes(code)) { skipped.push({ employeeEmail: email, date, reason: 'Invalid attendance code.' }); continue; }
           if (attendance.autoEntries?.[email]?.[date]) { skipped.push({ employeeEmail: email, date, reason: 'Protected by an approved PTO request.' }); continue; }
           const resolved = ptoLogic.scheduleForDate(schedules, email, date);
           if (resolved.missingSchedule || !resolved.template || resolved.template.off) { skipped.push({ employeeEmail: email, date, reason: 'Not a scheduled workday.' }); continue; }
+          const minutesLate = isObj && code === 'LATE' && Number.isFinite(Number(rawValue.minutesLate)) && Number(rawValue.minutesLate) > 0 ? Math.round(Number(rawValue.minutesLate)) : null;
           accepted[email] ??= {};
-          accepted[email][date] = code;
+          accepted[email][date] = minutesLate != null ? { status: code, minutesLate } : code;
         }
       }
       if (Object.keys(accepted).length) {
@@ -1208,6 +1236,138 @@ const server = http.createServer(async (req, res) => {
       queue.push({ employeeEmail: email, date, code, filename, contentBase64, uploadedBy: identity, uploadedAt: new Date().toISOString() });
       await cloudStore.kvSetJson(ATTENDANCE_ATTACHMENTS_KEY, queue);
       return json(res, 200, { ok: true, code });
+    }
+
+    if (parsed.pathname === '/api/my/team-coaching' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const data = await loadCoaching();
+      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, entities: COACHING_ENTITIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, roleDepartment: [x.kpiType, x.primaryChannel].filter(Boolean).join(' / ') })), records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/team-coaching' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const coachingDate = String(body.coachingDate || '');
+      if (!email || !ptoLogic.validDate(coachingDate)) return json(res, 400, { ok: false, error: 'A valid employee and coaching date are required.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+      const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
+      if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const data = await loadCoaching();
+      const year = coachingDate.slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const coachingId = `COACH-${year}-${String(sequence).padStart(4, '0')}`;
+      const sessionNumber = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === email).length + 1;
+      const now = new Date().toISOString();
+      const status = body.status === 'SENT' ? 'SENT' : 'DRAFT';
+      const record = {
+        coachingId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
+        teamLeadEmail: identity, teamLeadName: leaderName || session.employeeName || '',
+        coachingDate, sessionNumber,
+        entity: COACHING_ENTITIES.includes(body.entity) ? body.entity : 'Lofty',
+        roleDepartment: String(body.roleDepartment || [employee.kpiType, employee.primaryChannel].filter(Boolean).join(' / ')).trim(),
+        goalForToday: String(body.goalForToday || '').trim(),
+        specificIssues: String(body.specificIssues || '').trim(),
+        winsAndSuccesses: String(body.winsAndSuccesses || '').trim(),
+        challenges: String(body.challenges || '').trim(),
+        reviewActionItems: String(body.reviewActionItems || '').trim(),
+        newTopicsOrConcerns: String(body.newTopicsOrConcerns || '').trim(),
+        discussionRows: normalizeDiscussionRows(body.discussionRows),
+        coachReflections: String(body.coachReflections || '').trim(),
+        nextSessionFocus: String(body.nextSessionFocus || '').trim(),
+        nextSessionDate: ptoLogic.validDate(body.nextSessionDate) ? body.nextSessionDate : null,
+        status, createdAt: now, updatedAt: now, sentAt: status === 'SENT' ? now : null,
+        acknowledgment: null, createdBy: identity
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveCoaching(data);
+      await appendCoachingAudit(coachingId, status === 'SENT' ? 'CREATED_AND_SENT' : 'CREATED_DRAFT', { user: identity, newValue: record });
+      return json(res, 201, { ok: true, record });
+    }
+
+    const coachingMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?coaching\/([^/]+)(?:\/(send|acknowledge))?$/);
+    if (coachingMatch) {
+      const coachingId = decodeURIComponent(coachingMatch[1]), action = coachingMatch[2] || '';
+      const data = await loadCoaching();
+      const index = (data.records || []).findIndex(x => x.coachingId === coachingId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Coaching record not found.' });
+      const current = data.records[index];
+      const isOwner = ptoLogic.cleanEmail(current.teamLeadEmail) === identity;
+      if (req.method === 'GET' && !action) {
+        if (!isOwner && ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'Not authorized to view this coaching record.' });
+        if (!isOwner && current.status === 'DRAFT') return json(res, 404, { ok: false, error: 'Coaching record not found.' });
+        return json(res, 200, { ok: true, record: current });
+      }
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      if (req.method === 'PUT' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can edit it.' });
+        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft coaching record can be edited.' });
+        const next = {
+          ...current,
+          entity: COACHING_ENTITIES.includes(body.entity) ? body.entity : current.entity,
+          roleDepartment: String(body.roleDepartment ?? current.roleDepartment).trim(),
+          goalForToday: String(body.goalForToday ?? current.goalForToday).trim(),
+          specificIssues: String(body.specificIssues ?? current.specificIssues).trim(),
+          winsAndSuccesses: String(body.winsAndSuccesses ?? current.winsAndSuccesses).trim(),
+          challenges: String(body.challenges ?? current.challenges).trim(),
+          reviewActionItems: String(body.reviewActionItems ?? current.reviewActionItems).trim(),
+          newTopicsOrConcerns: String(body.newTopicsOrConcerns ?? current.newTopicsOrConcerns).trim(),
+          discussionRows: body.discussionRows !== undefined ? normalizeDiscussionRows(body.discussionRows) : current.discussionRows,
+          coachReflections: String(body.coachReflections ?? current.coachReflections).trim(),
+          nextSessionFocus: String(body.nextSessionFocus ?? current.nextSessionFocus).trim(),
+          nextSessionDate: body.nextSessionDate !== undefined ? (ptoLogic.validDate(body.nextSessionDate) ? body.nextSessionDate : null) : current.nextSessionDate,
+          updatedAt: now
+        };
+        data.records[index] = next;
+        await saveCoaching(data);
+        await appendCoachingAudit(coachingId, 'EDITED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can delete it.' });
+        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft coaching record can be deleted.' });
+        data.records.splice(index, 1);
+        data.deletedCoachingIds = [...new Set([...(data.deletedCoachingIds || []), coachingId])];
+        await saveCoaching(data);
+        await appendCoachingAudit(coachingId, 'DELETED', { user: identity, previousValue: current });
+        return json(res, 200, { ok: true, deleted: coachingId });
+      }
+      if (action === 'send') {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can send it.' });
+        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft coaching record can be sent.' });
+        const next = { ...current, status: 'SENT', sentAt: now, updatedAt: now };
+        data.records[index] = next;
+        await saveCoaching(data);
+        await appendCoachingAudit(coachingId, 'SENT', { user: identity, previousValue: current.status, newValue: 'SENT' });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (action === 'acknowledge') {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only sign your own coaching record.' });
+        if (current.status !== 'SENT') return json(res, 409, { ok: false, error: 'Only a sent coaching record can be acknowledged.' });
+        const signedName = String(body.signedName || '').trim();
+        if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
+        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, coacheeValuable: String(body.coacheeValuable || '').trim(), coacheeImprove: String(body.coacheeImprove || '').trim() } };
+        data.records[index] = next;
+        await saveCoaching(data);
+        await appendCoachingAudit(coachingId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
+        return json(res, 200, { ok: true, record: next });
+      }
+      return json(res, 404, { ok: false, error: 'Unknown coaching action.' });
+    }
+
+    if (parsed.pathname === '/api/my/coaching' && req.method === 'GET') {
+      const data = await loadCoaching();
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/pto/settings' && req.method === 'GET') {
