@@ -1248,7 +1248,28 @@ const server = http.createServer(async (req, res) => {
         .map(r => ({ coachingId: r.coachingId, employeeName: r.employeeName, category: r.category, followUpDate: r.targetFollowUpDate, daysUntil: r.daysUntil }))
         .sort((a, b) => a.daysUntil - b.daysUntil);
 
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, myCoachingFollowUps, teamCoachingFollowUps });
+      // Disciplinary: reminds whoever holds the next action on a case so nothing sits
+      // waiting unnoticed - the employee whose case was just decided (needs to sign), the
+      // Senior Operations Manager (cases awaiting pre-review), and HR (cases awaiting the
+      // final decision).
+      const disciplinaryData = await loadDisciplinary();
+      const disciplinaryAccess = await disciplinaryReviewAccess(identity, session.employeeName);
+      const myDisciplinaryPending = (disciplinaryData.records || [])
+        .filter(r => r.status === 'DECIDED' && ptoLogic.cleanEmail(r.employeeEmail) === identity)
+        .map(r => ({ violationId: r.violationId, category: r.category, finalTier: r.finalTier, finalSanction: r.finalSanction, sanctionDate: r.sanctionDate }))
+        .sort((a, b) => String(a.sanctionDate || '').localeCompare(String(b.sanctionDate || '')));
+      const disciplinaryPreReviewPending = disciplinaryAccess.canPreDecide
+        ? (disciplinaryData.records || []).filter(r => r.status === 'FILED')
+          .map(r => ({ violationId: r.violationId, employeeName: r.employeeName, category: r.category, tier: r.tier, infractionDate: r.infractionDate }))
+          .sort((a, b) => a.infractionDate.localeCompare(b.infractionDate))
+        : [];
+      const disciplinaryDecisionPending = disciplinaryAccess.canDecide
+        ? (disciplinaryData.records || []).filter(r => r.status === 'PRE_DECIDED')
+          .map(r => ({ violationId: r.violationId, employeeName: r.employeeName, category: r.category, preTier: r.preTier, infractionDate: r.infractionDate }))
+          .sort((a, b) => a.infractionDate.localeCompare(b.infractionDate))
+        : [];
+
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, myCoachingFollowUps, teamCoachingFollowUps, myDisciplinaryPending, disciplinaryPreReviewPending, disciplinaryDecisionPending });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {

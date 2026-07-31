@@ -174,21 +174,17 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 </div></div>
 <section id="disciplinaryView" hidden>
-<div class="sectionTitle">My Disciplinary Records</div>
-<div class="sub">Cases decided by HR are shared here. Review and sign to acknowledge.</div>
-<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Infraction Date</th><th>Category</th><th>Tier</th><th>Sanction</th><th>Status</th><th>Actions</th></tr></thead><tbody id="myDisciplinaryBody"></tbody></table></div>
-<div id="teamDisciplinarySection" hidden style="margin-top:28px">
 <div class="actions noPrint" style="justify-content:space-between;align-items:center">
-<div class="sectionTitle" style="margin:0">Team Disciplinary Records</div>
-<button class="btn primary" id="newDisciplinaryBtn">File Incident Report</button>
+<div class="sectionTitle" style="margin:0">Disciplinary Records</div>
+<button class="btn primary" id="newDisciplinaryBtn" hidden>File Incident Report</button>
 </div>
-<div class="sub" id="disciplinaryWorkflowNote">Team leads file an Incident Report; HR reviews and decides the final sanction.</div>
+<div class="sub" id="disciplinaryWorkflowNote">Cases decided by HR are shared here for you to review and sign.</div>
+<div class="cards" id="disciplinarySummaryCards" hidden style="margin-top:12px"></div>
 <div id="teamDisciplinaryMessage" class="message" hidden></div>
-<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Infraction Date</th><th>Category</th><th>Tier</th><th>Instance #</th><th>Suggested Sanction</th><th>Status</th><th>Actions</th></tr></thead><tbody id="teamDisciplinaryBody"></tbody></table></div>
-</div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Infraction Date</th><th>Category</th><th>Tier</th><th>Instance #</th><th>Sanction</th><th>Status</th><th>Actions</th></tr></thead><tbody id="disciplinaryBody"></tbody></table></div>
 </section>
 <div class="modal" id="disciplinaryFormModal" hidden><form class="dialog" id="disciplinaryForm" role="dialog" aria-modal="true" style="max-width:720px">
-<div class="title">File Incident Report</div>
+<div class="title" id="disciplinaryFormTitle">File Incident Report</div>
 <div class="formGrid" style="margin-top:12px">
 <div class="field"><label>Employee *</label><select name="employeeEmail" required></select></div>
 <div class="field"><label>Infraction Date *</label><input name="infractionDate" type="date" required></div>
@@ -246,7 +242,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="modal" id="detailsModal" hidden><div class="dialog"><div class="title">PTO Request Details</div><div id="detailsContent" class="details" style="margin:12px 0"></div><div class="actions" style="justify-content:flex-end"><button class="btn" id="detailsClose">Close</button></div></div></div>
 <div class="modal" id="teamPtoDecisionModal" hidden><div class="dialog" style="max-width:560px"><div class="title" id="teamPtoDecisionTitle">PTO Review</div><div class="details" id="teamPtoDecisionDetails" style="margin:12px 0"></div><div class="field"><label>Review Notes</label><textarea id="teamPtoDecisionNotes" placeholder="Add context for the final approver"></textarea></div><div id="teamPtoDecisionError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="teamPtoDecisionCancel">Cancel</button><button class="btn primary" id="teamPtoDecisionConfirm">Confirm</button></div></div></div>
 <div class="modal" id="contactModal" hidden><form class="dialog" id="contactForm" role="dialog" aria-modal="true"><div class="title">Edit Contact Information</div><div class="formGrid" style="margin-top:12px"><div class="field"><label>Birthday</label><input name="birthday" type="date"></div><div class="field"><label>Contact Number</label><div class="phoneField"><select name="contactNumberCode" class="phoneCode"></select><input name="contactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field"><label>Contact Email</label><input name="contactEmail" type="email" placeholder="name@example.com"></div><div class="field"><label>Emergency Contact Name</label><input name="emergencyContactName" placeholder="Full Name"></div><div class="field"><label>Emergency Contact Relationship</label><select name="emergencyContactRelationship"><option value="">—</option><option>Spouse</option><option>Parent</option><option>Sibling</option><option>Child</option><option>Relative</option><option>Friend</option><option>Other</option></select></div><div class="field" id="emergencyContactRelationshipOtherField" hidden><label>Specify Relationship</label><input name="emergencyContactRelationshipOther" placeholder="e.g. Cousin, Guardian"></div><div class="field"><label>Emergency Contact Number</label><div class="phoneField"><select name="emergencyContactNumberCode" class="phoneCode"></select><input name="emergencyContactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field" style="grid-column:1/-1"><label>Current Residence</label><textarea name="currentResidence" placeholder="Street, Barangay, City, Province, ZIP"></textarea></div></div><div id="contactError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="contactCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>
-<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px">My Coaching Follow-Ups</div><div id="notifMyCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Team Coaching Follow-Ups</div><div id="notifTeamCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
+<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px" id="notifMyDisciplinaryTitle" hidden>My Disciplinary Cases Awaiting My Signature</div><div id="notifMyDisciplinaryPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryPreReviewTitle" hidden>Disciplinary Cases Awaiting Pre-Review</div><div id="notifDisciplinaryPreReviewPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryDecisionTitle" hidden>Disciplinary Cases Awaiting Final Decision</div><div id="notifDisciplinaryDecisionPending"></div><div class="sectionTitle" style="font-size:14px">My Coaching Follow-Ups</div><div id="notifMyCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Team Coaching Follow-Ups</div><div id="notifTeamCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
 <div class="modal" id="changePasswordModal" hidden><form class="dialog" id="changePasswordForm" role="dialog" aria-modal="true"><div class="title" id="changePasswordTitle">Change Password</div><div class="sub" id="changePasswordHint" hidden>Your temporary password must be changed before you can file or edit requests.</div><div class="formGrid" style="grid-template-columns:1fr;margin-top:12px"><div class="field"><label>Current Password</label><div class="pwField"><input name="currentPassword" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>New Password</label><div class="pwField"><input name="newPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>Confirm New Password</label><div class="pwField"><input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="changePasswordError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="changePasswordCancel">Cancel</button><button class="btn primary" type="submit">Change Password</button></div></form></div>
 <div class="modal" id="metricDetailModal" hidden><div class="dialog" style="max-width:420px"><div class="title" id="metricDetailTitle">Metric Detail</div><div id="metricDetailBody" style="margin-top:12px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="metricDetailClose">Close</button></div></div></div>
 <div class="modal" id="csatDetailModal" hidden><div class="dialog" style="max-width:680px"><div class="title">CSAT Ticket Detail</div><div class="sub" id="csatDetailMeta"></div><div class="csatDetailCols"><div><div class="sectionTitle" style="margin-top:12px;color:var(--green)">Good (<span id="csatGoodCount">0</span>)</div><div id="csatGoodList" class="csatTicketList"></div></div><div><div class="sectionTitle" style="margin-top:12px;color:var(--red)">Bad (<span id="csatBadCount">0</span>)</div><div id="csatBadList" class="csatTicketList"></div></div></div><div class="sub" style="margin-top:12px">If you believe a rating doesn't reflect the interaction, share the ticket number with your Team Lead to file a dispute.</div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="csatDetailClose">Close</button></div></div></div>
@@ -268,7 +264,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myDisciplinaryRecords=[],teamDisciplinaryRecords=[],teamDisciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,viewingDisciplinaryRecord=null,portalRole='REP';
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP';
 const DISCIPLINE_LADDER={Misdemeanor:['Coaching','Verbal Warning','Written Warning','Final Warning','Termination'],MinorOffense:['Verbal Warning','Written Warning','Final Warning','Termination'],MajorOffense:['Written Warning','Final Warning','Termination'],GraveOffense:['Final Warning','Termination'],Terminable:['Termination']};
 const DISCIPLINE_TIER_LABELS={Misdemeanor:'Misdemeanor',MinorOffense:'Minor Offense',MajorOffense:'Major Offense',GraveOffense:'Grave Offense',Terminable:'Terminable Offense'};
 const lsHeader=document.querySelector('.header>.ls-header');if(lsHeader)$('headerRight').insertBefore(lsHeader,$('signedInActions'));
@@ -351,6 +347,12 @@ function renderNotifModal(){
   if(notifPendingApprovals)$('notifPendingApprovals').textContent=`${notifPendingApprovals} PTO request${notifPendingApprovals===1?'':'s'} awaiting your review — see PTO Requests.`;
   const followUpPill=f=>f.daysUntil<0?`Overdue by ${-f.daysUntil} day${-f.daysUntil===1?'':'s'}`:f.daysUntil===0?'Due today':f.daysUntil===1?'Due tomorrow':`Due in ${f.daysUntil} days`;
   const followUpClass=f=>f.daysUntil<=0?'status-failed':f.daysUntil<=3?'status-pending':'status-ready';
+  $('notifMyDisciplinaryTitle').hidden=!notifMyDisciplinaryPending.length;
+  $('notifMyDisciplinaryPending').innerHTML=notifMyDisciplinaryPending.map(d=>notifRow(d.category,`${tierLabel(d.finalTier)} · ${d.finalSanction}`,'Awaiting your signature','status-failed')).join('');
+  $('notifDisciplinaryPreReviewTitle').hidden=!notifDisciplinaryPreReviewPending.length;
+  $('notifDisciplinaryPreReviewPending').innerHTML=notifDisciplinaryPreReviewPending.map(d=>notifRow(d.employeeName,`${d.category} · ${d.infractionDate}`,'Awaiting pre-review','status-failed')).join('');
+  $('notifDisciplinaryDecisionTitle').hidden=!notifDisciplinaryDecisionPending.length;
+  $('notifDisciplinaryDecisionPending').innerHTML=notifDisciplinaryDecisionPending.map(d=>notifRow(d.employeeName,`${d.category} · ${d.infractionDate}`,'Awaiting final decision','status-failed')).join('');
   $('notifMyCoachingFollowUps').innerHTML=notifMyCoachingFollowUps.length?notifMyCoachingFollowUps.map(f=>notifRow(f.category,`With ${f.teamLeadName} · ${f.followUpDate}`,followUpPill(f),followUpClass(f))).join(''):'<div class="sub">No coaching follow-ups due.</div>';
   $('notifTeamCoachingFollowUps').innerHTML=notifTeamCoachingFollowUps.length?notifTeamCoachingFollowUps.map(f=>notifRow(f.employeeName,`${f.category} · ${f.followUpDate}`,followUpPill(f),followUpClass(f))).join(''):'<div class="sub">No team coaching follow-ups due.</div>';
   $('notifRegularizations').innerHTML=notifRegularizations.length?notifRegularizations.map(r=>{
@@ -383,14 +385,14 @@ function renderNotifModal(){
   }).join(''):'<div class="sub">No probationary evaluations due.</div>';
 }
 function updateNotifBadge(){
-  const hasAnything=isTeamLeader||notifMyCoachingFollowUps.length>0;
+  const hasAnything=isTeamLeader||notifMyCoachingFollowUps.length>0||notifMyDisciplinaryPending.length>0||notifDisciplinaryPreReviewPending.length>0||notifDisciplinaryDecisionPending.length>0;
   $('notifBtn').hidden=!hasAnything;
   if(!hasAnything)return;
-  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals+notifMyCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifTeamCoachingFollowUps.filter(f=>f.daysUntil<=3).length;
+  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals+notifMyCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifTeamCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifMyDisciplinaryPending.length+notifDisciplinaryPreReviewPending.length+notifDisciplinaryDecisionPending.length;
   $('notifBadge').hidden=!urgent;
   $('notifBadge').textContent=urgent>9?'9+':String(urgent);
 }
-async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifMyCoachingFollowUps=result.myCoachingFollowUps||[];notifTeamCoachingFollowUps=result.teamCoachingFollowUps||[];notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
+async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifMyCoachingFollowUps=result.myCoachingFollowUps||[];notifTeamCoachingFollowUps=result.teamCoachingFollowUps||[];notifMyDisciplinaryPending=result.myDisciplinaryPending||[];notifDisciplinaryPreReviewPending=result.disciplinaryPreReviewPending||[];notifDisciplinaryDecisionPending=result.disciplinaryDecisionPending||[];notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
 let audioCtx=null,chatInitialized=false;
 function ensureAudioContext(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch{return null}}if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx}
 function playChatNotificationSound(){const ctx=audioCtx;if(!ctx||ctx.state!=='running')return;const now=ctx.currentTime;[880,1175].forEach((freq,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain(),start=now+i*0.12;osc.type='sine';osc.frequency.value=freq;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(0.18,start+0.02);gain.gain.exponentialRampToValueAtTime(0.001,start+0.18);osc.connect(gain).connect(ctx.destination);osc.start(start);osc.stop(start+0.2)})}
@@ -888,52 +890,83 @@ $('coachingSignSubmit').onclick=async()=>{
 };
 function disciplinaryStatusPill(status){const cls=status==='ACKNOWLEDGED'?'status-ready':status==='DECIDED'?'status-pending':status==='WITHDRAWN'?'status-no-data':'status-partial';return`<span class="pill ${cls}">${esc(DISCIPLINARY_STATUS_LABELS[status]||status)}</span>`}
 function tierLabel(tier){return DISCIPLINE_TIER_LABELS[tier]||tier||'—'}
-function renderDisciplinaryBadge(){const count=myDisciplinaryRecords.filter(x=>x.status==='DECIDED').length;$('disciplinaryBadge').hidden=!count;$('disciplinaryBadge').textContent=count>9?'9+':String(count)}
-async function refreshMyDisciplinary(){try{const result=await loadMyDisciplinary();myDisciplinaryRecords=result.records||[];renderDisciplinaryBadge();if(activeTab==='disciplinary')renderMyDisciplinary()}catch(error){/* badge just won't update */}}
-function renderMyDisciplinary(){
-  $('myDisciplinaryBody').innerHTML=myDisciplinaryRecords.map(r=>`<tr><td>${esc(r.infractionDate)}</td><td>${esc(r.category)}</td><td>${esc(tierLabel(r.finalTier||r.tier))}</td><td>${esc(r.finalSanction||r.suggestedSanction||'—')}</td><td>${disciplinaryStatusPill(r.status)}</td><td><button class="btn compact" data-view-disciplinary="${esc(r.violationId)}">${r.status==='DECIDED'?'Review & Sign':'View'}</button></td></tr>`).join('')||'<tr><td colspan="6">No disciplinary records on file.</td></tr>';
+const DISCIPLINARY_CATEGORIES_CLIENT=['Attendance, Punctuality & Working Hours','Office Attire','Company Property, Information & Premises','Accurate Reporting of Information','Conflict of Interest','General Behavior',"Manager's Accountability",'Client-Facing / Transactional Conduct','Zero Tolerance'];
+function renderDisciplinaryBadge(){
+  const count=disciplinaryCanDecide?disciplinaryRecords.filter(r=>r.status==='PRE_DECIDED').length
+    :disciplinaryCanPreDecide?disciplinaryRecords.filter(r=>r.status==='FILED').length
+    :disciplinaryRecords.filter(r=>r.status==='DECIDED'&&sessionUser&&r.employeeEmail===sessionUser.employeeEmail).length;
+  $('disciplinaryBadge').hidden=!count;$('disciplinaryBadge').textContent=count>9?'9+':String(count);
 }
-function renderTeamDisciplinary(){
-  $('teamDisciplinaryBody').innerHTML=teamDisciplinaryRecords.map(r=>{
-    const actionLabel=(r.status==='FILED'&&disciplinaryCanPreDecide)?'Pre-Review':(r.status==='PRE_DECIDED'&&disciplinaryCanDecide)?'Decide':'View';
-    const actions=[`<button class="btn compact" data-view-team-disciplinary="${esc(r.violationId)}">${actionLabel}</button>`];
-    if(r.status==='FILED'&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide){
-      actions.push(`<button class="btn compact" data-edit-disciplinary="${esc(r.violationId)}">Edit</button>`);
-    }
-    if(['FILED','PRE_DECIDED'].includes(r.status)&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide){
-      actions.push(`<button class="btn compact danger" data-withdraw-disciplinary="${esc(r.violationId)}">Withdraw</button>`);
-    }
-    return`<tr><td><b>${esc(r.employeeName)}</b></td><td>${esc(r.infractionDate)}</td><td>${esc(r.category)}</td><td>${esc(tierLabel(r.tier))}</td><td>${esc(String(r.instanceNumber||''))}</td><td>${esc(r.suggestedSanction||'—')}</td><td>${disciplinaryStatusPill(r.status)}</td><td>${actions.join(' ')}</td></tr>`;
-  }).join('')||'<tr><td colspan="8">No disciplinary records filed yet.</td></tr>';
+function disciplinarySummaryHtml(){
+  const awaitingPreReview=disciplinaryRecords.filter(r=>r.status==='FILED').length;
+  const awaitingDecision=disciplinaryRecords.filter(r=>r.status==='PRE_DECIDED').length;
+  const decidedThisMonth=disciplinaryRecords.filter(r=>r.sanctionDate&&r.sanctionDate.slice(0,7)===todayET().slice(0,7)).length;
+  const openCases=disciplinaryRecords.filter(r=>['FILED','PRE_DECIDED','DECIDED'].includes(r.status)).length;
+  return[['Awaiting Pre-Review',awaitingPreReview],['Awaiting Final Decision',awaitingDecision],['Decided This Month',decidedThisMonth],['Open Cases',openCases]]
+    .map(([label,value])=>`<div class="card"><div class="label">${esc(label)}</div><div class="value">${value}</div></div>`).join('');
 }
+function renderDisciplinary(){
+  const showSummary=disciplinaryCanPreDecide||disciplinaryCanDecide;
+  $('disciplinarySummaryCards').hidden=!showSummary;
+  if(showSummary)$('disciplinarySummaryCards').innerHTML=disciplinarySummaryHtml();
+  $('disciplinaryBody').innerHTML=disciplinaryRecords.map(r=>{
+    const isEmployee=sessionUser&&r.employeeEmail===sessionUser.employeeEmail;
+    const isOwnerTL=sessionUser&&r.teamLeadEmail===sessionUser.employeeEmail&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
+    let actionLabel='View';
+    if(r.status==='FILED'&&disciplinaryCanPreDecide)actionLabel='Pre-Review';
+    else if(r.status==='PRE_DECIDED'&&disciplinaryCanDecide)actionLabel='Decide';
+    else if(r.status==='DECIDED'&&isEmployee)actionLabel='Review & Sign';
+    const actions=[`<button class="btn compact" data-view-disciplinary="${esc(r.violationId)}">${actionLabel}</button>`];
+    if(r.status==='FILED'&&isOwnerTL)actions.push(`<button class="btn compact" data-edit-disciplinary="${esc(r.violationId)}">Edit</button>`);
+    if(['FILED','PRE_DECIDED'].includes(r.status)&&isOwnerTL)actions.push(`<button class="btn compact danger" data-withdraw-disciplinary="${esc(r.violationId)}">Withdraw</button>`);
+    return`<tr><td><b>${esc(r.employeeName)}</b></td><td>${esc(r.infractionDate)}</td><td>${esc(r.category)}</td><td>${esc(tierLabel(r.finalTier||r.preTier||r.tier))}</td><td>${esc(String(r.instanceNumber||''))}</td><td>${esc(r.finalSanction||r.preSanction||r.suggestedSanction||'—')}</td><td>${disciplinaryStatusPill(r.status)}</td><td>${actions.join(' ')}</td></tr>`;
+  }).join('')||'<tr><td colspan="8">No disciplinary records yet.</td></tr>';
+}
+async function loadDisciplinaryData(){
+  const[teamResult,myResult]=await Promise.all([loadMyTeamDisciplinary(),loadMyDisciplinary()]);
+  disciplinaryIsTeamLeader=Boolean(teamResult.isTeamLeader);
+  disciplinaryCanPreDecide=Boolean(teamResult.canPreDecide);
+  disciplinaryCanDecide=Boolean(teamResult.canDecide);
+  disciplinaryMembers=teamResult.members||[];
+  const byId=new Map();
+  for(const r of(teamResult.records||[]))byId.set(r.violationId,r);
+  for(const r of(myResult.records||[]))if(!byId.has(r.violationId))byId.set(r.violationId,r);
+  disciplinaryRecords=[...byId.values()].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  renderDisciplinaryBadge();
+}
+async function refreshMyDisciplinary(){try{await loadDisciplinaryData();if(activeTab==='disciplinary')renderDisciplinary()}catch(error){/* badge just won't update */}}
 async function loadDisciplinaryTab(){
   try{
-    const teamResult=await loadMyTeamDisciplinary();
-    disciplinaryIsTeamLeader=Boolean(teamResult.isTeamLeader);
-    disciplinaryCanPreDecide=Boolean(teamResult.canPreDecide);
-    disciplinaryCanDecide=Boolean(teamResult.canDecide);
-    teamDisciplinaryMembers=teamResult.members||[];
-    teamDisciplinaryRecords=teamResult.records||[];
-    $('teamDisciplinarySection').hidden=!disciplinaryIsTeamLeader&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
+    await loadDisciplinaryData();
     $('newDisciplinaryBtn').hidden=!disciplinaryIsTeamLeader;
-    $('disciplinaryWorkflowNote').textContent=disciplinaryCanDecide?'As HR, decide any case the Senior Operations Manager has pre-reviewed below.':disciplinaryCanPreDecide?'Pre-review each newly filed case, then send it to HR for the final decision.':'Team leads file an Incident Report; the Senior Operations Manager pre-reviews it, then HR decides the final sanction.';
-    if(disciplinaryIsTeamLeader||disciplinaryCanPreDecide||disciplinaryCanDecide)renderTeamDisciplinary();
+    $('disciplinaryWorkflowNote').textContent=disciplinaryCanDecide?'Every case the Senior Operations Manager has pre-reviewed lands here for your final decision.':disciplinaryCanPreDecide?'Newly filed cases land here for your pre-review, then move to HR for the final decision.':disciplinaryIsTeamLeader?'File an Incident Report for a direct report here — it\'s pre-reviewed by the Senior Operations Manager, then finally decided by HR before it\'s shared with the employee.':'Cases decided by HR are shared here for you to review and sign.';
+    renderDisciplinary();
   }catch(error){
     $('teamDisciplinaryMessage').hidden=false;$('teamDisciplinaryMessage').className='message error';$('teamDisciplinaryMessage').textContent=error.response?.error||error.message;
   }
-  await refreshMyDisciplinary();
 }
-function openDisciplinaryForm(){
+function openDisciplinaryForm(record){
+  editingDisciplinaryId=record?record.violationId:null;
   const form=$('disciplinaryForm');
   form.reset();
-  form.elements.employeeEmail.innerHTML=teamDisciplinaryMembers.map(m=>`<option value="${esc(m.employeeEmail)}">${esc(m.employeeName)}</option>`).join('');
-  form.elements.category.innerHTML=(teamDisciplinaryMembers.length?['Attendance, Punctuality & Working Hours','Office Attire','Company Property, Information & Premises','Accurate Reporting of Information','Conflict of Interest','General Behavior',"Manager's Accountability",'Client-Facing / Transactional Conduct','Zero Tolerance']:[]).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  $('disciplinaryFormTitle').textContent=record?'Edit Incident Report':'File Incident Report';
+  form.elements.employeeEmail.innerHTML=disciplinaryMembers.map(m=>`<option value="${esc(m.employeeEmail)}">${esc(m.employeeName)}</option>`).join('');
+  form.elements.category.innerHTML=DISCIPLINARY_CATEGORIES_CLIENT.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   form.elements.tier.innerHTML=Object.keys(DISCIPLINE_TIER_LABELS).map(t=>`<option value="${esc(t)}">${esc(DISCIPLINE_TIER_LABELS[t])}</option>`).join('');
-  form.elements.infractionDate.value=todayET();
+  if(record){
+    form.elements.employeeEmail.value=record.employeeEmail;form.elements.employeeEmail.disabled=true;
+    form.elements.infractionDate.value=record.infractionDate;
+    form.elements.category.value=record.category;
+    form.elements.tier.value=record.tier;
+    form.elements.infractionDescription.value=record.infractionDescription;
+  }else{
+    form.elements.employeeEmail.disabled=false;
+    form.elements.infractionDate.value=todayET();
+  }
   $('disciplinaryFormError').hidden=true;
   $('disciplinaryFormModal').hidden=false;
 }
-$('newDisciplinaryBtn').onclick=()=>openDisciplinaryForm();
+$('newDisciplinaryBtn').onclick=()=>openDisciplinaryForm(null);
 $('disciplinaryFormCancel').onclick=()=>{$('disciplinaryFormModal').hidden=true};
 let disciplinaryFormSubmitting=false;
 $('disciplinaryForm').onsubmit=async event=>{
@@ -943,20 +976,25 @@ $('disciplinaryForm').onsubmit=async event=>{
   const values=Object.fromEntries(new FormData(event.currentTarget));
   $('disciplinaryFormError').hidden=true;
   try{
-    await fileDisciplinary(values);
+    if(editingDisciplinaryId){
+      await updateTeamDisciplinary(editingDisciplinaryId,values);
+      setMessage('Incident report updated.','ok');
+    }else{
+      await fileDisciplinary(values);
+      setMessage('Incident report filed. It will be pre-reviewed, then decided by HR.','ok');
+    }
     $('disciplinaryFormModal').hidden=true;
-    setMessage('Incident report filed. HR will review and decide the sanction.','ok');
     await loadDisciplinaryTab();
   }catch(error){
     $('disciplinaryFormError').hidden=false;$('disciplinaryFormError').textContent=error.response?.error||error.message;
   }finally{disciplinaryFormSubmitting=false;submitBtn.disabled=false}
 };
-$('teamDisciplinaryBody').addEventListener('click',async event=>{
-  const viewId=event.target.dataset.viewTeamDisciplinary;
+$('disciplinaryBody').addEventListener('click',async event=>{
+  const viewId=event.target.dataset.viewDisciplinary;
   const editId=event.target.dataset.editDisciplinary;
   const withdrawId=event.target.dataset.withdrawDisciplinary;
-  if(viewId){const record=teamDisciplinaryRecords.find(r=>r.violationId===viewId);if(record)openDisciplinaryViewModal(record);return}
-  if(editId){setMessage('Editing a filed case is not yet supported from this list — withdraw and re-file if changes are needed.','error');return}
+  if(viewId){const record=disciplinaryRecords.find(r=>r.violationId===viewId);if(record)openDisciplinaryViewModal(record);return}
+  if(editId){const record=disciplinaryRecords.find(r=>r.violationId===editId);if(record)openDisciplinaryForm(record);return}
   if(withdrawId){
     if(!confirm('Withdraw this incident report? This cannot be undone.'))return;
     try{await withdrawTeamDisciplinary(withdrawId);setMessage('Incident report withdrawn.','ok');await loadDisciplinaryTab()}catch(error){$('teamDisciplinaryMessage').hidden=false;$('teamDisciplinaryMessage').className='message error';$('teamDisciplinaryMessage').textContent=error.response?.error||error.message}
@@ -1029,7 +1067,7 @@ function openDisciplinaryViewModal(record){
   const showPreDecideForm=disciplinaryCanPreDecide&&record.status==='FILED';
   const showDecideForm=disciplinaryCanDecide&&record.status==='PRE_DECIDED';
   const showAckForm=isEmployee&&record.status==='DECIDED';
-  const isOwnerTeamLead=teamDisciplinaryRecords.some(r=>r.violationId===record.violationId)&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
+  const isOwnerTeamLead=sessionUser&&record.teamLeadEmail===sessionUser.employeeEmail&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
   $('disciplinaryPreDecideForm').hidden=!showPreDecideForm;
   $('disciplinaryPreDecideSubmit').hidden=!showPreDecideForm;
   $('disciplinaryDecideForm').hidden=!showDecideForm;
@@ -1056,12 +1094,6 @@ function openDisciplinaryViewModal(record){
 }
 $('disciplinaryPreTierInput').onchange=()=>{populateSanctionOptions('disciplinaryPreSanctionInput',$('disciplinaryPreTierInput').value,'')};
 $('disciplinaryFinalTierInput').onchange=()=>{populateSanctionOptions('disciplinaryFinalSanctionInput',$('disciplinaryFinalTierInput').value,'')};
-$('myDisciplinaryBody').addEventListener('click',event=>{
-  const id=event.target.dataset.viewDisciplinary;
-  if(!id)return;
-  const record=myDisciplinaryRecords.find(r=>r.violationId===id);
-  if(record)openDisciplinaryViewModal(record);
-});
 $('disciplinaryViewClose').onclick=()=>{$('disciplinaryViewModal').hidden=true};
 $('disciplinaryWithdrawBtn').onclick=async()=>{
   if(!viewingDisciplinaryRecord)return;
