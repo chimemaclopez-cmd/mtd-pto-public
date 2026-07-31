@@ -82,7 +82,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -473,6 +473,43 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
 // Snapshot of the employee's standing at the moment a coaching record is created - frozen
 // at creation time (never recomputed later), so the record stays an honest account of what
 // was true when the conversation happened, same principle as a PTO request's approvedDates.
+// Human-readable label per KPI metric key, scoped by kpiType since the same key means
+// different things across engines (e.g. Senior TSR's "bonus" is call-volume based, not
+// email/chat like Voice's). Falls back to a title-cased key for any kpiType/key this
+// map doesn't know about, so an unrecognized metric still renders instead of vanishing.
+const KPI_METRIC_LABELS = {
+  'Voice Jr TSR': { csat: 'CSAT', calls: 'Calls per Day', lcr: 'Long Call Rate', bonus: 'Email/Chat Bonus' },
+  'Voice Sr TSR': { csat: 'CSAT', calls: 'Calls per Day', lcr: 'Long Call Rate', bonus: 'Email/Chat Bonus' },
+  'Non-Voice Jr TSR': { csat: 'CSAT', tickets: 'Tickets Solved', frt: 'First Response Time', bonus: 'Call Bonus' },
+  'Non-Voice Sr TSR': { csat: 'CSAT', tickets: 'Tickets Solved', frt: 'First Response Time', bonus: 'Call Bonus' },
+  'Senior TSR': { csat: 'CSAT (informational)', lcr: 'Long Call Rate (informational)', team: 'Team Average Base KPI', tickets: 'Tickets Updated', bonus: 'Call Volume Bonus' }
+};
+const KPI_METRIC_KEYS = ['csat', 'calls', 'lcr', 'bonus', 'tickets', 'frt', 'team'];
+function metricValueText(m) {
+  if (Number.isFinite(m.rate)) return `${Math.round(m.rate * 10) / 10}%`;
+  if (Number.isFinite(m.average)) return `${Math.round(m.average * 10) / 10}%`;
+  if (Number.isFinite(m.averageMinutes)) return `${Math.round(m.averageMinutes)} min avg`;
+  if (Number.isFinite(m.dailyAverage)) return `${Math.round(m.dailyAverage * 10) / 10}/day`;
+  if (Number.isFinite(m.solved)) return `${m.solved} solved`;
+  if (Number.isFinite(m.unique)) return `${m.unique} updated`;
+  if (Number.isFinite(m.accepted)) return `${m.accepted} calls`;
+  return m.formula || '—';
+}
+function summarizeKpiMetrics(kpiRow) {
+  if (!kpiRow) return [];
+  const labels = KPI_METRIC_LABELS[kpiRow.kpiType] || {};
+  return KPI_METRIC_KEYS.filter(k => kpiRow[k] && typeof kpiRow[k] === 'object').map(k => {
+    const m = kpiRow[k];
+    return {
+      key: k,
+      label: labels[k] || (k.charAt(0).toUpperCase() + k.slice(1)),
+      value: metricValueText(m),
+      formula: m.formula || '',
+      points: Number.isFinite(m.points) ? m.points : (Number.isFinite(m.bonus) ? m.bonus : null),
+      status: m.status || ''
+    };
+  });
+}
 async function buildCoachingStandingSnapshot(email) {
   const [kpiResults, attendance] = await Promise.all([loadKpiResultsSnapshot(), loadAttendanceSnapshot()]);
   const periods = kpiResults.periods || {};
@@ -481,21 +518,136 @@ async function buildCoachingStandingSnapshot(email) {
   const today = todayEasternDate();
   const last30 = ptoLogic.dateRange(shiftDate(today, -30), today);
   const counts = {};
+  const lateOccurrences = [];
+  const slOccurrences = [];
   for (const date of last30) {
     const code = ptoLogic.attendanceCodeOnDate(attendance, email, date);
-    if (code && code !== 'ONSITE' && code !== 'WFH' && code !== 'RD') counts[code] = (counts[code] || 0) + 1;
+    if (!code || code === 'ONSITE' || code === 'WFH' || code === 'RD') continue;
+    counts[code] = (counts[code] || 0) + 1;
+    if (code === 'LATE') {
+      lateOccurrences.push({ date, minutesLate: ptoLogic.attendanceMinutesLateOnDate(attendance, email, date), reason: ptoLogic.attendanceReasonOnDate(attendance, email, date) || '' });
+    } else if (code === 'SL' || code === 'SL-HD') {
+      slOccurrences.push({ date, code, reason: ptoLogic.attendanceReasonOnDate(attendance, email, date) || '' });
+    }
   }
   return {
     kpiPeriod: latestPeriod || null,
     kpiType: kpiRow?.kpiType || null,
     finalKpi: kpiRow?.finalKpi ?? null,
+    baseKpi: kpiRow?.baseKpi ?? null,
     performanceStatus: kpiRow?.performanceStatus || 'Not Rated',
+    metrics: summarizeKpiMetrics(kpiRow),
     last30DayAttendanceCounts: counts,
+    last30DayLateOccurrences: lateOccurrences,
+    last30DaySlOccurrences: slOccurrences,
     snapshotTakenAt: new Date().toISOString()
   };
 }
 function todayEasternDate() { const p = easternDateParts(new Date()); return `${p.year}-${p.month}-${p.day}`; }
 function shiftDate(dateStr, deltaDays) { const [y, m, d] = dateStr.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d)); dt.setUTCDate(dt.getUTCDate() + deltaDays); return dt.toISOString().slice(0, 10); }
+function shiftMonths(dateStr, deltaMonths) { const [y, m, d] = dateStr.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1 + deltaMonths, d)); return dt.toISOString().slice(0, 10); }
+
+// --- Disciplinary Records (team lead files an Incident Report, HR decides the sanction,
+// rep acknowledges) - mirrors the Coaching storage helpers above (direct shared KV, no
+// snapshot/queue indirection). Distinct from Coaching per the handbook's own distinction:
+// "coaching...is not deemed as a sanction." Based on Moatable's Code of Conduct and
+// Discipline (progressive sanction ladder + prescriptive/cleansing period).
+const DISCIPLINARY_KEY = 'mtdkpi:violations';
+const DISCIPLINARY_AUDIT_KEY = 'mtdkpi:violation-audit';
+const DISCIPLINARY_CATEGORIES = [
+  'Attendance, Punctuality & Working Hours',
+  'Office Attire',
+  'Company Property, Information & Premises',
+  'Accurate Reporting of Information',
+  'Conflict of Interest',
+  'General Behavior',
+  "Manager's Accountability",
+  'Client-Facing / Transactional Conduct',
+  'Zero Tolerance'
+];
+const DISCIPLINE_TIERS = ['Misdemeanor', 'MinorOffense', 'MajorOffense', 'GraveOffense', 'Terminable'];
+const DISCIPLINE_TIER_LABELS = { Misdemeanor: 'Misdemeanor', MinorOffense: 'Minor Offense', MajorOffense: 'Major Offense', GraveOffense: 'Grave Offense', Terminable: 'Terminable Offense' };
+// Progressive ladder by instance count at that tier - matches the handbook's table
+// exactly. A 6th+ instance of a tier whose ladder tops out sooner (e.g. Grave Offense's
+// 2-rung ladder) stays at the ladder's last rung (Termination), it does not go out of
+// bounds.
+const DISCIPLINE_LADDER = {
+  Misdemeanor: ['Coaching', 'Verbal Warning', 'Written Warning', 'Final Warning', 'Termination'],
+  MinorOffense: ['Verbal Warning', 'Written Warning', 'Final Warning', 'Termination'],
+  MajorOffense: ['Written Warning', 'Final Warning', 'Termination'],
+  GraveOffense: ['Final Warning', 'Termination'],
+  Terminable: ['Termination']
+};
+// Prescriptive/cleansing period in months per tier - null means it never cleanses
+// (Terminable offenses carry no prescription period per the handbook).
+const DISCIPLINE_CLEANSING_MONTHS = { Misdemeanor: 6, MinorOffense: 9, MajorOffense: 12, GraveOffense: 12, Terminable: null };
+// Two-stage decision authority for disciplinary cases, distinct from PTO's single final
+// approver: Charlotte (Senior Ops Manager) does the preliminary review after a team lead
+// files, then Janet (HR) gives the actual final decision before it's shared with the
+// employee.
+const PRE_DISCIPLINARY_APPROVER_EMAIL = 'charlotte@lofty.com';
+const FINAL_DISCIPLINARY_APPROVER_EMAIL = 'janet.memoracion@moatable.com';
+// Drives which tabs pto-public.html shows a signed-in user - most accounts are a normal
+// rep/team-lead ('REP', the default), but a couple of identities hold a narrower,
+// oversight-only role instead of day-to-day queue work, so their portal view is curated
+// down to just what that role actually uses.
+function portalRoleFor(email) {
+  const clean = ptoLogic.cleanEmail(email);
+  if (clean === FINAL_DISCIPLINARY_APPROVER_EMAIL) return 'HR';
+  if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
+  return 'REP';
+}
+
+async function loadDisciplinary() { return cloudStore.kvGetJson(DISCIPLINARY_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
+async function saveDisciplinary(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(DISCIPLINARY_KEY, data); return data; }
+async function loadDisciplinaryAudit() { return cloudStore.kvGetJson(DISCIPLINARY_AUDIT_KEY, { version: 1, events: [] }); }
+async function saveDisciplinaryAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(DISCIPLINARY_AUDIT_KEY, data); return data; }
+async function appendDisciplinaryAudit(violationId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
+  const data = await loadDisciplinaryAudit();
+  data.events.push({ auditId: `VIOL-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, violationId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
+  await saveDisciplinaryAudit(data);
+}
+async function disciplinaryReviewAccess(identity, employeeName = '') {
+  const roster = await loadRosterSnapshot();
+  const records = roster.records || [];
+  const cleanIdentity = ptoLogic.cleanEmail(identity);
+  const self = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
+  const leaderName = String(self?.employeeName || employeeName || '').trim().toLowerCase();
+  const memberEmails = new Set(records.filter(x =>
+    ptoLogic.cleanEmail(x.employeeEmail) !== cleanIdentity &&
+    (ptoLogic.cleanEmail(x.teamLeadEmail) === cleanIdentity ||
+      (leaderName && String(x.teamLeadName || '').trim().toLowerCase() === leaderName))
+  ).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+  return {
+    memberEmails, isTeamLeader: memberEmails.size > 0,
+    canPreDecide: cleanIdentity === PRE_DISCIPLINARY_APPROVER_EMAIL,
+    canDecide: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL,
+    isHrOnly: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL
+  };
+}
+// Counts this employee's still-active (non-cleansed) prior violations at this exact tier
+// - counting ANY infraction at that tier, not just repeats of the same specific rule, per
+// the handbook's literal per-tier ladder and its "series of light offenses" habitualness
+// clause. A record with no cleansingExpiryDate yet (not yet decided by HR) still counts -
+// an undecided case is still an active case, not a cleansed one.
+function disciplinaryInstanceAndSanction(tier, employeeEmail, infractionDate, existingRecords) {
+  const email = ptoLogic.cleanEmail(employeeEmail);
+  const activeCount = (existingRecords || []).filter(r =>
+    ptoLogic.cleanEmail(r.employeeEmail) === email &&
+    r.status !== 'WITHDRAWN' &&
+    (r.finalTier || r.preTier || r.tier) === tier &&
+    (!r.cleansingExpiryDate || r.cleansingExpiryDate > infractionDate)
+  ).length;
+  const instanceNumber = activeCount + 1;
+  const ladder = DISCIPLINE_LADDER[tier] || [];
+  const suggestedSanction = ladder[Math.min(instanceNumber, ladder.length) - 1] || ladder[ladder.length - 1] || 'Termination';
+  return { instanceNumber, suggestedSanction };
+}
+function disciplinaryCleansingExpiry(sanctionDate, tier) {
+  const months = DISCIPLINE_CLEANSING_MONTHS[tier];
+  if (months == null) return null;
+  return shiftMonths(sanctionDate, months);
+}
 
 // --- Rep self-reported status (Online/Break/Lunch/Offline Task) - a live "what am I doing right
 // now" flag reps set themselves, separate from the schedule. Admins compare it against the
@@ -643,7 +795,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), portalRole: portalRoleFor(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -742,7 +894,7 @@ const server = http.createServer(async (req, res) => {
     const mustChangePassword = Boolean(credential?.mustChangePassword);
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), portalRole: portalRoleFor(session.employeeEmail) });
     }
 
     if (parsed.pathname === '/api/my/tour-complete' && req.method === 'POST') {
@@ -1203,7 +1355,8 @@ const server = http.createServer(async (req, res) => {
           const auto = attendance.autoEntries?.[email]?.[date] || null;
           const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
           const minutesLate = ptoLogic.attendanceMinutesLateOnDate(attendance, email, date);
-          return { date, eligible, locked: Boolean(auto), code, minutesLate, displayLabel: auto?.displayLabel || '' };
+          const reason = ptoLogic.attendanceReasonOnDate(attendance, email, date);
+          return { date, eligible, locked: Boolean(auto), code, minutesLate, reason, displayLabel: auto?.displayLabel || '' };
         });
         return { employeeEmail: email, employeeName: emp.employeeName, days };
       });
@@ -1234,8 +1387,12 @@ const server = http.createServer(async (req, res) => {
           const resolved = ptoLogic.scheduleForDate(schedules, email, date);
           if (resolved.missingSchedule || !resolved.template || resolved.template.off) { skipped.push({ employeeEmail: email, date, reason: 'Not a scheduled workday.' }); continue; }
           const minutesLate = isObj && code === 'LATE' && Number.isFinite(Number(rawValue.minutesLate)) && Number(rawValue.minutesLate) > 0 ? Math.round(Number(rawValue.minutesLate)) : null;
+          const reason = isObj && typeof rawValue.reason === 'string' ? rawValue.reason.trim().slice(0, 300) : '';
           accepted[email] ??= {};
-          accepted[email][date] = minutesLate != null ? { status: code, minutesLate } : code;
+          const extra = {};
+          if (minutesLate != null) extra.minutesLate = minutesLate;
+          if (reason) extra.reason = reason;
+          accepted[email][date] = Object.keys(extra).length ? { status: code, ...extra } : code;
         }
       }
       if (Object.keys(accepted).length) {
@@ -1395,6 +1552,155 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/coaching' && req.method === 'GET') {
       const data = await loadCoaching();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'GET') {
+      const [roster, access] = await Promise.all([loadRosterSnapshot(), disciplinaryReviewAccess(identity, session.employeeName)]);
+      const data = await loadDisciplinary();
+      const allRecords = data.records || [];
+      const records = (access.canDecide || access.canPreDecide)
+        ? allRecords.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        : allRecords.filter(x => access.memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const assignedMembers = (roster.records || []).filter(x => access.memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)));
+      return json(res, 200, {
+        ok: true, isTeamLeader: access.isTeamLeader, canPreDecide: access.canPreDecide, canDecide: access.canDecide,
+        categories: DISCIPLINARY_CATEGORIES, tiers: DISCIPLINE_TIERS, tierLabels: DISCIPLINE_TIER_LABELS,
+        members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })),
+        records, lastUpdated: data.lastUpdated || ''
+      });
+    }
+
+    if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const infractionDate = String(body.infractionDate || '');
+      const category = String(body.category || '');
+      const tier = String(body.tier || '');
+      const infractionDescription = String(body.infractionDescription || '').trim();
+      if (!email || !ptoLogic.validDate(infractionDate)) return json(res, 400, { ok: false, error: 'A valid employee and infraction date are required.' });
+      if (!DISCIPLINARY_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid infraction category is required.' });
+      if (!DISCIPLINE_TIERS.includes(tier)) return json(res, 400, { ok: false, error: 'A valid infraction tier is required.' });
+      if (!infractionDescription) return json(res, 400, { ok: false, error: 'A description of the infraction is required.' });
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+      const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
+      if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const data = await loadDisciplinary();
+      const { instanceNumber, suggestedSanction } = disciplinaryInstanceAndSanction(tier, email, infractionDate, data.records || []);
+      const year = infractionDate.slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const violationId = `VIOL-${year}-${String(sequence).padStart(4, '0')}`;
+      const now = new Date().toISOString();
+      const record = {
+        violationId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
+        teamLeadEmail: identity, teamLeadName: leaderName || session.employeeName || '',
+        category, tier, infractionDescription, infractionDate, filedDate: todayEasternDate(),
+        instanceNumber, suggestedSanction,
+        preTier: null, preSanction: null, preNotes: '', preDecidedBy: null, preDecidedByName: null, preDecidedAt: null,
+        finalTier: null, finalSanction: null, circumstanceNotes: '', sanctionDate: null, cleansingExpiryDate: null,
+        status: 'FILED', decidedBy: null, decidedByName: null,
+        acknowledgment: null, createdAt: now, updatedAt: now, createdBy: identity
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveDisciplinary(data);
+      await appendDisciplinaryAudit(violationId, 'FILED', { user: identity, newValue: record });
+      return json(res, 201, { ok: true, record });
+    }
+
+    const violationMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?disciplinary\/([^/]+)(?:\/(predecide|decide|acknowledge))?$/);
+    if (violationMatch) {
+      const violationId = decodeURIComponent(violationMatch[1]), action = violationMatch[2] || '';
+      const data = await loadDisciplinary();
+      const index = (data.records || []).findIndex(x => x.violationId === violationId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Disciplinary record not found.' });
+      const current = data.records[index];
+      const access = await disciplinaryReviewAccess(identity, session.employeeName);
+      const isOwner = ptoLogic.cleanEmail(current.teamLeadEmail) === identity;
+      if (req.method === 'GET' && !action) {
+        const isEmployee = ptoLogic.cleanEmail(current.employeeEmail) === identity;
+        if (!isOwner && !access.canDecide && !access.canPreDecide && !isEmployee) return json(res, 403, { ok: false, error: 'Not authorized to view this record.' });
+        if (isEmployee && !isOwner && !access.canDecide && !access.canPreDecide && !['DECIDED', 'ACKNOWLEDGED'].includes(current.status)) return json(res, 404, { ok: false, error: 'Disciplinary record not found.' });
+        return json(res, 200, { ok: true, record: current });
+      }
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      if (req.method === 'PUT' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who filed this record can edit it.' });
+        if (current.status !== 'FILED') return json(res, 409, { ok: false, error: 'Only a case still awaiting pre-review can be edited.' });
+        const tier = DISCIPLINE_TIERS.includes(body.tier) ? body.tier : current.tier;
+        const infractionDate = ptoLogic.validDate(body.infractionDate) ? body.infractionDate : current.infractionDate;
+        const { instanceNumber, suggestedSanction } = disciplinaryInstanceAndSanction(tier, current.employeeEmail, infractionDate, (data.records || []).filter(x => x.violationId !== violationId));
+        const next = {
+          ...current,
+          category: DISCIPLINARY_CATEGORIES.includes(body.category) ? body.category : current.category,
+          tier, infractionDate, instanceNumber, suggestedSanction,
+          infractionDescription: String(body.infractionDescription ?? current.infractionDescription).trim(),
+          updatedAt: now
+        };
+        data.records[index] = next;
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'EDITED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who filed this record can withdraw it.' });
+        if (!['FILED', 'PRE_DECIDED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a case still awaiting a final decision can be withdrawn.' });
+        data.records[index] = { ...current, status: 'WITHDRAWN', updatedAt: now };
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'WITHDRAWN', { user: identity, previousValue: current.status, newValue: 'WITHDRAWN' });
+        return json(res, 200, { ok: true, record: data.records[index] });
+      }
+      if (action === 'predecide') {
+        if (!access.canPreDecide) return json(res, 403, { ok: false, error: 'Only the Senior Operations Manager can pre-review a disciplinary case.' });
+        if (current.status !== 'FILED') return json(res, 409, { ok: false, error: 'Only a newly filed case can be pre-reviewed.' });
+        const preTier = DISCIPLINE_TIERS.includes(body.preTier) ? body.preTier : current.tier;
+        const preNotes = String(body.preNotes || '').trim();
+        const { suggestedSanction: ladderSanction } = disciplinaryInstanceAndSanction(preTier, current.employeeEmail, current.infractionDate, (data.records || []).filter(x => x.violationId !== violationId));
+        const preSanction = DISCIPLINE_LADDER[preTier]?.includes(body.preSanction) ? body.preSanction : ladderSanction;
+        const next = { ...current, preTier, preSanction, preNotes, status: 'PRE_DECIDED', preDecidedBy: identity, preDecidedByName: session.employeeName, preDecidedAt: now, updatedAt: now };
+        data.records[index] = next;
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'PRE_DECIDED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (action === 'decide') {
+        if (!access.canDecide) return json(res, 403, { ok: false, error: 'Only HR can make the final decision on a disciplinary case.' });
+        if (current.status !== 'PRE_DECIDED') return json(res, 409, { ok: false, error: 'This case must be pre-reviewed by the Senior Operations Manager first.' });
+        const baseTier = current.preTier || current.tier;
+        const finalTier = DISCIPLINE_TIERS.includes(body.finalTier) ? body.finalTier : baseTier;
+        const sanctionDate = ptoLogic.validDate(body.sanctionDate) ? body.sanctionDate : todayEasternDate();
+        const circumstanceNotes = String(body.circumstanceNotes || '').trim();
+        if (finalTier !== baseTier && !circumstanceNotes) return json(res, 400, { ok: false, error: 'Please note the mitigating/aggravating circumstance for adjusting the tier.' });
+        const { suggestedSanction: ladderSanction } = disciplinaryInstanceAndSanction(finalTier, current.employeeEmail, current.infractionDate, (data.records || []).filter(x => x.violationId !== violationId));
+        const finalSanction = DISCIPLINE_LADDER[finalTier]?.includes(body.finalSanction) ? body.finalSanction : ladderSanction;
+        const cleansingExpiryDate = disciplinaryCleansingExpiry(sanctionDate, finalTier);
+        const next = { ...current, finalTier, finalSanction, circumstanceNotes, sanctionDate, cleansingExpiryDate, status: 'DECIDED', decidedBy: identity, decidedByName: session.employeeName, updatedAt: now };
+        data.records[index] = next;
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'DECIDED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (action === 'acknowledge') {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only sign your own disciplinary record.' });
+        if (current.status !== 'DECIDED') return json(res, 409, { ok: false, error: 'Only a decided case can be acknowledged.' });
+        const signedName = String(body.signedName || '').trim();
+        if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
+        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, employeeComments: String(body.employeeComments || '').trim() } };
+        data.records[index] = next;
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
+        return json(res, 200, { ok: true, record: next });
+      }
+      return json(res, 404, { ok: false, error: 'Unknown disciplinary action.' });
+    }
+
+    if (parsed.pathname === '/api/my/disciplinary' && req.method === 'GET') {
+      const data = await loadDisciplinary();
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && ['DECIDED', 'ACKNOWLEDGED'].includes(x.status)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
     }
 

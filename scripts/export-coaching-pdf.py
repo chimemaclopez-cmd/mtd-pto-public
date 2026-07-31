@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+from xml.sax.saxutils import escape as xml_escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -30,6 +31,7 @@ MOATABLE_LOGO_PATH = os.path.join(SCRIPT_DIR, '..', 'shared', 'img', 'moatable-l
 NAVY = colors.HexColor('#2E46B8')
 LINE = colors.HexColor('#DFE2EA')
 PAGE_WIDTH = 6.7 * inch
+COL_GUTTER = 16  # points of breathing room between adjacent columns in 2-column grids
 
 # Mirrors shared/scoring.js's performanceStatus() tiering - color-coded the same way a
 # BPO QA scorecard would flag a rep's standing at a glance.
@@ -38,6 +40,13 @@ STATUS_COLORS = {
     'Meets': colors.HexColor('#2E46B8'), 'Watch': colors.HexColor('#BA7517'),
     'Intervention': colors.HexColor('#C2313A'), 'Not Rated': colors.HexColor('#5B6274'),
 }
+
+INTRO_SCRIPT = (
+    "This Employee Coaching Form documents a coaching conversation between a team lead and "
+    "a team member. It records the employee's standing at the time of the session, the "
+    "specific behavior or performance discussed, the plan agreed on to address it, and the "
+    "employee's acknowledgment that the conversation took place."
+)
 
 ACKNOWLEDGMENT_SCRIPT = (
     "I acknowledge that I have reviewed and discussed the coaching session detailed above "
@@ -84,10 +93,57 @@ def attendance_flags_line(standing):
     return f"Last 30 days: {flags}"
 
 
+def late_occurrence_text(o):
+    date = xml_escape(o.get('date', ''))
+    bits = []
+    if o.get('minutesLate') is not None:
+        bits.append(f"{o['minutesLate']} min")
+    if o.get('reason'):
+        bits.append(xml_escape(o['reason']))
+    return f"{date} ({', '.join(bits)})" if bits else date
+
+
+def sl_occurrence_text(o):
+    date = xml_escape(o.get('date', ''))
+    return f"{date} ({xml_escape(o['reason'])})" if o.get('reason') else date
+
+
+def occurrence_paragraph(styles, label, items, detail_fn):
+    if not items:
+        return None
+    parts = '; '.join(detail_fn(o) for o in items)
+    return Paragraph(f"<b>{label}:</b> {parts}", styles['CellBody'])
+
+
+def metrics_table(styles, standing):
+    metrics = (standing or {}).get('metrics') or []
+    if not metrics:
+        return None
+    header = [Paragraph('<b>Metric</b>', styles['FieldLabel']), Paragraph('<b>Value</b>', styles['FieldLabel']), Paragraph('<b>Points</b>', styles['FieldLabel'])]
+    rows = [header]
+    for m in metrics:
+        points = m.get('points')
+        points_text = f"{points} pts" if isinstance(points, (int, float)) else (m.get('status') or '—')
+        rows.append([
+            Paragraph(xml_escape(m.get('label', '')), styles['CellBody']),
+            Paragraph(xml_escape(str(m.get('value') or '—')), styles['CellBody']),
+            Paragraph(xml_escape(str(points_text)), styles['CellBody']),
+        ])
+    t = Table(rows, colWidths=[PAGE_WIDTH * 0.45, PAGE_WIDTH * 0.30, PAGE_WIDTH * 0.25])
+    t.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, 0), 0.75, LINE),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.5, LINE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    return t
+
+
 def build_styles():
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle('FormTitle', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=18, spaceAfter=2))
-    styles.add(ParagraphStyle('FormSubtitle', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=9, textColor=colors.HexColor('#5B6274'), spaceAfter=16, alignment=1))
+    styles.add(ParagraphStyle('FormTitle', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=18, leading=24, spaceAfter=6))
+    styles.add(ParagraphStyle('FormSubtitle', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=9, textColor=colors.HexColor('#5B6274'), spaceAfter=10, alignment=1))
+    styles.add(ParagraphStyle('IntroScript', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=colors.HexColor('#333333'), leading=13, alignment=1, spaceAfter=16))
     styles.add(ParagraphStyle('CardHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10.5, textColor=colors.white))
     styles.add(ParagraphStyle('FieldLabel', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#5B6274'), spaceAfter=1))
     styles.add(ParagraphStyle('FieldValue', parent=styles['Normal'], fontName='Helvetica', fontSize=9.5, leading=13))
@@ -156,6 +212,7 @@ def identification_card(styles, record):
     grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, -1), COL_GUTTER), ('LEFTPADDING', (1, 0), (1, -1), COL_GUTTER),
         ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
     return card(styles, 'EMPLOYEE INFORMATION', grid)
@@ -167,11 +224,24 @@ def standing_card(styles, record):
     lines = []
     if status:
         row = Table([[Paragraph(kpi_prefix, styles['CellBody']), status_badge(styles, status)]], colWidths=[PAGE_WIDTH - 1.4 * inch, 1.4 * inch])
-        row.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
+        row.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (0, -1), COL_GUTTER), ('RIGHTPADDING', (1, 0), (1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
         lines.append(row)
     else:
         lines.append(Paragraph(kpi_prefix, styles['CellBody']))
+    mt = metrics_table(styles, standing)
+    if mt:
+        lines.append(Spacer(1, 4))
+        lines.append(mt)
+        lines.append(Spacer(1, 6))
     lines.append(Paragraph(attendance_flags_line(standing), styles['CellBody']))
+    late_p = occurrence_paragraph(styles, 'Late Arrivals', (standing or {}).get('last30DayLateOccurrences'), late_occurrence_text)
+    if late_p:
+        lines.append(Spacer(1, 3))
+        lines.append(late_p)
+    sl_p = occurrence_paragraph(styles, 'Sick Leave', (standing or {}).get('last30DaySlOccurrences'), sl_occurrence_text)
+    if sl_p:
+        lines.append(Spacer(1, 3))
+        lines.append(sl_p)
     return card(styles, 'CURRENT STANDING', lines)
 
 
@@ -183,6 +253,41 @@ def logo_header():
     table = Table([[lofty_img, moatable_img]], colWidths=[PAGE_WIDTH / 2, PAGE_WIDTH / 2])
     table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (0, 0), 'LEFT'), ('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
     return table
+
+
+def wet_signature_block(styles):
+    # For a printed copy submitted to HR: an actual pen-and-paper signature line per
+    # person (bottom-border-only cells with generous top padding to leave room for ink),
+    # each paired with its own Date line - separate from, and in addition to, the
+    # electronic acknowledgment above.
+    def person_block(name_label):
+        col_widths = [1.55 * inch, 0.85 * inch]
+        lines = Table([['', '']], colWidths=col_widths)
+        lines.setStyle(TableStyle([
+            ('LINEBELOW', (0, 0), (0, 0), 0.75, colors.black), ('LINEBELOW', (1, 0), (1, 0), 0.75, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 22), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (0, -1), 10), ('LEFTPADDING', (1, 0), (1, -1), 10),
+        ]))
+        labels = Table([[Paragraph(f'{name_label} Signature over Printed Name', styles['FieldLabel']), Paragraph('Date', styles['FieldLabel'])]], colWidths=col_widths)
+        labels.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (0, -1), 10), ('LEFTPADDING', (1, 0), (1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        return [lines, labels]
+    grid = Table([
+        [person_block('Employee'), person_block('Team Lead')],
+    ], colWidths=[PAGE_WIDTH / 2, PAGE_WIDTH / 2])
+    grid.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, -1), COL_GUTTER), ('LEFTPADDING', (1, 0), (1, -1), COL_GUTTER),
+        ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    return [
+        Paragraph('For a printed copy submitted to HR, sign below:', styles['FieldLabel']),
+        Spacer(1, 4),
+        grid,
+    ]
 
 
 def signature_card(styles, record):
@@ -200,9 +305,12 @@ def signature_card(styles, record):
     ], colWidths=[PAGE_WIDTH / 2, PAGE_WIDTH / 2])
     grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LINEABOVE', (0, 1), (-1, 1), 0.75, LINE), ('TOPPADDING', (0, 1), (-1, 1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, -1), COL_GUTTER), ('LEFTPADDING', (1, 0), (1, -1), COL_GUTTER),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
-    body = [Paragraph(ACKNOWLEDGMENT_SCRIPT, styles['AckScript']), grid]
+    body = [Paragraph(ACKNOWLEDGMENT_SCRIPT, styles['AckScript']), grid, Spacer(1, 16)]
+    body.extend(wet_signature_block(styles))
     return card(styles, 'ACKNOWLEDGMENT', body)
 
 
@@ -212,8 +320,9 @@ def build_pdf(out_path, record):
     story = [
         logo_header(),
         Spacer(1, 10),
-        Paragraph('COACHING FORM', styles['FormTitle']),
+        Paragraph('EMPLOYEE COACHING FORM', styles['FormTitle']),
         Paragraph('A record of a coaching conversation between a Lofty team lead and team member.', styles['FormSubtitle']),
+        Paragraph(INTRO_SCRIPT, styles['IntroScript']),
         identification_card(styles, record),
         Spacer(1, 12),
         standing_card(styles, record),
@@ -228,7 +337,9 @@ def build_pdf(out_path, record):
     ], colWidths=[PAGE_WIDTH * 0.68, PAGE_WIDTH * 0.32])
     plan_grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LINEABOVE', (0, 1), (-1, 1), 0.75, LINE), ('TOPPADDING', (0, 1), (-1, 1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, -1), COL_GUTTER), ('LEFTPADDING', (1, 0), (1, -1), COL_GUTTER),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, 0), 6),
     ]))
     plan_body.append(plan_grid)

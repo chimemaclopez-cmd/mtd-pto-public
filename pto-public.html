@@ -102,7 +102,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — PTO requests, performance, and more.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><span class="sub" id="whoami"></span><div class="headerButtonRow"><div class="field" style="min-width:180px"><label>Status</label><select id="statusSelect" disabled></select></div><button class="btn primary" id="timeInBtn">Time In</button><button class="btn danger" id="timeOutBtn" hidden>Time Out</button><button class="btn" id="notifBtn" hidden>🔔 Notifications<span id="notifBadge" class="tabBadge" hidden></span></button><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="changePasswordBtn">Change Password</button><button class="btn" id="logoutBtn">Log Out</button></div></div></div></header>
 <div id="message" class="message" hidden></div>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
-<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button></div>
+<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button></div>
 <section id="profileCard" class="panel noPrint" hidden></section>
 <section id="kpiView" hidden><div id="teamKpiSection" hidden><div class="sectionTitle">My Team KPI Scores</div><div class="cards" id="teamKpiCards"></div><div class="teamGoalGrid"><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team CSAT Goal</div><div class="teamGoalTarget">Target: at least 90%</div></div><div class="teamGoalStats" id="teamCsatGoalStats"></div></div><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team Long Call Goal</div><div class="teamGoalTarget">Target: below 5%</div></div><div class="teamGoalStats" id="teamLcrGoalStats"></div></div></div><div class="repGoalPanel"><div class="repGoalHead"><div><div class="repGoalTitle">Rep Goal Tracker</div><div class="sub">Individual CSAT and long-call targets</div></div><div class="sub">CSAT ≥ 90% · Long calls &lt; 5%</div></div><div class="repGoalGrid" id="repGoalGrid"></div></div><div class="sub" id="teamKpiMeta"></div><div class="tableWrap" style="margin-top:10px"><table class="teamKpiTable"><thead><tr><th>Team Member</th><th>KPI Type</th><th>Eligible Workdays</th><th>CSAT</th><th>Productivity / Calls</th><th>LCR</th><th>Tickets</th><th>FRT</th><th>Team Metric</th><th>Updated Tickets</th><th>Bonus</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="teamKpiBody"></tbody></table></div></div><div class="sectionTitle" id="myKpiTitle">My KPI Score</div><div class="cards" id="kpiCards"></div><div class="sub" id="kpiMeta"></div><div class="tableWrap" id="kpiBreakdownWrap"><table><thead><tr><th>Metric</th><th>Actual</th><th>Points</th><th>Status</th></tr></thead><tbody id="kpiBreakdownBody"></tbody></table></div><div class="sectionTitle" id="kpiHistoryTitle" hidden>History</div><div class="tableWrap" id="kpiHistoryWrap" hidden><table><thead><tr><th>Period</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="kpiHistoryBody"></tbody></table></div></section>
 <section id="scheduleView" hidden><div class="actions noPrint"><button class="btn primary" id="scheduleTodayBtn">Today</button><button class="btn" id="scheduleWeekBtn">Weekly</button></div>
@@ -173,6 +173,71 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button type="button" class="btn primary" id="coachingSignSubmit" hidden>Sign &amp; Acknowledge</button>
 </div>
 </div></div>
+<section id="disciplinaryView" hidden>
+<div class="sectionTitle">My Disciplinary Records</div>
+<div class="sub">Cases decided by HR are shared here. Review and sign to acknowledge.</div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Infraction Date</th><th>Category</th><th>Tier</th><th>Sanction</th><th>Status</th><th>Actions</th></tr></thead><tbody id="myDisciplinaryBody"></tbody></table></div>
+<div id="teamDisciplinarySection" hidden style="margin-top:28px">
+<div class="actions noPrint" style="justify-content:space-between;align-items:center">
+<div class="sectionTitle" style="margin:0">Team Disciplinary Records</div>
+<button class="btn primary" id="newDisciplinaryBtn">File Incident Report</button>
+</div>
+<div class="sub" id="disciplinaryWorkflowNote">Team leads file an Incident Report; HR reviews and decides the final sanction.</div>
+<div id="teamDisciplinaryMessage" class="message" hidden></div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Employee</th><th>Infraction Date</th><th>Category</th><th>Tier</th><th>Instance #</th><th>Suggested Sanction</th><th>Status</th><th>Actions</th></tr></thead><tbody id="teamDisciplinaryBody"></tbody></table></div>
+</div>
+</section>
+<div class="modal" id="disciplinaryFormModal" hidden><form class="dialog" id="disciplinaryForm" role="dialog" aria-modal="true" style="max-width:720px">
+<div class="title">File Incident Report</div>
+<div class="formGrid" style="margin-top:12px">
+<div class="field"><label>Employee *</label><select name="employeeEmail" required></select></div>
+<div class="field"><label>Infraction Date *</label><input name="infractionDate" type="date" required></div>
+<div class="field" style="grid-column:1/-1"><label>Category *</label><select name="category" required></select></div>
+<div class="field" style="grid-column:1/-1"><label>Tier *</label><select name="tier" required></select></div>
+</div>
+<div class="field" style="margin-top:10px"><label>Description of Infraction *</label><textarea name="infractionDescription" required placeholder="What specifically happened? Cite dates, times, and any evidence."></textarea></div>
+<div id="disciplinaryFormError" class="message error" hidden style="margin-top:10px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button class="btn" type="button" id="disciplinaryFormCancel">Cancel</button>
+<button class="btn primary" type="submit">File Report</button>
+</div>
+</form></div>
+<div class="modal" id="disciplinaryViewModal" hidden><div class="dialog" style="max-width:780px" role="dialog" aria-modal="true">
+<div class="title">Disciplinary Record</div>
+<div id="disciplinaryViewDetail" style="line-height:1.6;margin-top:10px"></div>
+<div id="disciplinaryPreDecideForm" hidden>
+<div class="sub">Pre-review as Senior Operations Manager. Confirm or adjust the tier before this goes to HR for a final decision.</div>
+<div class="formGrid" style="margin-top:10px">
+<div class="field"><label>Tier *</label><select id="disciplinaryPreTierInput"></select></div>
+<div class="field"><label>Recommended Sanction</label><select id="disciplinaryPreSanctionInput"></select></div>
+</div>
+<div class="field" style="margin-top:8px"><label>Notes for HR (optional)</label><textarea id="disciplinaryPreNotesInput"></textarea></div>
+<div id="disciplinaryPreDecideError" class="message error" hidden style="margin-top:8px"></div>
+</div>
+<div id="disciplinaryDecideForm" hidden>
+<div class="sub">Final decision as HR. This is what gets shared with the employee.</div>
+<div class="formGrid" style="margin-top:10px">
+<div class="field"><label>Final Tier *</label><select id="disciplinaryFinalTierInput"></select></div>
+<div class="field"><label>Final Sanction</label><select id="disciplinaryFinalSanctionInput"></select></div>
+<div class="field"><label>Sanction Date *</label><input type="date" id="disciplinarySanctionDateInput"></div>
+</div>
+<div class="field" style="margin-top:8px"><label>Mitigating / Aggravating Circumstance Notes (required if tier is adjusted)</label><textarea id="disciplinaryCircumstanceNotesInput"></textarea></div>
+<div id="disciplinaryDecideError" class="message error" hidden style="margin-top:8px"></div>
+</div>
+<div id="disciplinaryAckForm" hidden>
+<div class="field" style="margin-top:14px"><label>Comments (optional)</label><textarea id="disciplinaryEmployeeCommentsInput" placeholder="Any comments or feedback"></textarea></div>
+<div class="field" style="margin-top:8px"><label>Type your full name to sign *</label><input type="text" id="disciplinarySignedNameInput" placeholder="Full name"></div>
+<div id="disciplinaryAckError" class="message error" hidden style="margin-top:8px"></div>
+</div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button type="button" class="btn" id="disciplinaryPreviewPdfBtn">Preview PDF</button>
+<button type="button" class="btn" id="disciplinaryWithdrawBtn" hidden>Withdraw</button>
+<button type="button" class="btn" id="disciplinaryViewClose">Close</button>
+<button type="button" class="btn primary" id="disciplinaryPreDecideSubmit" hidden>Send to HR</button>
+<button type="button" class="btn primary" id="disciplinaryDecideSubmit" hidden>Decide</button>
+<button type="button" class="btn primary" id="disciplinaryAckSubmit" hidden>Sign &amp; Acknowledge</button>
+</div>
+</div></div>
 <section id="requestsView" hidden><div class="actions noPrint" style="justify-content:flex-end"><button class="btn primary" id="newBtn">Create Request</button></div><div class="sectionTitle">My PTO Requests</div><div class="cards" id="requestCards"></div><div class="sub" id="requestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Date Requested</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Approver</th><th>Approver Notes</th><th>Decision</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="requestBody"></tbody></table></div><div id="teamPtoSection" hidden><div class="sectionTitle">Team PTO Review</div><div class="panel" style="margin-top:0"><div class="sub" id="teamPtoWorkflow">Team leaders provide preliminary approval. Final approval and schedule integration are completed by the admin portal or Charlotte Sanchez.</div></div><div class="cards" id="teamRequestCards"></div><div class="sub" id="teamRequestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Team Member</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Pre-Approval</th><th>Final Approval</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="teamRequestBody"></tbody></table></div></div></section>
 <section id="announcementsView" hidden><div id="announcementList"></div></section>
 <section id="forecastView" hidden><div class="cards" id="forecastCards"></div><div class="panel"><div class="sectionTitle">Staffing Forecast</div><div id="forecastStatus" class="sub">Select Forecast from a request.</div></div><div class="tableWrap"><table><thead><tr><th>Date</th><th>Voice Scheduled</th><th>Voice Already Out</th><th>Voice Proposed</th><th>Voice Remaining / Minimum</th><th>Non-Voice Scheduled</th><th>Non-Voice Already Out</th><th>Non-Voice Proposed</th><th>Non-Voice Remaining / Minimum</th><th>Senior Scheduled</th><th>Senior Already Out</th><th>Senior Proposed</th><th>Senior Remaining / Minimum</th><th>Status</th></tr></thead><tbody id="forecastBody"></tbody></table></div><div class="actions noPrint" style="margin-top:12px"><button class="btn" id="backToRequests">Back to My Requests</button></div></section>
@@ -196,14 +261,16 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile} from './shared/my-data-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements} from './shared/announcement-service.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching} from './shared/coaching-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements} from './shared/announcement-service.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myDisciplinaryRecords=[],teamDisciplinaryRecords=[],teamDisciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,viewingDisciplinaryRecord=null,portalRole='REP';
+const DISCIPLINE_LADDER={Misdemeanor:['Coaching','Verbal Warning','Written Warning','Final Warning','Termination'],MinorOffense:['Verbal Warning','Written Warning','Final Warning','Termination'],MajorOffense:['Written Warning','Final Warning','Termination'],GraveOffense:['Final Warning','Termination'],Terminable:['Termination']};
+const DISCIPLINE_TIER_LABELS={Misdemeanor:'Misdemeanor',MinorOffense:'Minor Offense',MajorOffense:'Major Offense',GraveOffense:'Grave Offense',Terminable:'Terminable Offense'};
 const lsHeader=document.querySelector('.header>.ls-header');if(lsHeader)$('headerRight').insertBefore(lsHeader,$('signedInActions'));
 function labelStatus(value){return PTO_STATUS_LABELS[value]||value}function localContext(){return{role:'REQUESTER',user:sessionUser?.employeeEmail||'',approverEmail:sessionUser?.employeeEmail||'',approverName:sessionUser?.employeeName||''}}
 function metricValue(key,m){switch(key){case'csat':return m.rate==null?'—':`${fmt(m.rate)}%`;case'lcr':return m.rate==null?'—':`${fmt(m.rate)}%`;case'calls':return m.dailyAverage==null?'—':`${fmt(m.dailyAverage)} calls/day avg`;case'bonus':return m.dailyAverage==null?'—':`${fmt(m.dailyAverage)} extra tickets/day avg`;case'tickets':return(m.solved??m.unique)==null?'—':`${fmt(m.solved??m.unique)} tickets`;case'frt':return m.hours==null?'—':`${fmt(m.hours)}h avg reply`;case'team':return m.average==null?'—':`${fmt(m.average)} avg base KPI`;default:return'—'}}
@@ -345,36 +412,69 @@ function announcementUnreadCount(){const lastSeen=localStorage.getItem('mtdkpi-l
 function renderAnnouncementBadge(){const count=announcementUnreadCount();$('announcementsBadge').hidden=!count;$('announcementsBadge').textContent=count>9?'9+':String(count)}
 function renderAnnouncements(){$('announcementList').innerHTML=announcements.map(x=>`<div class="announcementCard${x.priority==='URGENT'?' urgent':''}"><div class="head">${x.priority==='URGENT'?'<span class="pill status-failed">Urgent</span>':''}<b>${esc(x.title)}</b></div><div class="body">${esc(x.body)}</div><div class="meta">Posted by ${esc(x.postedBy||'Administrator')} · ${x.createdAt?new Date(x.createdAt).toLocaleString():''}</div></div>`).join('')||'<div class="muted">No announcements yet.</div>';renderAnnouncementBadge()}
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab()}
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab()}
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.dataset.tab));
+// A step's target may exist in the DOM but be hidden by role (Team Attendance for a
+// non-lead, every rep-facing tab for HR/SOM, etc.) - offsetParent is null for any element
+// that is display:none OR has a display:none ancestor, so this one check safely covers
+// both "this element is hidden" and "a container around it is hidden", without each step
+// needing its own bespoke hidden-checking logic.
+function tourVisible(el){return el&&el.offsetParent!==null?el:null}
 const TOUR_STEPS=[
-{getEl:()=>document.querySelector('[data-tab="profile"]'),title:'Your Profile',body:'This is your profile — team lead, KPI type, and contact info. Keep it current with Edit Contact Info.'},
-{getEl:()=>document.getElementById('timeInBtn').hidden?document.getElementById('timeOutBtn'):document.getElementById('timeInBtn'),title:'Time In / Time Out',body:'Time In at the start of your shift, then set your status below (Online with Call/Chat/Email, Break, Lunch, Offline, or an offline task like Coaching). Time Out at the end of your shift to clear it. This stays visible from any tab.'},
-{getEl:()=>document.getElementById('statusSelect'),title:'Set Your Status',body:'Once you\'ve timed in, use this to tell your team what you\'re doing right now. Your Team Lead can see this live, alongside your schedule, on their Status Wall.'},
-{getEl:()=>{const el=document.getElementById('notifBtn');return el&&!el.hidden?el:null},title:'Notifications',body:'Shows your own coaching follow-ups that are coming due. If you lead a team, it also covers upcoming birthdays, monthly evaluations, performance alerts, and your reports\' coaching follow-ups.'},
-{getEl:()=>document.querySelector('[data-tab="kpi"]'),title:'KPI Scores',body:'Check your KPI scores here. Click any metric row to see exactly how it was calculated — including which CSAT tickets counted as good or bad.'},
-{getEl:()=>document.querySelector('[data-tab="schedule"]'),title:'My Schedule',body:'See today\'s shift broken into blocks (Call, Break, Lunch, etc.) by default, or switch to Weekly for the bigger picture. You can also request a shift change or plot an offline task from here.'},
-{getEl:()=>document.querySelector('[data-tab="attendance"]'),title:'My Attendance',body:'Check your attendance record for the month here.'},
-{getEl:()=>{const el=document.getElementById('teamAttendanceTabBtn');return el&&!el.hidden?el:null},title:'Team Attendance',body:'If you lead a team, enter attendance for your direct reports here — it flows straight into their KPI numbers once your Admin refreshes metrics, no separate entry needed on their end.'},
-{getEl:()=>{const el=document.getElementById('teamRosterTabBtn');return el&&!el.hidden?el:null},title:'Team Roster',body:'Edit full profile information for your direct reports here — name, channel, KPI type, contact info, and more. Employee ID is set here or by an admin, never by the rep themselves.'},
-{getEl:()=>document.querySelector('[data-tab="pto"]'),title:'PTO Requests',body:'File and track your PTO requests here, and see their approval status.'},
-{getEl:()=>document.querySelector('[data-tab="announcements"]'),title:'Announcements',body:'Official updates from your Team Lead or Admin show up here.'},
-{getEl:()=>document.getElementById('changePasswordBtn'),title:'Change Password',body:'Update your password anytime from here.'},
-{getEl:()=>document.getElementById('logoutBtn'),title:'Log Out',body:'Sign out of the portal from here when you\'re done.'},
-{getEl:()=>document.getElementById('chatBubbleBtn'),title:'Team Chat',body:'Chat with your teammates anytime from this bubble — drag it anywhere on screen.'}
+{getEl:()=>tourVisible(document.querySelector('[data-tab="profile"]')),title:'Your Profile',body:'This is your profile — team lead, KPI type, and contact info. Keep it current with Edit Contact Info.'},
+{getEl:()=>tourVisible(document.getElementById('timeInBtn'))||tourVisible(document.getElementById('timeOutBtn')),title:'Time In / Time Out',body:'Time In at the start of your shift, then set your status below (Online with Call/Chat/Email, Break, Lunch, Offline, or an offline task like Coaching). Time Out at the end of your shift to clear it. This stays visible from any tab.'},
+{getEl:()=>tourVisible(document.getElementById('statusSelect')),title:'Set Your Status',body:'Once you\'ve timed in, use this to tell your team what you\'re doing right now. Your Team Lead can see this live, alongside your schedule, on their Status Wall.'},
+{getEl:()=>tourVisible(document.getElementById('notifBtn')),title:'Notifications',body:'Shows your own coaching follow-ups that are coming due. If you lead a team, it also covers upcoming birthdays, monthly evaluations, performance alerts, and your reports\' coaching follow-ups.'},
+{getEl:()=>tourVisible(document.querySelector('[data-tab="kpi"]')),title:'KPI Scores',body:'Check your KPI scores here. Click any metric row to see exactly how it was calculated — including which CSAT tickets counted as good or bad.'},
+{getEl:()=>tourVisible(document.querySelector('[data-tab="schedule"]')),title:'My Schedule',body:'See today\'s shift broken into blocks (Call, Break, Lunch, etc.) by default, or switch to Weekly for the bigger picture. You can also request a shift change or plot an offline task from here.'},
+{getEl:()=>tourVisible(document.querySelector('[data-tab="attendance"]')),title:'My Attendance',body:'Check your attendance record for the month here.'},
+{getEl:()=>tourVisible(document.getElementById('teamAttendanceTabBtn')),title:'Team Attendance',body:'If you lead a team, enter attendance for your direct reports here — mark minutes tardy on Late entries and attach supporting files (like a medical certificate). It flows straight into their KPI numbers once your Admin refreshes metrics, no separate entry needed on their end.'},
+{getEl:()=>tourVisible(document.getElementById('teamRosterTabBtn')),title:'Team Roster',body:'Edit full profile information for your direct reports here — name, channel, KPI type, contact info, and more. Employee ID is set here or by an admin, never by the rep themselves.'},
+{getEl:()=>tourVisible(document.getElementById('coachingTabBtn')),title:'Coaching',body:'Coaching sessions your team lead shares with you land here — review the details and sign to acknowledge. Team leads: start a new session, and once it\'s signed a professional PDF is saved straight to the rep\'s coaching folder automatically.'},
+{getEl:()=>tourVisible(document.getElementById('disciplinaryTabBtn')),title:'Disciplinary Records',body:portalRole==='HR'?'Every case the Senior Operations Manager has pre-reviewed lands here for your final decision — adjust the tier if warranted, confirm the sanction, and it\'s shared with the employee to sign.':portalRole==='SOM'?'Newly filed Incident Reports land here for your pre-review — confirm or adjust the tier and add any notes for HR before it moves to them for a final decision.':'Any decided disciplinary case shows up here for you to review and sign. Team leads can file an Incident Report for a direct report here; it\'s pre-reviewed and then finally decided before it\'s shared with the employee.'},
+{getEl:()=>tourVisible(document.querySelector('[data-tab="pto"]')),title:'PTO Requests',body:'File and track your PTO requests here, and see their approval status.'},
+{getEl:()=>tourVisible(document.querySelector('[data-tab="announcements"]')),title:'Announcements',body:'Official updates from your Team Lead or Admin show up here.'},
+{getEl:()=>tourVisible(document.getElementById('changePasswordBtn')),title:'Change Password',body:'Update your password anytime from here.'},
+{getEl:()=>tourVisible(document.getElementById('logoutBtn')),title:'Log Out',body:'Sign out of the portal from here when you\'re done.'},
+{getEl:()=>tourVisible(document.getElementById('chatBubbleBtn')),title:'Team Chat',body:'Chat with your teammates anytime from this bubble — drag it anywhere on screen.'}
 ];
 let tourIndex=0;
-function positionTour(){const step=TOUR_STEPS[tourIndex],el=step.getEl();if(!el){tourNext();return}const rect=el.getBoundingClientRect(),pad=6;$('tourSpotlight').style.left=`${rect.left-pad}px`;$('tourSpotlight').style.top=`${rect.top-pad}px`;$('tourSpotlight').style.width=`${rect.width+pad*2}px`;$('tourSpotlight').style.height=`${rect.height+pad*2}px`;$('tourStepCount').textContent=`Step ${tourIndex+1} of ${TOUR_STEPS.length}`;$('tourTitle').textContent=step.title;$('tourBody').textContent=step.body;$('tourBack').hidden=tourIndex===0;$('tourNext').textContent=tourIndex===TOUR_STEPS.length-1?'Got it':'Next';const tooltip=$('tourTooltip'),margin=12,tw=tooltip.offsetWidth||280,th=tooltip.offsetHeight||200,openBelow=rect.bottom+th+20<innerHeight;tooltip.style.top=openBelow?`${rect.bottom+14}px`:'auto';tooltip.style.bottom=openBelow?'auto':`${Math.max(margin,innerHeight-rect.top+14)}px`;tooltip.style.right='auto';tooltip.style.left=`${Math.min(Math.max(rect.left+rect.width/2-tw/2,margin),innerWidth-tw-margin)}px`}
+// Snapshot of just the steps that actually apply to this signed-in user's role, taken
+// fresh each time the tour starts - a rep, team lead, SOM, and HR each see a different
+// subset of tabs/controls (see applyPortalRoleView), so "Step X of Y" should count only
+// the steps this particular user will actually walk through, not the full master list.
+let activeTourSteps=TOUR_STEPS;
+function positionTour(){const step=activeTourSteps[tourIndex],el=step.getEl();if(!el){tourNext();return}const rect=el.getBoundingClientRect(),pad=6;$('tourSpotlight').style.left=`${rect.left-pad}px`;$('tourSpotlight').style.top=`${rect.top-pad}px`;$('tourSpotlight').style.width=`${rect.width+pad*2}px`;$('tourSpotlight').style.height=`${rect.height+pad*2}px`;$('tourStepCount').textContent=`Step ${tourIndex+1} of ${activeTourSteps.length}`;$('tourTitle').textContent=step.title;$('tourBody').textContent=step.body;$('tourBack').hidden=tourIndex===0;$('tourNext').textContent=tourIndex===activeTourSteps.length-1?'Got it':'Next';const tooltip=$('tourTooltip'),margin=12,tw=tooltip.offsetWidth||280,th=tooltip.offsetHeight||200,openBelow=rect.bottom+th+20<innerHeight;tooltip.style.top=openBelow?`${rect.bottom+14}px`:'auto';tooltip.style.bottom=openBelow?'auto':`${Math.max(margin,innerHeight-rect.top+14)}px`;tooltip.style.right='auto';tooltip.style.left=`${Math.min(Math.max(rect.left+rect.width/2-tw/2,margin),innerWidth-tw-margin)}px`}
 let tourRepositionTimer=null;
-function startTour(){if(sessionUser?.tourSeen)return;const firstName=(sessionUser?.employeeName||'').split(' ')[0]||'there';$('tourWelcomeTitle').textContent=`Welcome, ${firstName}!`;$('tourWelcomeBody').textContent=`This is your Lofty Support Portal — your KPI scores, schedule, attendance, PTO requests, announcements, and team chat all in one place. Want a quick ${TOUR_STEPS.length}-step look around?`;$('tourWelcomeModal').hidden=false}
+function startTour(){
+  if(sessionUser?.tourSeen)return;
+  const firstName=(sessionUser?.employeeName||'').split(' ')[0]||'there';
+  activeTourSteps=TOUR_STEPS.filter(s=>s.getEl());
+  const scopeText=portalRole==='HR'?'your portal for reviewing and deciding disciplinary cases':portalRole==='SOM'?'your portal for PTO review, disciplinary pre-review, and team announcements':'your KPI scores, schedule, attendance, PTO requests, announcements, and team chat all in one place';
+  $('tourWelcomeTitle').textContent=`Welcome, ${firstName}!`;
+  $('tourWelcomeBody').textContent=`This is your Lofty Support Portal — ${scopeText}. Want a quick ${activeTourSteps.length}-step look around?`;
+  $('tourWelcomeModal').hidden=false;
+}
 function beginTourSteps(){$('tourWelcomeModal').hidden=true;tourIndex=0;$('tourOverlay').hidden=false;positionTour();clearInterval(tourRepositionTimer);tourRepositionTimer=setInterval(positionTour,250)}
 function endTour(){$('tourWelcomeModal').hidden=true;$('tourOverlay').hidden=true;clearInterval(tourRepositionTimer);tourRepositionTimer=null;if(sessionUser)sessionUser.tourSeen=true;markTourComplete().catch(()=>{})}
-function tourNext(){if(tourIndex>=TOUR_STEPS.length-1){endTour();return}tourIndex++;positionTour()}
+function tourNext(){if(tourIndex>=activeTourSteps.length-1){endTour();return}tourIndex++;positionTour()}
 function tourBack(){if(tourIndex>0){tourIndex--;positionTour()}}
 $('tourWelcomeStart').onclick=beginTourSteps;$('tourWelcomeSkip').onclick=endTour;
 $('tourNext').onclick=tourNext;$('tourBack').onclick=tourBack;$('tourSkip').onclick=endTour;
 window.addEventListener('resize',()=>{if(!$('tourOverlay').hidden)positionTour()});
-function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();setTab(activeTab);loadMyStatus();setTimeout(startTour,300)}
+function applyPortalRoleView(){
+  const hideTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=true});
+  if(portalRole==='HR'){
+    hideTabs(['kpi','schedule','attendance','pto','announcements']);
+    $('coachingTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;
+    $('statusSelect').closest('.field').hidden=true;$('timeInBtn').hidden=true;$('timeOutBtn').hidden=true;
+    activeTab='disciplinary';
+  }else if(portalRole==='SOM'){
+    hideTabs(['kpi','schedule','attendance']);
+    $('coachingTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;
+  }
+}
+function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;applyPortalRoleView();restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();setTab(activeTab);loadMyStatus();setTimeout(startTour,300)}
 function showLogin(){stopChatPolling();stopKpiAutoRefresh();chatInitialized=false;chatMessages=[];chatOnline=[];chatUnread=0;kpiResults=[];teamKpiResults=[];teamRequests=[];ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false};teamPtoDecision=null;isTeamLeader=false;teamKpiPeriod='';teamKpiAverage=null;teamKpiLeadName='';teamKpiSize=0;teamKpiLastRefreshedAt=0;$('loginView').hidden=false;$('signedInActions').hidden=true;$('profileCard').hidden=true;$('tabs').hidden=true;$('kpiView').hidden=true;$('scheduleView').hidden=true;$('attendanceView').hidden=true;$('requestsView').hidden=true;$('announcementsView').hidden=true;$('chatWidget').hidden=true;$('forecastView').hidden=true;$('teamPtoSection').hidden=true;$('coachingView').hidden=true;myCoachingRecords=[];teamCoachingRecords=[];$('coachingBadge').hidden=true;sessionUser=null;loading.dismiss();setMessage('')}
 function openChangePassword(forced){$('changePasswordForm').reset();$('changePasswordError').hidden=true;$('changePasswordHint').hidden=!forced;$('changePasswordCancel').hidden=forced;$('changePasswordModal').dataset.forced=forced?'1':'';$('changePasswordModal').hidden=false}
 async function loadAttendanceMonth(month){const attendanceResult=await getMyAttendance(month);attendanceDays=attendanceResult.days||[];renderAttendance()}
@@ -382,17 +482,20 @@ function teamAttendanceCodeOptions(selected){return`<option value=""${selected?'
 function renderTeamAttendance(){
   if(!teamAttendanceDates.length){$('teamAttendanceHead').innerHTML='';$('teamAttendanceBody').innerHTML='<tr><td>No direct reports found for this period.</td></tr>';return}
   $('teamAttendanceHead').innerHTML=`<tr><th class="sticky1">Employee</th>${teamAttendanceDates.map(d=>`<th>${Number(d.slice(8))}<br>${esc(weekday(d))}</th>`).join('')}</tr>`;
+  const REASON_CODES=['LATE','SL','SL-HD'];
   $('teamAttendanceBody').innerHTML=teamAttendanceMembers.map(m=>{
     const cells=m.days.map(day=>{
       const dirty=teamAttendanceDirty.get(`${m.employeeEmail}|${day.date}`);
       const current=dirty?dirty.code:(day.code||'');
       const minutesLate=dirty?dirty.minutesLate:day.minutesLate;
+      const reason=dirty?dirty.reason:day.reason;
       if(day.locked)return`<td class="att-PTO" title="Protected by an approved PTO request">${esc(day.displayLabel||'PTO')}</td>`;
       if(!day.eligible)return`<td class="att-RD">RD</td>`;
       const canAttach=!dirty&&['SL','EL','SL-HD','EL-HD'].includes(day.code);
       const attachBtn=canAttach?`<button type="button" class="att-attach-btn" data-attach-email="${esc(m.employeeEmail)}" data-attach-date="${day.date}" title="Attach a supporting document for this ${esc(day.code)} day">📎</button>`:(dirty&&['SL','EL','SL-HD','EL-HD'].includes(current)?'<span class="att-attach-hint" title="Save this change first, then you can attach a document">📎</span>':'');
       const minutesLateInput=current==='LATE'?`<input type="number" min="1" max="600" class="att-minutes-late" data-minutes-email="${esc(m.employeeEmail)}" data-minutes-date="${day.date}" placeholder="mins" value="${minutesLate!=null?minutesLate:''}">`:'';
-      return`<td class="${current?`att-${esc(current.split('-')[0])}`:''}"><select data-email="${esc(m.employeeEmail)}" data-date="${day.date}">${teamAttendanceCodeOptions(current)}</select>${minutesLateInput}${attachBtn}</td>`;
+      const reasonInput=REASON_CODES.includes(current)?`<input type="text" maxlength="120" class="att-reason" data-reason-email="${esc(m.employeeEmail)}" data-reason-date="${day.date}" data-current-code="${current}" placeholder="reason (optional)" value="${esc(reason||'')}">`:'';
+      return`<td class="${current?`att-${esc(current.split('-')[0])}`:''}"><select data-email="${esc(m.employeeEmail)}" data-date="${day.date}">${teamAttendanceCodeOptions(current)}</select>${minutesLateInput}${reasonInput}${attachBtn}</td>`;
     }).join('');
     return`<tr><td class="sticky1"><b>${esc(m.employeeName)}</b></td>${cells}</tr>`;
   }).join('');
@@ -413,11 +516,12 @@ async function loadTeamAttendance(){
   }finally{teamAttendanceLoading=false}
 }
 $('teamAttendanceLoadBtn').onclick=()=>loadTeamAttendance();
+const TEAM_ATTENDANCE_REASON_CODES=['LATE','SL','SL-HD'];
 $('teamAttendanceBody').addEventListener('change',event=>{
   if(event.target.dataset.email){
     const email=event.target.dataset.email,date=event.target.dataset.date,code=event.target.value;
-    const prevMinutes=teamAttendanceDirty.get(`${email}|${date}`)?.minutesLate;
-    teamAttendanceDirty.set(`${email}|${date}`,{email,date,code,minutesLate:code==='LATE'?(prevMinutes??null):null});
+    const prev=teamAttendanceDirty.get(`${email}|${date}`);
+    teamAttendanceDirty.set(`${email}|${date}`,{email,date,code,minutesLate:code==='LATE'?(prev?.minutesLate??null):null,reason:TEAM_ATTENDANCE_REASON_CODES.includes(code)?(prev?.reason??''):''});
     $('teamAttendanceSaveBtn').disabled=false;
     renderTeamAttendance();
     return;
@@ -427,6 +531,12 @@ $('teamAttendanceBody').addEventListener('change',event=>{
     const existing=teamAttendanceDirty.get(`${email}|${date}`)||{email,date,code:'LATE'};
     const minutesLate=event.target.value?Number(event.target.value):null;
     teamAttendanceDirty.set(`${email}|${date}`,{...existing,minutesLate});
+    $('teamAttendanceSaveBtn').disabled=false;
+  }
+  if(event.target.dataset.reasonEmail){
+    const email=event.target.dataset.reasonEmail,date=event.target.dataset.reasonDate;
+    const existing=teamAttendanceDirty.get(`${email}|${date}`)||{email,date,code:event.target.dataset.currentCode};
+    teamAttendanceDirty.set(`${email}|${date}`,{...existing,reason:event.target.value});
     $('teamAttendanceSaveBtn').disabled=false;
   }
 });
@@ -461,7 +571,13 @@ $('teamAttendanceAttachInput').addEventListener('change',async event=>{
 $('teamAttendanceSaveBtn').onclick=async()=>{
   const button=$('teamAttendanceSaveBtn');button.disabled=true;
   const entries={};
-  for(const{email,date,code,minutesLate}of teamAttendanceDirty.values()){entries[email]??={};entries[email][date]=code==='LATE'&&minutesLate?{code,minutesLate}:code}
+  for(const{email,date,code,minutesLate,reason}of teamAttendanceDirty.values()){
+    entries[email]??={};
+    const extra={};
+    if(code==='LATE'&&minutesLate)extra.minutesLate=minutesLate;
+    if(reason)extra.reason=reason;
+    entries[email][date]=Object.keys(extra).length?{code,...extra}:code;
+  }
   try{
     const result=await saveMyTeamAttendance({month:$('teamAttendanceMonth').value,endDate:$('teamAttendanceEndDate').value,entries});
     const acceptedCount=Object.values(result.accepted||{}).reduce((sum,byDate)=>sum+Object.keys(byDate).length,0);
@@ -634,15 +750,34 @@ function standingBadgeClass(status){
   return`coachBadge-${String(status||'not rated').toLowerCase().replace(/\s+/g,'')}`;
 }
 function standingRowHtml(standing){
-  if(!standing||!standing.kpiPeriod)return`<div>No KPI result on file yet for this period.</div><div class="coachField">${esc(attendanceFlagsLine(standing))}</div>`;
+  if(!standing||!standing.kpiPeriod)return`<div>No KPI result on file yet for this period.</div><div class="coachField">${attendanceDetailHtml(standing)}</div>`;
   const score=typeof standing.finalKpi==='number'?`${standing.finalKpi.toFixed(1)}%`:'N/A';
   const status=standing.performanceStatus||'Not Rated';
-  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="coachBadge ${standingBadgeClass(status)}">${esc(status)}</span></div><div>${esc(attendanceFlagsLine(standing))}</div>`;
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="coachBadge ${standingBadgeClass(status)}">${esc(status)}</span></div>${standingMetricsHtml(standing)}<div style="margin-top:8px">${attendanceDetailHtml(standing)}</div>`;
 }
-function attendanceFlagsLine(standing){
+function standingMetricsHtml(standing){
+  const metrics=(standing&&standing.metrics)||[];
+  if(!metrics.length)return'';
+  const rows=metrics.map(m=>`<tr><td>${esc(m.label)}</td><td>${esc(m.value||'—')}</td><td>${m.points!=null?esc(String(m.points))+' pts':esc(m.status||'—')}</td></tr>`).join('');
+  return`<table class="coachMetricsTable"><thead><tr><th>Metric</th><th>Value</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function occurrenceLine(label,list,detail){
+  if(!list||!list.length)return'';
+  return`<div class="coachField" style="margin-top:6px"><div class="coachFieldLabel">${esc(label)}</div>${list.map(detail).join('; ')}</div>`;
+}
+function attendanceDetailHtml(standing){
   const counts=(standing&&standing.last30DayAttendanceCounts)||{};
   const parts=Object.entries(counts).map(([code,count])=>`${code} x${count}`);
-  return parts.length?`Last 30 days: ${parts.join(', ')}`:'No attendance flags in the last 30 days.';
+  const summary=parts.length?`Last 30 days: ${parts.join(', ')}`:'No attendance flags in the last 30 days.';
+  let html=`<div>${esc(summary)}</div>`;
+  html+=occurrenceLine('Late Arrivals',standing&&standing.last30DayLateOccurrences,o=>{
+    const bits=[];
+    if(o.minutesLate!=null)bits.push(`${o.minutesLate} min`);
+    if(o.reason)bits.push(esc(o.reason));
+    return `${esc(o.date)}${bits.length?` (${bits.join(', ')})`:''}`;
+  });
+  html+=occurrenceLine('Sick Leave',standing&&standing.last30DaySlOccurrences,o=>`${esc(o.date)}${o.reason?` (${esc(o.reason)})`:''}`);
+  return html;
 }
 function coachCard(title,bodyHtml){
   return`<div class="coachCard"><div class="coachCardHeader">${esc(title)}</div><div class="coachCardBody">${bodyHtml}</div></div>`;
@@ -668,13 +803,13 @@ function coachingPrintableHtml(record){
   const standing=record.currentStanding;
   let standingHtml;
   if(!standing||!standing.kpiPeriod){
-    standingHtml=`<div>No KPI result on file yet for this period.</div><div style="margin-top:6px">${esc(attendanceFlagsLine(standing))}</div>`;
+    standingHtml=`<div>No KPI result on file yet for this period.</div><div style="margin-top:6px">${attendanceDetailHtml(standing)}</div>`;
   }else{
     const score=typeof standing.finalKpi==='number'?`${standing.finalKpi.toFixed(1)}%`:'N/A';
     const status=standing.performanceStatus||'Not Rated';
     const badgeColors={exceptional:'#0f7a49',exceeds:'#19ab63',meets:'#2e46b8',watch:'#ba7517',intervention:'#c2313a'};
     const badgeColor=badgeColors[status.toLowerCase()]||'#5b6274';
-    standingHtml=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="badge" style="background:${badgeColor}">${esc(status)}</span></div><div>${esc(attendanceFlagsLine(standing))}</div>`;
+    standingHtml=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="badge" style="background:${badgeColor}">${esc(status)}</span></div>${standingMetricsHtml(standing)}<div style="margin-top:8px">${attendanceDetailHtml(standing)}</div>`;
   }
   const card=(title,body)=>`<div class="card"><div class="cardHeader">${esc(title)}</div><div class="cardBody">${body}</div></div>`;
   const employeeCommentsCard=ack&&ack.repComments?card('Employee Comments',esc(ack.repComments)):'';
@@ -695,10 +830,15 @@ h1{font-size:22px;text-align:center;margin:0 0 4px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .badge{display:inline-block;padding:3px 10px;border-radius:4px;color:#fff;font-weight:bold;font-size:11px}
 .ackScript{font-style:italic;font-size:11px;color:#444;line-height:1.5}
+.coachField{margin-bottom:8px}
+.coachFieldLabel{font-size:10px;text-transform:uppercase;font-weight:bold;color:#5b6274;margin-bottom:2px}
+.coachMetricsTable{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+.coachMetricsTable th{text-align:left;font-size:10px;text-transform:uppercase;color:#5b6274;padding:4px 6px;border-bottom:1px solid #dfe2ea}
+.coachMetricsTable td{padding:4px 6px;border-bottom:1px solid #eef0f5}
 @media print{body{margin:0.5in}}
 </style></head><body>
 <div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
-<h1>COACHING FORM</h1>
+<h1>EMPLOYEE COACHING FORM</h1>
 <div class="subtitle">A record of a coaching conversation between a Lofty team lead and team member.</div>
 ${card('Employee Information',`<div class="grid2"><div><div class="fieldLabel">Date</div>${esc(record.coachingDate)}</div><div><div class="fieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div style="margin-top:8px"><div class="fieldLabel">Employee</div>${esc(employeeLabel)}</div><div style="margin-top:8px"><div class="fieldLabel">Category</div>${esc(record.category)}</div></div>`)}
 ${card('Current Standing',standingHtml)}
@@ -746,10 +886,235 @@ $('coachingSignSubmit').onclick=async()=>{
     $('coachingSignError').hidden=false;$('coachingSignError').textContent=error.response?.error||error.message;
   }finally{$('coachingSignSubmit').disabled=false}
 };
-async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);await loadAttendanceMonth($('attendanceMonth').value);loading.complete(4);loading.begin(step=5);announcements=(await loadMyAnnouncements()).announcements||[];renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
+function disciplinaryStatusPill(status){const cls=status==='ACKNOWLEDGED'?'status-ready':status==='DECIDED'?'status-pending':status==='WITHDRAWN'?'status-no-data':'status-partial';return`<span class="pill ${cls}">${esc(DISCIPLINARY_STATUS_LABELS[status]||status)}</span>`}
+function tierLabel(tier){return DISCIPLINE_TIER_LABELS[tier]||tier||'—'}
+function renderDisciplinaryBadge(){const count=myDisciplinaryRecords.filter(x=>x.status==='DECIDED').length;$('disciplinaryBadge').hidden=!count;$('disciplinaryBadge').textContent=count>9?'9+':String(count)}
+async function refreshMyDisciplinary(){try{const result=await loadMyDisciplinary();myDisciplinaryRecords=result.records||[];renderDisciplinaryBadge();if(activeTab==='disciplinary')renderMyDisciplinary()}catch(error){/* badge just won't update */}}
+function renderMyDisciplinary(){
+  $('myDisciplinaryBody').innerHTML=myDisciplinaryRecords.map(r=>`<tr><td>${esc(r.infractionDate)}</td><td>${esc(r.category)}</td><td>${esc(tierLabel(r.finalTier||r.tier))}</td><td>${esc(r.finalSanction||r.suggestedSanction||'—')}</td><td>${disciplinaryStatusPill(r.status)}</td><td><button class="btn compact" data-view-disciplinary="${esc(r.violationId)}">${r.status==='DECIDED'?'Review & Sign':'View'}</button></td></tr>`).join('')||'<tr><td colspan="6">No disciplinary records on file.</td></tr>';
+}
+function renderTeamDisciplinary(){
+  $('teamDisciplinaryBody').innerHTML=teamDisciplinaryRecords.map(r=>{
+    const actionLabel=(r.status==='FILED'&&disciplinaryCanPreDecide)?'Pre-Review':(r.status==='PRE_DECIDED'&&disciplinaryCanDecide)?'Decide':'View';
+    const actions=[`<button class="btn compact" data-view-team-disciplinary="${esc(r.violationId)}">${actionLabel}</button>`];
+    if(r.status==='FILED'&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide){
+      actions.push(`<button class="btn compact" data-edit-disciplinary="${esc(r.violationId)}">Edit</button>`);
+    }
+    if(['FILED','PRE_DECIDED'].includes(r.status)&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide){
+      actions.push(`<button class="btn compact danger" data-withdraw-disciplinary="${esc(r.violationId)}">Withdraw</button>`);
+    }
+    return`<tr><td><b>${esc(r.employeeName)}</b></td><td>${esc(r.infractionDate)}</td><td>${esc(r.category)}</td><td>${esc(tierLabel(r.tier))}</td><td>${esc(String(r.instanceNumber||''))}</td><td>${esc(r.suggestedSanction||'—')}</td><td>${disciplinaryStatusPill(r.status)}</td><td>${actions.join(' ')}</td></tr>`;
+  }).join('')||'<tr><td colspan="8">No disciplinary records filed yet.</td></tr>';
+}
+async function loadDisciplinaryTab(){
+  try{
+    const teamResult=await loadMyTeamDisciplinary();
+    disciplinaryIsTeamLeader=Boolean(teamResult.isTeamLeader);
+    disciplinaryCanPreDecide=Boolean(teamResult.canPreDecide);
+    disciplinaryCanDecide=Boolean(teamResult.canDecide);
+    teamDisciplinaryMembers=teamResult.members||[];
+    teamDisciplinaryRecords=teamResult.records||[];
+    $('teamDisciplinarySection').hidden=!disciplinaryIsTeamLeader&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
+    $('newDisciplinaryBtn').hidden=!disciplinaryIsTeamLeader;
+    $('disciplinaryWorkflowNote').textContent=disciplinaryCanDecide?'As HR, decide any case the Senior Operations Manager has pre-reviewed below.':disciplinaryCanPreDecide?'Pre-review each newly filed case, then send it to HR for the final decision.':'Team leads file an Incident Report; the Senior Operations Manager pre-reviews it, then HR decides the final sanction.';
+    if(disciplinaryIsTeamLeader||disciplinaryCanPreDecide||disciplinaryCanDecide)renderTeamDisciplinary();
+  }catch(error){
+    $('teamDisciplinaryMessage').hidden=false;$('teamDisciplinaryMessage').className='message error';$('teamDisciplinaryMessage').textContent=error.response?.error||error.message;
+  }
+  await refreshMyDisciplinary();
+}
+function openDisciplinaryForm(){
+  const form=$('disciplinaryForm');
+  form.reset();
+  form.elements.employeeEmail.innerHTML=teamDisciplinaryMembers.map(m=>`<option value="${esc(m.employeeEmail)}">${esc(m.employeeName)}</option>`).join('');
+  form.elements.category.innerHTML=(teamDisciplinaryMembers.length?['Attendance, Punctuality & Working Hours','Office Attire','Company Property, Information & Premises','Accurate Reporting of Information','Conflict of Interest','General Behavior',"Manager's Accountability",'Client-Facing / Transactional Conduct','Zero Tolerance']:[]).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  form.elements.tier.innerHTML=Object.keys(DISCIPLINE_TIER_LABELS).map(t=>`<option value="${esc(t)}">${esc(DISCIPLINE_TIER_LABELS[t])}</option>`).join('');
+  form.elements.infractionDate.value=todayET();
+  $('disciplinaryFormError').hidden=true;
+  $('disciplinaryFormModal').hidden=false;
+}
+$('newDisciplinaryBtn').onclick=()=>openDisciplinaryForm();
+$('disciplinaryFormCancel').onclick=()=>{$('disciplinaryFormModal').hidden=true};
+let disciplinaryFormSubmitting=false;
+$('disciplinaryForm').onsubmit=async event=>{
+  event.preventDefault();
+  if(disciplinaryFormSubmitting)return;disciplinaryFormSubmitting=true;
+  const submitBtn=event.currentTarget.querySelector('button[type="submit"]');submitBtn.disabled=true;
+  const values=Object.fromEntries(new FormData(event.currentTarget));
+  $('disciplinaryFormError').hidden=true;
+  try{
+    await fileDisciplinary(values);
+    $('disciplinaryFormModal').hidden=true;
+    setMessage('Incident report filed. HR will review and decide the sanction.','ok');
+    await loadDisciplinaryTab();
+  }catch(error){
+    $('disciplinaryFormError').hidden=false;$('disciplinaryFormError').textContent=error.response?.error||error.message;
+  }finally{disciplinaryFormSubmitting=false;submitBtn.disabled=false}
+};
+$('teamDisciplinaryBody').addEventListener('click',async event=>{
+  const viewId=event.target.dataset.viewTeamDisciplinary;
+  const editId=event.target.dataset.editDisciplinary;
+  const withdrawId=event.target.dataset.withdrawDisciplinary;
+  if(viewId){const record=teamDisciplinaryRecords.find(r=>r.violationId===viewId);if(record)openDisciplinaryViewModal(record);return}
+  if(editId){setMessage('Editing a filed case is not yet supported from this list — withdraw and re-file if changes are needed.','error');return}
+  if(withdrawId){
+    if(!confirm('Withdraw this incident report? This cannot be undone.'))return;
+    try{await withdrawTeamDisciplinary(withdrawId);setMessage('Incident report withdrawn.','ok');await loadDisciplinaryTab()}catch(error){$('teamDisciplinaryMessage').hidden=false;$('teamDisciplinaryMessage').className='message error';$('teamDisciplinaryMessage').textContent=error.response?.error||error.message}
+    return;
+  }
+});
+function disciplinaryDetailHtml(record){
+  let html=`<div><b>Employee:</b> ${esc(record.employeeName)}</div><div><b>Team Lead:</b> ${esc(record.teamLeadName)}</div><div><b>Category:</b> ${esc(record.category)}</div><div><b>Infraction Date:</b> ${esc(record.infractionDate)} &nbsp; <b>Filed:</b> ${esc(record.filedDate)}</div><div style="margin-top:8px"><b>Filed Tier:</b> ${esc(tierLabel(record.tier))} (Instance #${esc(String(record.instanceNumber))}, suggested: ${esc(record.suggestedSanction||'—')})</div><div style="margin-top:8px"><b>Description:</b><br>${esc(record.infractionDescription)}</div>`;
+  if(record.preDecidedAt){
+    html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><b>Pre-Review (Senior Ops Manager):</b> ${esc(tierLabel(record.preTier))} — ${esc(record.preSanction||'—')}</div>${record.preNotes?`<div><b>Notes for HR:</b> ${esc(record.preNotes)}</div>`:''}<div><b>Reviewed By:</b> ${esc(record.preDecidedByName||'')}</div>`;
+  }
+  if(record.status==='DECIDED'||record.status==='ACKNOWLEDGED'){
+    html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><b>HR Decision:</b> ${esc(tierLabel(record.finalTier))} — ${esc(record.finalSanction)}</div><div><b>Sanction Date:</b> ${esc(record.sanctionDate)} &nbsp; <b>Cleansing Expiry:</b> ${esc(record.cleansingExpiryDate||'Never (Terminable)')}</div>${record.circumstanceNotes?`<div><b>Circumstance Notes:</b> ${esc(record.circumstanceNotes)}</div>`:''}<div><b>Decided By:</b> ${esc(record.decidedByName||'')}</div>`;
+  }
+  if(record.acknowledgment){
+    html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><b>Signed by:</b> ${esc(record.acknowledgment.signedName)} on ${esc(String(record.acknowledgment.signedAt||'').slice(0,16).replace('T',' '))}</div>${record.acknowledgment.employeeComments?`<div><b>Employee Comments:</b> ${esc(record.acknowledgment.employeeComments)}</div>`:''}`;
+  }
+  return html;
+}
+function disciplinaryPrintableHtml(record){
+  const origin=location.origin;
+  const ackScript='I acknowledge that I have reviewed and discussed the infraction and sanction detailed above with my Team Lead and/or HR. I understand the basis for this decision and have had the opportunity to share my comments. My electronic signature below confirms receipt of this Notice of Decision.';
+  const card=(title,body)=>`<div class="card"><div class="cardHeader">${esc(title)}</div><div class="cardBody">${body}</div></div>`;
+  const preReviewCard=record.preDecidedAt?card('Pre-Review (Senior Operations Manager)',`<div class="grid2"><div><div class="fieldLabel">Tier</div>${esc(tierLabel(record.preTier))}</div><div><div class="fieldLabel">Recommended Sanction</div>${esc(record.preSanction||'—')}</div></div>${record.preNotes?`<div style="margin-top:8px"><div class="fieldLabel">Notes for HR</div>${esc(record.preNotes)}</div>`:''}<div style="margin-top:8px"><div class="fieldLabel">Reviewed By</div>${esc(record.preDecidedByName||'')}</div>`):'';
+  const decisionCard=record.status==='DECIDED'||record.status==='ACKNOWLEDGED'?card('HR Decision',`<div class="grid2"><div><div class="fieldLabel">Final Tier</div>${esc(tierLabel(record.finalTier))}</div><div><div class="fieldLabel">Final Sanction</div>${esc(record.finalSanction)}</div><div style="margin-top:8px"><div class="fieldLabel">Sanction Date</div>${esc(record.sanctionDate)}</div><div style="margin-top:8px"><div class="fieldLabel">Cleansing Expiry</div>${esc(record.cleansingExpiryDate||'Never (Terminable)')}</div></div>${record.circumstanceNotes?`<div style="margin-top:8px"><div class="fieldLabel">Circumstance Notes</div>${esc(record.circumstanceNotes)}</div>`:''}<div style="margin-top:8px"><div class="fieldLabel">Decided By</div>${esc(record.decidedByName||'')}</div>`):'';
+  const ackBody=record.acknowledgment
+    ?`<div class="ackScript">${esc(ackScript)}</div><div style="margin-top:8px"><b>${esc(record.acknowledgment.signedName)}</b><br>Electronically acknowledged on ${esc(String(record.acknowledgment.signedAt||'').slice(0,16).replace('T',' '))}.</div>${record.acknowledgment.employeeComments?`<div style="margin-top:8px"><div class="fieldLabel">Employee Comments</div>${esc(record.acknowledgment.employeeComments)}</div>`:''}`
+    :`<div class="ackScript">${esc(ackScript)}</div><div style="margin-top:8px"><i>Awaiting electronic acknowledgment.</i></div>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Disciplinary Record - ${esc(record.employeeName)}</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#202437;margin:40px;max-width:700px}
+.logos{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.logos img{height:40px}
+h1{font-size:22px;text-align:center;margin:0 0 4px}
+.subtitle{text-align:center;color:#5b6274;font-size:12px;font-style:italic;margin-bottom:22px}
+.card{border:1px solid #dfe2ea;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.cardHeader{background:#2e46b8;color:#fff;font-weight:bold;font-size:12px;padding:8px 12px;text-transform:uppercase;letter-spacing:.3px}
+.cardBody{padding:12px 14px;font-size:13px}
+.fieldLabel{font-size:10px;text-transform:uppercase;font-weight:bold;color:#5b6274;margin-bottom:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ackScript{font-style:italic;font-size:11px;color:#444;line-height:1.5}
+@media print{body{margin:0.5in}}
+</style></head><body>
+<div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
+<h1>DISCIPLINARY NOTICE</h1>
+<div class="subtitle">Based on Moatable's Code of Conduct and Discipline.</div>
+${card('Employee Information',`<div class="grid2"><div><div class="fieldLabel">Employee</div>${esc(record.employeeName)}</div><div><div class="fieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div style="margin-top:8px"><div class="fieldLabel">Category</div>${esc(record.category)}</div><div style="margin-top:8px"><div class="fieldLabel">Infraction Date</div>${esc(record.infractionDate)}</div></div>`)}
+${card('Infraction Details',`<div><div class="fieldLabel">Filed Tier (Instance #${esc(String(record.instanceNumber))})</div>${esc(tierLabel(record.tier))} — suggested: ${esc(record.suggestedSanction||'—')}</div><div style="margin-top:8px"><div class="fieldLabel">Description</div>${esc(record.infractionDescription)}</div>`)}
+${preReviewCard}
+${decisionCard}
+${card('Acknowledgment',ackBody)}
+</body></html>`;
+}
+function previewDisciplinaryPdf(record){
+  const win=window.open('','_blank');
+  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  win.document.write(disciplinaryPrintableHtml(record));
+  win.document.close();
+  win.onload=()=>win.print();
+}
+$('disciplinaryPreviewPdfBtn').onclick=()=>{if(viewingDisciplinaryRecord)previewDisciplinaryPdf(viewingDisciplinaryRecord)};
+function populateSanctionOptions(selectId,tier,selected){
+  const ladder=DISCIPLINE_LADDER[tier]||[];
+  $(selectId).innerHTML=ladder.map(s=>`<option value="${esc(s)}"${s===selected?' selected':''}>${esc(s)}</option>`).join('');
+}
+function openDisciplinaryViewModal(record){
+  viewingDisciplinaryRecord=record;
+  $('disciplinaryViewDetail').innerHTML=disciplinaryDetailHtml(record);
+  const isEmployee=sessionUser&&record.employeeEmail===sessionUser.employeeEmail;
+  const showPreDecideForm=disciplinaryCanPreDecide&&record.status==='FILED';
+  const showDecideForm=disciplinaryCanDecide&&record.status==='PRE_DECIDED';
+  const showAckForm=isEmployee&&record.status==='DECIDED';
+  const isOwnerTeamLead=teamDisciplinaryRecords.some(r=>r.violationId===record.violationId)&&!disciplinaryCanPreDecide&&!disciplinaryCanDecide;
+  $('disciplinaryPreDecideForm').hidden=!showPreDecideForm;
+  $('disciplinaryPreDecideSubmit').hidden=!showPreDecideForm;
+  $('disciplinaryDecideForm').hidden=!showDecideForm;
+  $('disciplinaryDecideSubmit').hidden=!showDecideForm;
+  $('disciplinaryAckForm').hidden=!showAckForm;
+  $('disciplinaryAckSubmit').hidden=!showAckForm;
+  $('disciplinaryWithdrawBtn').hidden=!(isOwnerTeamLead&&['FILED','PRE_DECIDED'].includes(record.status));
+  if(showPreDecideForm){
+    $('disciplinaryPreTierInput').innerHTML=Object.keys(DISCIPLINE_TIER_LABELS).map(t=>`<option value="${esc(t)}"${t===record.tier?' selected':''}>${esc(DISCIPLINE_TIER_LABELS[t])}</option>`).join('');
+    populateSanctionOptions('disciplinaryPreSanctionInput',record.tier,record.suggestedSanction);
+    $('disciplinaryPreNotesInput').value='';
+    $('disciplinaryPreDecideError').hidden=true;
+  }
+  if(showDecideForm){
+    const baseTier=record.preTier||record.tier;
+    $('disciplinaryFinalTierInput').innerHTML=Object.keys(DISCIPLINE_TIER_LABELS).map(t=>`<option value="${esc(t)}"${t===baseTier?' selected':''}>${esc(DISCIPLINE_TIER_LABELS[t])}</option>`).join('');
+    populateSanctionOptions('disciplinaryFinalSanctionInput',baseTier,record.preSanction||record.suggestedSanction);
+    $('disciplinarySanctionDateInput').value=todayET();
+    $('disciplinaryCircumstanceNotesInput').value='';
+    $('disciplinaryDecideError').hidden=true;
+  }
+  if(showAckForm){$('disciplinaryEmployeeCommentsInput').value='';$('disciplinarySignedNameInput').value='';$('disciplinaryAckError').hidden=true}
+  $('disciplinaryViewModal').hidden=false;
+}
+$('disciplinaryPreTierInput').onchange=()=>{populateSanctionOptions('disciplinaryPreSanctionInput',$('disciplinaryPreTierInput').value,'')};
+$('disciplinaryFinalTierInput').onchange=()=>{populateSanctionOptions('disciplinaryFinalSanctionInput',$('disciplinaryFinalTierInput').value,'')};
+$('myDisciplinaryBody').addEventListener('click',event=>{
+  const id=event.target.dataset.viewDisciplinary;
+  if(!id)return;
+  const record=myDisciplinaryRecords.find(r=>r.violationId===id);
+  if(record)openDisciplinaryViewModal(record);
+});
+$('disciplinaryViewClose').onclick=()=>{$('disciplinaryViewModal').hidden=true};
+$('disciplinaryWithdrawBtn').onclick=async()=>{
+  if(!viewingDisciplinaryRecord)return;
+  if(!confirm('Withdraw this incident report? This cannot be undone.'))return;
+  try{await withdrawTeamDisciplinary(viewingDisciplinaryRecord.violationId);$('disciplinaryViewModal').hidden=true;setMessage('Incident report withdrawn.','ok');await loadDisciplinaryTab()}catch(error){$('disciplinaryDecideError').hidden=false;$('disciplinaryDecideError').textContent=error.response?.error||error.message}
+};
+$('disciplinaryPreDecideSubmit').onclick=async()=>{
+  const preTier=$('disciplinaryPreTierInput').value;
+  const preSanction=$('disciplinaryPreSanctionInput').value;
+  const preNotes=$('disciplinaryPreNotesInput').value.trim();
+  $('disciplinaryPreDecideSubmit').disabled=true;
+  try{
+    await preDecideDisciplinary(viewingDisciplinaryRecord.violationId,{preTier,preSanction,preNotes});
+    $('disciplinaryViewModal').hidden=true;
+    setMessage('Case pre-reviewed and sent to HR for a final decision.','ok');
+    await loadDisciplinaryTab();
+  }catch(error){
+    $('disciplinaryPreDecideError').hidden=false;$('disciplinaryPreDecideError').textContent=error.response?.error||error.message;
+  }finally{$('disciplinaryPreDecideSubmit').disabled=false}
+};
+$('disciplinaryDecideSubmit').onclick=async()=>{
+  const finalTier=$('disciplinaryFinalTierInput').value;
+  const finalSanction=$('disciplinaryFinalSanctionInput').value;
+  const sanctionDate=$('disciplinarySanctionDateInput').value;
+  const circumstanceNotes=$('disciplinaryCircumstanceNotesInput').value.trim();
+  if(!sanctionDate){$('disciplinaryDecideError').hidden=false;$('disciplinaryDecideError').textContent='A sanction date is required.';return}
+  $('disciplinaryDecideSubmit').disabled=true;
+  try{
+    await decideDisciplinary(viewingDisciplinaryRecord.violationId,{finalTier,finalSanction,sanctionDate,circumstanceNotes});
+    $('disciplinaryViewModal').hidden=true;
+    setMessage('Disciplinary case decided.','ok');
+    await loadDisciplinaryTab();
+  }catch(error){
+    $('disciplinaryDecideError').hidden=false;$('disciplinaryDecideError').textContent=error.response?.error||error.message;
+  }finally{$('disciplinaryDecideSubmit').disabled=false}
+};
+$('disciplinaryAckSubmit').onclick=async()=>{
+  const signedName=$('disciplinarySignedNameInput').value.trim();
+  if(!signedName){$('disciplinaryAckError').hidden=false;$('disciplinaryAckError').textContent='Please type your full name to sign.';return}
+  $('disciplinaryAckSubmit').disabled=true;
+  try{
+    await acknowledgeDisciplinary(viewingDisciplinaryRecord.violationId,{signedName,employeeComments:$('disciplinaryEmployeeCommentsInput').value.trim()});
+    $('disciplinaryViewModal').hidden=true;
+    setMessage('Disciplinary record signed.','ok');
+    await refreshMyDisciplinary();
+  }catch(error){
+    $('disciplinaryAckError').hidden=false;$('disciplinaryAckError').textContent=error.response?.error||error.message;
+  }finally{$('disciplinaryAckSubmit').disabled=false}
+};
+async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);await loadAttendanceMonth($('attendanceMonth').value);loading.complete(4);loading.begin(step=5);announcements=(await loadMyAnnouncements()).announcements||[];renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();refreshMyDisciplinary();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
 $('attendanceMonth').onchange=async()=>{const month=$('attendanceMonth').value;if(!month)return;try{await loadAttendanceMonth(month)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
-async function init(){const session=await getSession().catch(()=>({authenticated:false}));if(!session.authenticated){showLogin();return}sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen)};mustChangePassword=Boolean(session.mustChangePassword);showApp();await load();if(mustChangePassword)openChangePassword(true)}
-$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen)};mustChangePassword=Boolean(result.mustChangePassword);showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
+async function init(){const session=await getSession().catch(()=>({authenticated:false}));if(!session.authenticated){showLogin();return}sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen)};mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';showApp();await load();if(mustChangePassword)openChangePassword(true)}
+$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen)};mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
 $('forgotPasswordLink').onclick=event=>{event.preventDefault();$('forgotPasswordHint').hidden=!$('forgotPasswordHint').hidden};
 $('logoutBtn').onclick=async()=>{try{await logout()}catch{}showLogin()};
 $('changePasswordBtn').onclick=()=>openChangePassword(false);
