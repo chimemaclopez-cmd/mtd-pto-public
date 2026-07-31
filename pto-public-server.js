@@ -2065,6 +2065,14 @@ const server = http.createServer(async (req, res) => {
 
     return json(res, 404, { ok: false, error: 'Not found' });
   } catch (err) {
+    // Upstash outages (rate limit exhausted, connectivity, etc.) surface as a plain Error
+    // whose message is prefixed "Upstash..." by kv-store.js - never show that raw
+    // infra-level text to an end user (it's confusing and leaks internal details).
+    // Instead, flag it distinctly so the client can render a clean maintenance state.
+    if (String(err.message || '').startsWith('Upstash')) {
+      console.error('[outage]', err.message);
+      return json(res, 503, { ok: false, error: 'The portal is temporarily unavailable for maintenance. Please try again in a few minutes.', maintenance: true });
+    }
     return json(res, err.statusCode || 500, { ok: false, error: err.message });
   }
 });
