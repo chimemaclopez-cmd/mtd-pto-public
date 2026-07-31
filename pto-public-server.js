@@ -1073,7 +1073,30 @@ const server = http.createServer(async (req, res) => {
 
       const pendingApprovals = (pto.requests || []).filter(request => request.status !== 'DRAFT' && canReviewPtoRequest(ptoAccess, request) && ['SUBMITTED', 'PENDING'].includes(request.status)).length;
 
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals });
+      // Coaching follow-ups due: reminds BOTH sides of a coaching session - the employee
+      // (their own upcoming/overdue follow-up) and the team lead who created it - so
+      // neither has to remember to check back on their own. "Due" = within 7 days,
+      // including overdue (negative daysUntil), on any session that's actually been sent.
+      const coaching = await loadCoaching();
+      const daysUntil = (dateStr) => {
+        const [y1, m1, d1] = dateStr.split('-').map(Number);
+        const [y2, m2, d2] = today.split('-').map(Number);
+        return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
+      };
+      const dueCoachingFollowUps = (coaching.records || [])
+        .filter(r => r.targetFollowUpDate && ['SENT', 'ACKNOWLEDGED'].includes(r.status))
+        .map(r => ({ ...r, daysUntil: daysUntil(r.targetFollowUpDate) }))
+        .filter(r => r.daysUntil <= 7);
+      const myCoachingFollowUps = dueCoachingFollowUps
+        .filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity)
+        .map(r => ({ coachingId: r.coachingId, teamLeadName: r.teamLeadName, category: r.category, followUpDate: r.targetFollowUpDate, daysUntil: r.daysUntil }))
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+      const teamCoachingFollowUps = dueCoachingFollowUps
+        .filter(r => ptoLogic.cleanEmail(r.teamLeadEmail) === identity)
+        .map(r => ({ coachingId: r.coachingId, employeeName: r.employeeName, category: r.category, followUpDate: r.targetFollowUpDate, daysUntil: r.daysUntil }))
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, myCoachingFollowUps, teamCoachingFollowUps });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {

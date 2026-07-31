@@ -181,7 +181,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="modal" id="detailsModal" hidden><div class="dialog"><div class="title">PTO Request Details</div><div id="detailsContent" class="details" style="margin:12px 0"></div><div class="actions" style="justify-content:flex-end"><button class="btn" id="detailsClose">Close</button></div></div></div>
 <div class="modal" id="teamPtoDecisionModal" hidden><div class="dialog" style="max-width:560px"><div class="title" id="teamPtoDecisionTitle">PTO Review</div><div class="details" id="teamPtoDecisionDetails" style="margin:12px 0"></div><div class="field"><label>Review Notes</label><textarea id="teamPtoDecisionNotes" placeholder="Add context for the final approver"></textarea></div><div id="teamPtoDecisionError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="teamPtoDecisionCancel">Cancel</button><button class="btn primary" id="teamPtoDecisionConfirm">Confirm</button></div></div></div>
 <div class="modal" id="contactModal" hidden><form class="dialog" id="contactForm" role="dialog" aria-modal="true"><div class="title">Edit Contact Information</div><div class="formGrid" style="margin-top:12px"><div class="field"><label>Birthday</label><input name="birthday" type="date"></div><div class="field"><label>Contact Number</label><div class="phoneField"><select name="contactNumberCode" class="phoneCode"></select><input name="contactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field"><label>Contact Email</label><input name="contactEmail" type="email" placeholder="name@example.com"></div><div class="field"><label>Emergency Contact Name</label><input name="emergencyContactName" placeholder="Full Name"></div><div class="field"><label>Emergency Contact Relationship</label><select name="emergencyContactRelationship"><option value="">—</option><option>Spouse</option><option>Parent</option><option>Sibling</option><option>Child</option><option>Relative</option><option>Friend</option><option>Other</option></select></div><div class="field" id="emergencyContactRelationshipOtherField" hidden><label>Specify Relationship</label><input name="emergencyContactRelationshipOther" placeholder="e.g. Cousin, Guardian"></div><div class="field"><label>Emergency Contact Number</label><div class="phoneField"><select name="emergencyContactNumberCode" class="phoneCode"></select><input name="emergencyContactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field" style="grid-column:1/-1"><label>Current Residence</label><textarea name="currentResidence" placeholder="Street, Barangay, City, Province, ZIP"></textarea></div></div><div id="contactError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="contactCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>
-<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Team Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
+<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px">My Coaching Follow-Ups</div><div id="notifMyCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Team Coaching Follow-Ups</div><div id="notifTeamCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
 <div class="modal" id="changePasswordModal" hidden><form class="dialog" id="changePasswordForm" role="dialog" aria-modal="true"><div class="title" id="changePasswordTitle">Change Password</div><div class="sub" id="changePasswordHint" hidden>Your temporary password must be changed before you can file or edit requests.</div><div class="formGrid" style="grid-template-columns:1fr;margin-top:12px"><div class="field"><label>Current Password</label><div class="pwField"><input name="currentPassword" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>New Password</label><div class="pwField"><input name="newPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>Confirm New Password</label><div class="pwField"><input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="changePasswordError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="changePasswordCancel">Cancel</button><button class="btn primary" type="submit">Change Password</button></div></form></div>
 <div class="modal" id="metricDetailModal" hidden><div class="dialog" style="max-width:420px"><div class="title" id="metricDetailTitle">Metric Detail</div><div id="metricDetailBody" style="margin-top:12px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="metricDetailClose">Close</button></div></div></div>
 <div class="modal" id="csatDetailModal" hidden><div class="dialog" style="max-width:680px"><div class="title">CSAT Ticket Detail</div><div class="sub" id="csatDetailMeta"></div><div class="csatDetailCols"><div><div class="sectionTitle" style="margin-top:12px;color:var(--green)">Good (<span id="csatGoodCount">0</span>)</div><div id="csatGoodList" class="csatTicketList"></div></div><div><div class="sectionTitle" style="margin-top:12px;color:var(--red)">Bad (<span id="csatBadCount">0</span>)</div><div id="csatBadList" class="csatTicketList"></div></div></div><div class="sub" style="margin-top:12px">If you believe a rating doesn't reflect the interaction, share the ticket number with your Team Lead to file a dispute.</div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="csatDetailClose">Close</button></div></div></div>
@@ -203,7 +203,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null;
 const lsHeader=document.querySelector('.header>.ls-header');if(lsHeader)$('headerRight').insertBefore(lsHeader,$('signedInActions'));
 function labelStatus(value){return PTO_STATUS_LABELS[value]||value}function localContext(){return{role:'REQUESTER',user:sessionUser?.employeeEmail||'',approverEmail:sessionUser?.employeeEmail||'',approverName:sessionUser?.employeeName||''}}
 function metricValue(key,m){switch(key){case'csat':return m.rate==null?'—':`${fmt(m.rate)}%`;case'lcr':return m.rate==null?'—':`${fmt(m.rate)}%`;case'calls':return m.dailyAverage==null?'—':`${fmt(m.dailyAverage)} calls/day avg`;case'bonus':return m.dailyAverage==null?'—':`${fmt(m.dailyAverage)} extra tickets/day avg`;case'tickets':return(m.solved??m.unique)==null?'—':`${fmt(m.solved??m.unique)} tickets`;case'frt':return m.hours==null?'—':`${fmt(m.hours)}h avg reply`;case'team':return m.average==null?'—':`${fmt(m.average)} avg base KPI`;default:return'—'}}
@@ -282,6 +282,10 @@ function renderNotifModal(){
   $('notifAsOf').textContent=notifAsOf?`As of ${notifAsOf}`:'';
   $('notifPendingApprovals').hidden=!notifPendingApprovals;
   if(notifPendingApprovals)$('notifPendingApprovals').textContent=`${notifPendingApprovals} PTO request${notifPendingApprovals===1?'':'s'} awaiting your review — see PTO Requests.`;
+  const followUpPill=f=>f.daysUntil<0?`Overdue by ${-f.daysUntil} day${-f.daysUntil===1?'':'s'}`:f.daysUntil===0?'Due today':f.daysUntil===1?'Due tomorrow':`Due in ${f.daysUntil} days`;
+  const followUpClass=f=>f.daysUntil<=0?'status-failed':f.daysUntil<=3?'status-pending':'status-ready';
+  $('notifMyCoachingFollowUps').innerHTML=notifMyCoachingFollowUps.length?notifMyCoachingFollowUps.map(f=>notifRow(f.category,`With ${f.teamLeadName} · ${f.followUpDate}`,followUpPill(f),followUpClass(f))).join(''):'<div class="sub">No coaching follow-ups due.</div>';
+  $('notifTeamCoachingFollowUps').innerHTML=notifTeamCoachingFollowUps.length?notifTeamCoachingFollowUps.map(f=>notifRow(f.employeeName,`${f.category} · ${f.followUpDate}`,followUpPill(f),followUpClass(f))).join(''):'<div class="sub">No team coaching follow-ups due.</div>';
   $('notifRegularizations').innerHTML=notifRegularizations.length?notifRegularizations.map(r=>{
     const pillText=r.daysUntilDue<=0?'Decide today':r.daysUntilDue===1?'Decide tomorrow':`Decide within ${r.daysUntilDue} days`;
     return notifRow(r.employeeName,`Hired ${fmt(r.hireDate)}`,pillText,'status-failed');
@@ -312,13 +316,14 @@ function renderNotifModal(){
   }).join(''):'<div class="sub">No probationary evaluations due.</div>';
 }
 function updateNotifBadge(){
-  $('notifBtn').hidden=!isTeamLeader;
-  if(!isTeamLeader)return;
-  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals;
+  const hasAnything=isTeamLeader||notifMyCoachingFollowUps.length>0;
+  $('notifBtn').hidden=!hasAnything;
+  if(!hasAnything)return;
+  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals+notifMyCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifTeamCoachingFollowUps.filter(f=>f.daysUntil<=3).length;
   $('notifBadge').hidden=!urgent;
   $('notifBadge').textContent=urgent>9?'9+':String(urgent);
 }
-async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
+async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifMyCoachingFollowUps=result.myCoachingFollowUps||[];notifTeamCoachingFollowUps=result.teamCoachingFollowUps||[];notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
 let audioCtx=null,chatInitialized=false;
 function ensureAudioContext(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch{return null}}if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx}
 function playChatNotificationSound(){const ctx=audioCtx;if(!ctx||ctx.state!=='running')return;const now=ctx.currentTime;[880,1175].forEach((freq,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain(),start=now+i*0.12;osc.type='sine';osc.frequency.value=freq;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(0.18,start+0.02);gain.gain.exponentialRampToValueAtTime(0.001,start+0.18);osc.connect(gain).connect(ctx.destination);osc.start(start);osc.stop(start+0.2)})}
@@ -346,7 +351,7 @@ const TOUR_STEPS=[
 {getEl:()=>document.querySelector('[data-tab="profile"]'),title:'Your Profile',body:'This is your profile — team lead, KPI type, and contact info. Keep it current with Edit Contact Info.'},
 {getEl:()=>document.getElementById('timeInBtn').hidden?document.getElementById('timeOutBtn'):document.getElementById('timeInBtn'),title:'Time In / Time Out',body:'Time In at the start of your shift, then set your status below (Online with Call/Chat/Email, Break, Lunch, Offline, or an offline task like Coaching). Time Out at the end of your shift to clear it. This stays visible from any tab.'},
 {getEl:()=>document.getElementById('statusSelect'),title:'Set Your Status',body:'Once you\'ve timed in, use this to tell your team what you\'re doing right now. Your Team Lead can see this live, alongside your schedule, on their Status Wall.'},
-{getEl:()=>{const el=document.getElementById('notifBtn');return el&&!el.hidden?el:null},title:'Team Notifications',body:'If you lead a team, this shows upcoming birthdays for your reports and monthly evaluations due for anyone still in their first 5 months.'},
+{getEl:()=>{const el=document.getElementById('notifBtn');return el&&!el.hidden?el:null},title:'Notifications',body:'Shows your own coaching follow-ups that are coming due. If you lead a team, it also covers upcoming birthdays, monthly evaluations, performance alerts, and your reports\' coaching follow-ups.'},
 {getEl:()=>document.querySelector('[data-tab="kpi"]'),title:'KPI Scores',body:'Check your KPI scores here. Click any metric row to see exactly how it was calculated — including which CSAT tickets counted as good or bad.'},
 {getEl:()=>document.querySelector('[data-tab="schedule"]'),title:'My Schedule',body:'See today\'s shift broken into blocks (Call, Break, Lunch, etc.) by default, or switch to Weekly for the bigger picture. You can also request a shift change or plot an offline task from here.'},
 {getEl:()=>document.querySelector('[data-tab="attendance"]'),title:'My Attendance',body:'Check your attendance record for the month here.'},
@@ -625,79 +630,82 @@ $('teamCoachingBody').addEventListener('click',async event=>{
     return;
   }
 });
-function standingSummaryText(standing){
-  if(!standing)return 'No standing snapshot available.';
-  const parts=[];
-  if(standing.kpiPeriod){
-    const score=typeof standing.finalKpi==='number'?`${standing.finalKpi.toFixed(1)}%`:'N/A';
-    parts.push(`KPI ${standing.kpiPeriod}: ${score} (${standing.performanceStatus||'Not Rated'})`);
-  }
-  const counts=standing.last30DayAttendanceCounts||{};
-  const flagParts=Object.entries(counts).map(([code,count])=>`${code} x${count}`);
-  if(flagParts.length)parts.push(`Last 30 days: ${flagParts.join(', ')}`);
-  return parts.length?parts.join(' | '):'No attendance flags in the last 30 days.';
+function standingBadgeClass(status){
+  return`coachBadge-${String(status||'not rated').toLowerCase().replace(/\s+/g,'')}`;
+}
+function standingRowHtml(standing){
+  if(!standing||!standing.kpiPeriod)return`<div>No KPI result on file yet for this period.</div><div class="coachField">${esc(attendanceFlagsLine(standing))}</div>`;
+  const score=typeof standing.finalKpi==='number'?`${standing.finalKpi.toFixed(1)}%`:'N/A';
+  const status=standing.performanceStatus||'Not Rated';
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="coachBadge ${standingBadgeClass(status)}">${esc(status)}</span></div><div>${esc(attendanceFlagsLine(standing))}</div>`;
+}
+function attendanceFlagsLine(standing){
+  const counts=(standing&&standing.last30DayAttendanceCounts)||{};
+  const parts=Object.entries(counts).map(([code,count])=>`${code} x${count}`);
+  return parts.length?`Last 30 days: ${parts.join(', ')}`:'No attendance flags in the last 30 days.';
+}
+function coachCard(title,bodyHtml){
+  return`<div class="coachCard"><div class="coachCardHeader">${esc(title)}</div><div class="coachCardBody">${bodyHtml}</div></div>`;
 }
 function coachingDetailHtml(record){
   const ack=record.acknowledgment;
-  return`<div class="formGrid" style="grid-template-columns:1fr 1fr">
-      <div><b>Date:</b> ${esc(record.coachingDate)}</div><div><b>Team Lead:</b> ${esc(record.teamLeadName)}</div>
-      <div><b>Employee:</b> ${esc(record.employeeName)}</div><div><b>Category:</b> ${esc(record.category)}</div>
-    </div>
-    <div class="sectionTitle" style="font-size:13px;margin-top:12px">Current Standing</div>
-    <div class="sub">${esc(standingSummaryText(record.currentStanding))}</div>
-    <div class="sectionTitle" style="font-size:13px;margin-top:12px">Specific Observation</div>
-    <div>${esc(record.observation||'—')}</div>
-    <div class="sectionTitle" style="font-size:13px;margin-top:12px">Discussion &amp; Development Plan</div>
-    <div class="metricDetailRow"><span>Discussion Summary</span>${esc(record.discussionSummary||'—')}</div>
-    <div class="metricDetailRow"><span>Action Plan</span>${esc(record.actionPlan||'—')}</div>
-    <div class="metricDetailRow"><span>Follow-Up Date</span>${esc(record.targetFollowUpDate||'—')}</div>
-    <div class="sectionTitle" style="font-size:13px;margin-top:12px">Acknowledgment</div>
-    ${ack?`<div class="metricDetailRow"><span>Employee Comments</span>${esc(ack.repComments||'—')}</div><div>Signed by <b>${esc(ack.signedName)}</b> on ${esc(String(ack.signedAt||'').slice(0,16).replace('T',' '))}</div>`:'<div class="sub">Awaiting the employee’s electronic signature.</div>'}`;
+  const employeeLabel=record.employeeId?`${record.employeeName} (${record.employeeId})`:record.employeeName;
+  let html='';
+  html+=coachCard('Employee Information',`<div class="coachGrid2"><div class="coachField"><div class="coachFieldLabel">Date</div>${esc(record.coachingDate)}</div><div class="coachField"><div class="coachFieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div class="coachField"><div class="coachFieldLabel">Employee</div>${esc(employeeLabel)}</div><div class="coachField"><div class="coachFieldLabel">Category</div>${esc(record.category)}</div></div>`);
+  html+=coachCard('Current Standing',standingRowHtml(record.currentStanding));
+  html+=coachCard('Specific Observation',esc(record.observation||'—'));
+  html+=coachCard('Discussion & Development Plan',`<div class="coachField">${esc(record.discussionSummary||'—')}</div><div class="coachGrid2" style="border-top:1px solid var(--line);padding-top:8px"><div class="coachField"><div class="coachFieldLabel">Action Plan</div>${esc(record.actionPlan||'—')}</div><div class="coachField"><div class="coachFieldLabel">Follow-Up Date</div>${esc(record.targetFollowUpDate||'—')}</div></div>`);
+  if(ack&&ack.repComments)html+=coachCard('Employee Comments',esc(ack.repComments));
+  const ackBody=ack?`<div class="coachGrid2"><div class="coachField"><div class="coachFieldLabel">Employee</div><b>${esc(ack.signedName)}</b><br>Signed on ${esc(String(ack.signedAt||'').slice(0,16).replace('T',' '))}</div><div class="coachField"><div class="coachFieldLabel">Team Lead</div><b>${esc(record.teamLeadName)}</b></div></div>`:'<div class="sub">Awaiting the employee’s electronic signature.</div>';
+  html+=coachCard('Acknowledgment',ackBody);
+  return html;
 }
 function coachingPrintableHtml(record){
   const ack=record.acknowledgment;
   const origin=location.origin;
+  const employeeLabel=record.employeeId?`${record.employeeName} (${record.employeeId})`:record.employeeName;
   const ackScript='I acknowledge that I have reviewed and discussed the coaching session detailed above with my Team Lead. I understand the observations, expectations, and any action items outlined, and I have had the opportunity to share my feedback on this session. My electronic signature below confirms that this discussion took place.';
+  const standing=record.currentStanding;
+  let standingHtml;
+  if(!standing||!standing.kpiPeriod){
+    standingHtml=`<div>No KPI result on file yet for this period.</div><div style="margin-top:6px">${esc(attendanceFlagsLine(standing))}</div>`;
+  }else{
+    const score=typeof standing.finalKpi==='number'?`${standing.finalKpi.toFixed(1)}%`:'N/A';
+    const status=standing.performanceStatus||'Not Rated';
+    const badgeColors={exceptional:'#0f7a49',exceeds:'#19ab63',meets:'#2e46b8',watch:'#ba7517',intervention:'#c2313a'};
+    const badgeColor=badgeColors[status.toLowerCase()]||'#5b6274';
+    standingHtml=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>KPI ${esc(standing.kpiPeriod)}: <b>${esc(score)}</b></div><span class="badge" style="background:${badgeColor}">${esc(status)}</span></div><div>${esc(attendanceFlagsLine(standing))}</div>`;
+  }
+  const card=(title,body)=>`<div class="card"><div class="cardHeader">${esc(title)}</div><div class="cardBody">${body}</div></div>`;
+  const employeeCommentsCard=ack&&ack.repComments?card('Employee Comments',esc(ack.repComments)):'';
+  const ackBody=ack
+    ?`<div class="ackScript">${esc(ackScript)}</div><div class="grid2" style="border-top:1px solid #dfe2ea;padding-top:8px;margin-top:8px"><div><div class="fieldLabel">Employee</div><b>${esc(ack.signedName)}</b><br>Electronically acknowledged on ${esc(String(ack.signedAt||'').slice(0,16).replace('T',' '))}.</div><div><div class="fieldLabel">Team Lead</div><b>${esc(record.teamLeadName)}</b>${record.sentAt?`<br>Session shared on ${esc(String(record.sentAt).slice(0,16).replace('T',' '))}.`:''}</div></div>`
+    :`<div class="ackScript">${esc(ackScript)}</div><div style="margin-top:8px"><i>Awaiting electronic acknowledgment.</i></div>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Coaching Session - ${esc(record.employeeName)}</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;color:#202437;margin:40px}
+body{font-family:Arial,Helvetica,sans-serif;color:#202437;margin:40px;max-width:700px}
 .logos{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
 .logos img{height:40px}
 h1{font-size:22px;text-align:center;margin:0 0 4px}
-.subtitle{text-align:center;color:#5b6274;font-size:12px;font-style:italic;margin-bottom:20px}
-table.header{width:100%;border-collapse:collapse;margin-bottom:18px}
-table.header td{border:1px solid #dfe2ea;padding:8px 10px;font-size:13px}
-h2{font-size:14px;color:#2e46b8;border-bottom:1px solid #dfe2ea;padding-bottom:4px;margin-top:22px}
-.field-label{font-weight:bold;font-size:12px;margin-top:10px}
-.field-value{font-size:13px;margin-top:2px;white-space:pre-wrap}
-.ack-script{font-style:italic;font-size:12px;color:#444;margin-top:16px;line-height:1.5}
-table.sig{width:100%;border-collapse:collapse;margin-top:14px}
-table.sig th{background:#2e46b8;color:#fff;text-align:left;padding:8px 10px;font-size:12px}
-table.sig td{border:1px solid #dfe2ea;padding:10px;font-size:12px;vertical-align:top}
+.subtitle{text-align:center;color:#5b6274;font-size:12px;font-style:italic;margin-bottom:22px}
+.card{border:1px solid #dfe2ea;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.cardHeader{background:#2e46b8;color:#fff;font-weight:bold;font-size:12px;padding:8px 12px;text-transform:uppercase;letter-spacing:.3px}
+.cardBody{padding:12px 14px;font-size:13px}
+.fieldLabel{font-size:10px;text-transform:uppercase;font-weight:bold;color:#5b6274;margin-bottom:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:4px;color:#fff;font-weight:bold;font-size:11px}
+.ackScript{font-style:italic;font-size:11px;color:#444;line-height:1.5}
 @media print{body{margin:0.5in}}
 </style></head><body>
 <div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
 <h1>COACHING FORM</h1>
 <div class="subtitle">A record of a coaching conversation between a Lofty team lead and team member.</div>
-<table class="header">
-<tr><td><b>Date:</b> ${esc(record.coachingDate)}</td><td><b>Team Lead:</b> ${esc(record.teamLeadName)}</td></tr>
-<tr><td><b>Employee:</b> ${esc(record.employeeName)}</td><td><b>Category:</b> ${esc(record.category)}</td></tr>
-</table>
-<h2>Current Standing</h2>
-<div class="field-value">${esc(standingSummaryText(record.currentStanding))}</div>
-<h2>Specific Observation</h2>
-<div class="field-value">${esc(record.observation||'—')}</div>
-<h2>Discussion &amp; Development Plan</h2>
-<div class="field-label">Discussion Summary</div><div class="field-value">${esc(record.discussionSummary||'—')}</div>
-<div class="field-label">Action Plan</div><div class="field-value">${esc(record.actionPlan||'—')}</div>
-<div class="field-label">Follow-Up Date</div><div class="field-value">${esc(record.targetFollowUpDate||'—')}</div>
-${ack?`<h2>Employee Comments</h2><div class="field-value">${esc(ack.repComments||'—')}</div>`:''}
-<div class="ack-script">${esc(ackScript)}</div>
-<h2>Signatures</h2>
-<table class="sig"><tr><th>Employee</th><th>Team Lead</th></tr>
-<tr><td>${ack?`${esc(ack.signedName)}<br>Electronically acknowledged on ${esc(String(ack.signedAt||'').slice(0,16).replace('T',' '))}`:'Awaiting electronic acknowledgment.'}</td>
-<td>${esc(record.teamLeadName)}<br>${record.sentAt?`Session shared on ${esc(String(record.sentAt).slice(0,16).replace('T',' '))}`:''}</td></tr>
-</table>
+${card('Employee Information',`<div class="grid2"><div><div class="fieldLabel">Date</div>${esc(record.coachingDate)}</div><div><div class="fieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div style="margin-top:8px"><div class="fieldLabel">Employee</div>${esc(employeeLabel)}</div><div style="margin-top:8px"><div class="fieldLabel">Category</div>${esc(record.category)}</div></div>`)}
+${card('Current Standing',standingHtml)}
+${card('Specific Observation',esc(record.observation||'—'))}
+${card('Discussion & Development Plan',`<div>${esc(record.discussionSummary||'—')}</div><div class="grid2" style="border-top:1px solid #dfe2ea;padding-top:8px;margin-top:8px"><div><div class="fieldLabel">Action Plan</div>${esc(record.actionPlan||'—')}</div><div><div class="fieldLabel">Follow-Up Date</div>${esc(record.targetFollowUpDate||'—')}</div></div>`)}
+${employeeCommentsCard}
+${card('Acknowledgment',ackBody)}
 </body></html>`;
 }
 function previewCoachingPdf(record){
@@ -738,7 +746,7 @@ $('coachingSignSubmit').onclick=async()=>{
     $('coachingSignError').hidden=false;$('coachingSignError').textContent=error.response?.error||error.message;
   }finally{$('coachingSignSubmit').disabled=false}
 };
-async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);await loadAttendanceMonth($('attendanceMonth').value);loading.complete(4);loading.begin(step=5);announcements=(await loadMyAnnouncements()).announcements||[];renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);if(isTeamLeader)loadNotifications();else $('notifBtn').hidden=true;$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
+async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);await loadAttendanceMonth($('attendanceMonth').value);loading.complete(4);loading.begin(step=5);announcements=(await loadMyAnnouncements()).announcements||[];renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
 $('attendanceMonth').onchange=async()=>{const month=$('attendanceMonth').value;if(!month)return;try{await loadAttendanceMonth(month)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 async function init(){const session=await getSession().catch(()=>({authenticated:false}));if(!session.authenticated){showLogin();return}sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen)};mustChangePassword=Boolean(session.mustChangePassword);showApp();await load();if(mustChangePassword)openChangePassword(true)}
 $('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen)};mustChangePassword=Boolean(result.mustChangePassword);showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
