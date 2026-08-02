@@ -97,7 +97,7 @@ const STYLES_XML =
   `<fonts count="3">` +
   `<font><sz val="11"/><name val="Calibri"/></font>` +
   `<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
-  `<font><b/><sz val="11"/><color rgb="FF1F3864"/><name val="Calibri"/></font>` +
+  `<font><b/><sz val="13"/><color rgb="FF1F3864"/><name val="Calibri"/></font>` +
   `</fonts>` +
   `<fills count="5">` +
   `<fill><patternFill patternType="none"/></fill>` +
@@ -145,7 +145,8 @@ function sheetXml(sheet) {
       else if (typeof value === 'number' && Number.isFinite(value)) cells.push(`<c r="${ref}"${styleAttr}><v>${value}</v></c>`);
       else cells.push(`<c r="${ref}"${styleAttr} t="inlineStr"><is><t xml:space="preserve">${escXml(value)}</t></is></c>`);
     }
-    return `<row r="${r + 1}">${cells.join('')}</row>`;
+    const heightAttr = style === STYLE_HEADER ? ' ht="20" customHeight="1"' : '';
+    return `<row r="${r + 1}"${heightAttr}>${cells.join('')}</row>`;
   }).join('');
   const merges = titleRowIndex != null && colCount > 1 ? `<mergeCells count="1"><mergeCell ref="A${titleRowIndex + 1}:${colLetter(colCount - 1)}${titleRowIndex + 1}"/></mergeCells>` : '';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetFormatPr defaultColWidth="20" defaultRowHeight="15"/><sheetData>${rowXml}</sheetData>${merges}</worksheet>`;
