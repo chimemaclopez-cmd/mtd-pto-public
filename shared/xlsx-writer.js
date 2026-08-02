@@ -95,9 +95,9 @@ function colLetter(index) {
 const STYLES_XML =
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
   `<fonts count="3">` +
-  `<font><sz val="11"/><name val="Calibri"/></font>` +
-  `<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
-  `<font><b/><sz val="13"/><color rgb="FF1F3864"/><name val="Calibri"/></font>` +
+  `<font><sz val="11"/><name val="Arial"/></font>` +
+  `<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>` +
+  `<font><b/><sz val="13"/><color rgb="FF1F3864"/><name val="Arial"/></font>` +
   `</fonts>` +
   `<fills count="5">` +
   `<fill><patternFill patternType="none"/></fill>` +
