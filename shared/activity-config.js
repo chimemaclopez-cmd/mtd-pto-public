@@ -23,6 +23,7 @@ export function defaultAssignmentFor(employee,configured=''){
   }
   if(kpi.includes('voice jr'))return'CALL';
   if(kpi.includes('senior'))return'SENIOR_TSR';
+  if(kpi.includes('database'))return'LEAD_IMPORT';
   return normalizeActivityId(configured)||'CALL';
 }
 

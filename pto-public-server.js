@@ -402,6 +402,7 @@ function serverDefaultAssignmentFor(employee) {
   }
   if (kpi.includes('voice jr')) return 'CALL';
   if (kpi.includes('senior')) return 'SENIOR_TSR';
+  if (kpi.includes('database')) return 'LEAD_IMPORT';
   return 'CALL';
 }
 async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:snapshot:schedules', { schedules: [], overrides: [] }); }
