@@ -238,7 +238,7 @@ function easternEpochMs(dateStr, minutesSinceMidnight) {
   return guess - (represented - guess);
 }
 async function computeStatusWall() {
-  const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR'].includes(x.kpiType));
+  const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR', 'Database Agent'].includes(x.kpiType));
   const schedules = await loadScheduleSnapshot();
   const repStatusData = await loadRepStatus();
   const statusSignals = await loadStatusSignalsSnapshot();
@@ -657,6 +657,7 @@ async function saveRepStatus(data) { data.lastUpdated = new Date().toISOString()
 }
 const PLANNED_OFFLINE_ACTIVITY_IDS = ['COACHING','TRAINING','TEAM_HUDDLE','ONE_ON_ONE','QA_REVIEW','MEETING','CALIBRATION','SIDE_BY_SIDE','PROJECT_WORK','ADMIN','DOCUMENTATION','CASE_REVIEW','OTHER_OFFLINE'];
 function validScheduleTimeSlot(value) { return /^([01]\d|2[0-3]):[03]0$/.test(String(value || '')); }
+function validExactTime(value) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')); }
 function minutesOfSlot(value) { const [h, m] = String(value).split(':').map(Number); return h * 60 + m; }
 function normalizeScheduleRequestBody(body, roster, current = null) {
   const email = ptoLogic.cleanEmail(body.employeeEmail);
@@ -682,7 +683,7 @@ function normalizeScheduleRequestBody(body, roster, current = null) {
     const activityId = String(body.activityId ?? current?.activityId ?? '').toUpperCase();
     if (!PLANNED_OFFLINE_ACTIVITY_IDS.includes(activityId)) throw Object.assign(new Error('A valid offline-task activity is required.'), { statusCode: 400 });
     const startTime = String(body.startTime ?? current?.startTime ?? ''), endTime = String(body.endTime ?? current?.endTime ?? '');
-    if (!validScheduleTimeSlot(startTime) || !validScheduleTimeSlot(endTime) || minutesOfSlot(endTime) <= minutesOfSlot(startTime)) throw Object.assign(new Error('A valid start and end time (30-minute increments, end after start) are required.'), { statusCode: 400 });
+    if (!validExactTime(startTime) || !validExactTime(endTime) || minutesOfSlot(endTime) <= minutesOfSlot(startTime)) throw Object.assign(new Error('A valid start and end time (end after start) are required.'), { statusCode: 400 });
     out.activityId = activityId; out.startTime = startTime; out.endTime = endTime;
     out.requestedOff = null; out.requestedShiftStartEastern = null; out.requestedShiftEndEastern = null;
   }
@@ -1125,7 +1126,9 @@ const server = http.createServer(async (req, res) => {
       const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim(),leaderEmail=ptoLogic.cleanEmail(signedInEmployee?.employeeEmail||identity);
       const assignedMembers=(roster.records||[]).filter(x=>x.active!==false&&ptoLogic.cleanEmail(x.employeeEmail)!==identity&&(ptoLogic.cleanEmail(x.teamLeadEmail)===leaderEmail||String(x.teamLeadName||'').trim()===leaderName));
       const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
-      const latestTeamPeriod=Object.keys(periods).sort((a,b)=>b.localeCompare(a)).find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))))||'';
+      const availablePeriods=Object.keys(periods).sort((a,b)=>b.localeCompare(a));
+      const requestedPeriod=String(parsed.searchParams.get('period')||'');
+      const latestTeamPeriod=(requestedPeriod&&periods[requestedPeriod]?requestedPeriod:availablePeriods.find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))))||'';
       const periodResultsByEmail=new Map((latestTeamPeriod?(periods[latestTeamPeriod]||[]):[]).map(x=>[ptoLogic.cleanEmail(x.employeeEmail),x]));
       const teamResults=assignedMembers.map(member=>{
         const saved=periodResultsByEmail.get(ptoLogic.cleanEmail(member.employeeEmail));
@@ -1153,7 +1156,7 @@ const server = http.createServer(async (req, res) => {
         teamSize=teammates.length;
         if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
-      return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length});
+      return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
     }
 
     if (parsed.pathname === '/api/my/notifications' && req.method === 'GET') {
@@ -1294,7 +1297,7 @@ const server = http.createServer(async (req, res) => {
           shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null),
           overnight: Boolean(t?.overnight),
           assignments: t && !t.off ? (t.assignments || {}) : {},
-          exactActivities: (!resolved.override && !t?.off && resolved.record?.exactActivities?.[resolved.weekday]) || [],
+          exactActivities: t?.off ? [] : (resolved.override ? (resolved.override.exactActivities || []) : (resolved.record?.exactActivities?.[resolved.weekday] || [])),
           // KPI type/channel decides the default queue activity, not whatever the schedule record
           // happens to have stored - schedules are often created from a template and never get
           // their defaultAssignment corrected for Non-Voice/Senior reps, which otherwise silently
