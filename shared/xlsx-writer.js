@@ -121,35 +121,68 @@ const STYLES_XML =
 const STYLE_TITLE = 1, STYLE_HEADER = 2, STYLE_BANDED = 3, STYLE_PLAIN = 4;
 
 // sheet: {name, rows, headerRowIndex=0, titleRowIndex=null}
-// Rows before headerRowIndex (other than titleRowIndex) render unstyled (style 0) - e.g. the
-// "Period"/"Generated" meta lines some tabs print above their header row.
-function styleForRow(r, { headerRowIndex, titleRowIndex }) {
-  if (titleRowIndex != null && r === titleRowIndex) return STYLE_TITLE;
-  if (r === headerRowIndex) return STYLE_HEADER;
-  if (r > headerRowIndex) return (r - headerRowIndex) % 2 === 1 ? STYLE_BANDED : STYLE_PLAIN;
-  return 0;
+// headerRowIndex/titleRowIndex each accept either a single row number or an array of row
+// numbers - the array form lets one sheet hold several stacked blocks (e.g. one per KPI
+// type), each with its own title band and header row; banded-row shading restarts after
+// each header so every block reads as its own mini-table.
+// Rows before the first header (other than a title row) render unstyled (style 0) - e.g.
+// the "Period"/"Generated" meta lines some tabs print above their header row.
+function styleForRow(r, { headerRows, titleRows }) {
+  if (titleRows.includes(r)) return STYLE_TITLE;
+  if (headerRows.includes(r)) return STYLE_HEADER;
+  let nearestHeader = -1;
+  for (const h of headerRows) if (h < r && h > nearestHeader) nearestHeader = h;
+  if (nearestHeader < 0) return 0;
+  return (r - nearestHeader) % 2 === 1 ? STYLE_BANDED : STYLE_PLAIN;
+}
+
+// Column widths are sized from the actual content (title/merge rows excluded, since those
+// overflow across the merge rather than needing column A itself to be wide) - this is what
+// makes a hand-built sheet read as deliberately formatted instead of one flat 20-wide grid.
+function computeColWidths(rows, colCount, skipRows) {
+  const widths = new Array(colCount).fill(8);
+  rows.forEach((row, r) => {
+    if (skipRows.includes(r)) return;
+    for (let c = 0; c < colCount; c++) {
+      const value = row[c];
+      if (value == null || value === '') continue;
+      const text = typeof value === 'number' ? String(Math.round(value * 100) / 100) : String(value);
+      if (text.length > widths[c]) widths[c] = text.length;
+    }
+  });
+  return widths.map(w => Math.min(46, Math.max(9, w + 2)));
 }
 
 function sheetXml(sheet) {
-  const rows = sheet.rows, headerRowIndex = sheet.headerRowIndex ?? 0, titleRowIndex = sheet.titleRowIndex ?? null;
+  const rows = sheet.rows;
+  const headerRows = Array.isArray(sheet.headerRowIndex) ? sheet.headerRowIndex : [sheet.headerRowIndex ?? 0];
+  const titleRows = sheet.titleRowIndex == null ? [] : (Array.isArray(sheet.titleRowIndex) ? sheet.titleRowIndex : [sheet.titleRowIndex]);
   const colCount = Math.max(1, ...rows.map(row => row.length));
   const rowXml = rows.map((row, r) => {
-    const style = styleForRow(r, { headerRowIndex, titleRowIndex });
-    const cellCount = (titleRowIndex != null && r === titleRowIndex) ? colCount : row.length;
+    const style = styleForRow(r, { headerRows, titleRows });
+    const cellCount = titleRows.includes(r) ? colCount : row.length;
     const cells = [];
     for (let c = 0; c < cellCount; c++) {
       const value = row[c];
       const ref = `${colLetter(c)}${r + 1}`;
       const styleAttr = style ? ` s="${style}"` : '';
       if (value == null || value === '') cells.push(`<c r="${ref}"${styleAttr}/>`);
-      else if (typeof value === 'number' && Number.isFinite(value)) cells.push(`<c r="${ref}"${styleAttr}><v>${value}</v></c>`);
+      else if (typeof value === 'number' && Number.isFinite(value)) cells.push(`<c r="${ref}"${styleAttr}><v>${Math.round(value * 100) / 100}</v></c>`);
       else cells.push(`<c r="${ref}"${styleAttr} t="inlineStr"><is><t xml:space="preserve">${escXml(value)}</t></is></c>`);
     }
     const heightAttr = style === STYLE_HEADER ? ' ht="20" customHeight="1"' : '';
     return `<row r="${r + 1}"${heightAttr}>${cells.join('')}</row>`;
   }).join('');
-  const merges = titleRowIndex != null && colCount > 1 ? `<mergeCells count="1"><mergeCell ref="A${titleRowIndex + 1}:${colLetter(colCount - 1)}${titleRowIndex + 1}"/></mergeCells>` : '';
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetFormatPr defaultColWidth="20" defaultRowHeight="15"/><sheetData>${rowXml}</sheetData>${merges}</worksheet>`;
+  const merges = titleRows.length && colCount > 1
+    ? `<mergeCells count="${titleRows.length}">${titleRows.map(tr => `<mergeCell ref="A${tr + 1}:${colLetter(colCount - 1)}${tr + 1}"/>`).join('')}</mergeCells>`
+    : '';
+  const colWidths = computeColWidths(rows, colCount, titleRows);
+  const cols = `<cols>${colWidths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
+  const freezeAt = headerRows.length ? Math.min(...headerRows) : null;
+  const sheetViews = freezeAt != null
+    ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${freezeAt + 1}" topLeftCell="A${freezeAt + 2}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+    : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${sheetViews}<sheetFormatPr defaultColWidth="12" defaultRowHeight="15"/>${cols}<sheetData>${rowXml}</sheetData>${merges}</worksheet>`;
 }
 
 // sheets: [{name, rows, headerRowIndex=0, titleRowIndex=null}] where rows[headerRowIndex] is the header row.
