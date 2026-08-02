@@ -172,6 +172,9 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
 
   downloadXlsx(`mtd-kpi-bonus-review-${month}_${end}.xlsx`,[
     {name:'Summary',rows:summaryRows,headerRowIndex:4,titleRowIndex:0},
+    finalKpiSheet,
+    finalKpiDisputeSheet,
+    teamKpiSheet,
     {name:'KPI Methodology',rows:methodologyRows,headerRowIndex:3,titleRowIndex:0},
     sheetFrom('Attendance',attendanceRows),
     sheetFrom('CSAT',csatRows),
@@ -180,9 +183,6 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
     sheetFrom('Team & Tickets (Senior)',seniorRows),
     sheetFrom('Database Agent (Lead Import)',databaseRows),
     sheetFrom('Bonus',bonusRows),
-    finalKpiSheet,
-    finalKpiDisputeSheet,
-    teamKpiSheet,
     sheetFrom('Dispute Log',disputeRows)
   ]);
 };
