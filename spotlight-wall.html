@@ -41,6 +41,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 .badge-purple{background:#ece4fb;color:#5b2fae}
 .fillerImg{max-width:min(560px,70vw);max-height:32vh;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);margin:6px 0 18px;display:block;margin-left:auto;margin-right:auto}
 .fillerSvgWrap{max-width:min(560px,74vw);margin:6px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.fillerVideoWrap{max-width:min(720px,80vw);aspect-ratio:16/9;margin:10px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);background:#000}
+.fillerVideoWrap iframe{width:100%;height:100%;border:0}
 .quizOptions{display:flex;flex-direction:column;gap:12px;max-width:560px;margin:20px auto 0}
 .quizOption{background:rgba(255,255,255,.12);border:2px solid transparent;border-radius:14px;padding:14px 22px;font-size:24px;font-weight:800;text-align:left;transition:background .5s,border-color .5s,transform .5s}
 .quizOption.correct{background:#d7f9ee;color:#0a6b52;border-color:#0ecf9b;transform:scale(1.03)}
@@ -197,7 +199,17 @@ const FILLER_ITEMS=[
   {type:'lofty',attr:'Lofty 4.46',text:'Tasks can now recur Quarterly on a specific month and day you choose - handy for quarterly client check-ins and reviews.',image:'https://help.lofty.com/hc/article_attachments/52495358494747'},
   {type:'lofty',attr:'Lofty 4.46',text:"You can now command your AI Sales Agent directly inside Lofty: see its full conversation history, review its planned next action, and redirect it without leaving the CRM.",image:'https://help.lofty.com/hc/article_attachments/52495553329307'},
   {type:'lofty',attr:'Lofty 4.46',text:'Social Agent posts now automatically resize to fit the character limit of whichever platform you are posting to, updating instantly if you switch channels.'},
-  {type:'hr',text:'Attendance is tracked through the biometric/Lark Attendance system - remember to clock in and out at the start and end of each shift.'},
+  {type:'lofty',attr:'Lofty AOS',text:"Lofty AOS (Agent Operating System) is the next generation of the Lofty platform - your CRM, communication, marketing, and AI tools brought together in one workspace, with your leads, history, and settings carrying over unchanged."},
+  {type:'lofty',attr:'Lofty AOS',text:'Instead of a classic Dashboard, Lofty AOS opens on Cowork - an AI home page with a live morning briefing, your production numbers, and an Ask Lofty AI box ready for plain-language requests.'},
+  {type:'lofty',attr:'Lofty AOS',text:'Lofty AOS groups its AI Copilots - Sales Agent, AI Assistant, Social Agent, and Homeowner Agent - together instead of scattering them across separate features.'},
+  {type:'lofty',attr:'Lofty AOS',text:'The Lofty AOS sidebar has three groups: workspace tools up top (Cowork, Search, Inbox, Dialer), your working modules in the middle (CRM, Sales, Marketing, Automation, Website, Reporting), and account tools at the bottom.'},
+  {type:'lofty',attr:'Lofty AOS',text:'Clicking the Lofty logo in the top-left corner always takes you back to Cowork, your AI workspace home page, from anywhere in Lofty AOS.'},
+  {type:'lofty',attr:'Lofty AOS',text:'In Lofty AOS, your Profile settings feed your email signature and public-facing details - photo, name, phone number, license ID, and social media links all live there.'},
+  {type:'lofty',attr:'Lofty AOS',text:"Lofty AOS account security lives under Account & Security: change your password, turn on Two-Factor Authentication, and see (and log out of) every device currently signed into your account."},
+  {type:'lofty',attr:'Lofty AOS',text:'Lofty is rolling out AOS in stages, so not every account gets every feature at once - your leads, history, and settings still carry over unchanged either way.'},
+  {type:'video',attr:'Lofty AOS',caption:'Your First Time Logging Into Lofty AOS',embed:'https://www.loom.com/embed/81b6bf10a1004191a5fb49ebe4a7df1b?autoplay=1&muted=1'}
+,
+  {type:'hr',text:'Attendance is tracked through ESS/Jeonsoft - remember to clock in and out at the start and end of each shift.'},
   {type:'hr',text:'Running late? As a guideline, notify your supervisor at least 1 hour before your shift for expected lateness, and at least 2 hours before for a planned absence.'},
   {type:'hr',text:'If an illness keeps you out more than one day, a medical certificate is expected when you return - the initial call-in itself does not require disclosing the illness.'},
   {type:'hr',text:'Certain days - around payday, weekends, holidays, and the last working day of the month - are treated as Critical Work Days, so unscheduled absences on those days get extra attention.'},
@@ -253,6 +265,7 @@ function slideForItem(item){
   if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
   if(item.type==='quiz')return `<div class="slide"><div class="slideIcon">🧠</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Quick Trivia</div><div class="slideBody sizeL">${esc(item.question)}</div><div class="quizOptions">${item.options.map((opt,i)=>`<div class="quizOption" data-idx="${i}">${String.fromCharCode(65+i)}. ${esc(opt)}</div>`).join('')}</div><div class="slideMeta quizReveal" style="opacity:0;margin-top:14px">Correct answer highlighted above</div></div>`;
   if(item.type==='phishing')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#fde3e3;color:#a11d1d">Spot the Phishing Attempt</div><div class="fillerSvgWrap">${item.svg}</div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
+  if(item.type==='video')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
   if(item.type==='lofty')return `<div class="slide"><div class="slideIcon">📣</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">What's New in Lofty · ${esc(item.attr)}</div>${item.image?`<img class="fillerImg" src="${esc(item.image)}" alt="">`:''}<div class="slideBody ${sizeFor(item.text,'body')}">${esc(item.text)}</div></div>`;
   const icon=item.type==='quote'?'💬':item.type==='security'?'🛡️':'💡';
   const label=item.type==='quote'?'Worth Remembering':item.type==='security'?'Security Tip':'Good to Know';
