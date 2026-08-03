@@ -1,0 +1,180 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spotlight Wall</title><style>
+:root{--gold:#f5b400;--gold-dark:#c98f00;--teal:#0ecf9b;--teal-dark:#0a9d78;--blue:#3b5cde;--blue-dark:#2e46b8;--purple:#7c3fe0;--ink:#1c1f2e;--paper:rgba(255,255,255,.96)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:var(--ink);overflow-x:hidden;
+  background:linear-gradient(120deg,#1c1f4a,#3b1f7a 35%,#7c1f6a 70%,#2a1f6a);
+  background-size:300% 300%;animation:bgShift 22s ease infinite}
+@keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.wrap{max-width:1500px;margin:auto;padding:26px 26px 40px}
+.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;color:#fff}
+.headerLeft{display:flex;align-items:center;gap:14px}
+.lobLogo{height:38px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.title{font-size:32px;font-weight:900;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+.title .spark{display:inline-block;animation:spin 3.5s linear infinite}
+@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+.sub{opacity:.85;font-size:13px;margin-top:2px}
+.clock{font-size:15px;font-weight:800;background:rgba(255,255,255,.14);padding:9px 16px;border-radius:999px;backdrop-filter:blur(6px)}
+.soundToggle{cursor:pointer;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:9px 16px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+.soundToggle:hover{background:rgba(255,255,255,.24)}
+.message{margin:16px 0;padding:11px 15px;border-radius:12px;background:rgba(255,255,255,.85);color:#7a2020;font-weight:700}
+.message[hidden]{display:none}
+.board{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:20px;margin-top:22px}
+@media(max-width:1050px){.board{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:14px}
+.colHead{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.4px}
+.colHead .emoji{font-size:22px}
+.colCount{background:rgba(255,255,255,.2);border-radius:999px;padding:2px 11px;font-size:12px}
+.cardList{display:flex;flex-direction:column;gap:12px;max-height:74vh;overflow:auto;padding-right:4px}
+.emptyCard{background:var(--paper);border-radius:16px;padding:22px;text-align:center;color:#6b6f80;font-weight:700;font-size:13px}
+.shoutCard,.saveCard{background:var(--paper);border-radius:16px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,0,0,.25);position:relative;overflow:hidden;animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes popIn{0%{transform:scale(.85) translateY(10px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
+.shoutCard.isNew,.saveCard.isNew{animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both,glowPulse 1.8s ease-out 1}
+@keyframes glowPulse{0%{box-shadow:0 0 0 0 rgba(245,180,0,.7),0 10px 26px rgba(0,0,0,.25)}100%{box-shadow:0 0 0 22px rgba(245,180,0,0),0 10px 26px rgba(0,0,0,.25)}}
+.shoutCard{border-left:6px solid var(--gold)}
+.shoutCard.mentioned{border-left-color:var(--gold-dark);background:linear-gradient(135deg,#fff,#fff7e0)}
+.saveCard{border-left:6px solid var(--teal)}
+.cardTop{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.repName{font-weight:900;font-size:15px}
+.badge{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge.gold{background:#fff2cc;color:#8a5a00}
+.badge.teal{background:#d7f9ee;color:#0a6b52}
+.quote{margin:9px 0 6px;font-size:14px;line-height:1.45;color:#2a2d3a;font-style:italic}
+.quote::before{content:"\201C"}.quote::after{content:"\201D"}
+.cardMeta{font-size:11px;color:#8b8f9c;display:flex;justify-content:space-between;gap:8px}
+.ticketLink{color:#5b6dd6;text-decoration:none;font-weight:700}
+.ticketLink:hover{text-decoration:underline}
+.leaderList{background:var(--paper);border-radius:16px;padding:8px;box-shadow:0 10px 26px rgba(0,0,0,.25)}
+.leaderRow{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:12px;transition:background .12s}
+.leaderRow:hover{background:#f3f4fb}
+.leaderRow+.leaderRow{border-top:1px solid #eceef5}
+.medal{font-size:22px;width:30px;text-align:center}
+.leaderName{font-weight:800;font-size:14px;flex:1}
+.leaderStats{font-size:12px;color:#6b6f80;text-align:right}
+.leaderStats b{color:var(--ink);font-size:15px}
+.confettiLayer{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+.confettiPiece{position:absolute;top:-20px;font-size:20px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(540deg);opacity:0}}
+.appCredit{text-align:center;color:rgba(255,255,255,.55);font-size:11px;padding:26px 0 6px}
+</style></head><body>
+<div class="confettiLayer" id="confettiLayer"></div>
+<div class="wrap">
+<div class="header">
+  <div class="headerLeft"><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div><div class="title"><span class="spark">✨</span> Spotlight Wall</div><div class="sub" id="dateLabel">Today's wins across the team</div></div></div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button class="soundToggle" id="soundToggle" type="button">🔊 Sound On</button>
+    <div class="clock" id="clock"></div>
+  </div>
+</div>
+<div id="message" class="message" hidden></div>
+<div class="board">
+  <div class="col">
+    <div class="colHead"><span class="emoji">🌟</span> Customer Shoutouts <span class="colCount" id="shoutCount">0</span></div>
+    <div class="cardList" id="shoutList"></div>
+  </div>
+  <div class="col">
+    <div class="colHead"><span class="emoji">🔄</span> Save of the Day <span class="colCount" id="saveCount">0</span></div>
+    <div class="cardList" id="saveList"></div>
+  </div>
+  <div class="col">
+    <div class="colHead"><span class="emoji">📞</span> Call Volume Leaders <span class="colCount" id="leaderCount">0</span></div>
+    <div class="leaderList" id="leaderList"></div>
+  </div>
+</div>
+</div>
+<div class="appCredit">Built by Mac · V1.2.0 · &copy; 2026 Lofty. All Rights Reserved.</div>
+<script type="module">
+const params=new URLSearchParams(location.search);
+async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
+
+let soundOn=true;
+document.getElementById('soundToggle').onclick=()=>{soundOn=!soundOn;document.getElementById('soundToggle').textContent=soundOn?'🔊 Sound On':'🔇 Sound Off'};
+let audioCtx=null;
+function chime(){
+  if(!soundOn)return;
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const now=audioCtx.currentTime;
+    [[880,0],[1174.66,.12],[1567.98,.24]].forEach(([freq,delay])=>{
+      const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+      osc.type='sine';osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+delay);
+      gain.gain.exponentialRampToValueAtTime(0.22,now+delay+.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+delay+.5);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now+delay);osc.stop(now+delay+.55);
+    });
+  }catch(_){}
+}
+const CONFETTI_EMOJI=['🎉','🎊','⭐','✨','🥳'];
+function burstConfetti(){
+  const layer=document.getElementById('confettiLayer');
+  for(let i=0;i<18;i++){
+    const el=document.createElement('div');
+    el.className='confettiPiece';
+    el.textContent=CONFETTI_EMOJI[Math.floor(Math.random()*CONFETTI_EMOJI.length)];
+    el.style.left=`${Math.random()*100}%`;
+    el.style.fontSize=`${14+Math.random()*16}px`;
+    el.style.animationDuration=`${2.2+Math.random()*1.6}s`;
+    el.style.animationDelay=`${Math.random()*.4}s`;
+    layer.appendChild(el);
+    setTimeout(()=>el.remove(),4200);
+  }
+}
+
+const seenShoutIds=new Set(),seenSaveIds=new Set();
+let firstLoad=true;
+
+function renderShoutouts(items){
+  const list=document.getElementById('shoutList');
+  document.getElementById('shoutCount').textContent=items.length;
+  if(!items.length){list.innerHTML='<div class="emptyCard">No customer shoutouts yet today — check back soon!</div>';return}
+  list.innerHTML=items.map(item=>{
+    const id=`${item.ticketId}`,isNew=!firstLoad&&!seenShoutIds.has(id);
+    return `<div class="shoutCard${item.mentionsName?' mentioned':''}${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span>${item.mentionsName?'<span class="badge gold">Named by customer</span>':''}</div><div class="quote">${esc(item.comment)}</div><div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
+  }).join('');
+}
+function renderSaves(items){
+  const list=document.getElementById('saveList');
+  document.getElementById('saveCount').textContent=items.length;
+  if(!items.length){list.innerHTML='<div class="emptyCard">No CSAT turnarounds yet today.</div>';return}
+  list.innerHTML=items.map(item=>{
+    const id=`${item.ticketId}`,isNew=!firstLoad&&!seenSaveIds.has(id);
+    return `<div class="saveCard${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span><span class="badge teal">Turned it around</span></div>${item.comment?`<div class="quote">${esc(item.comment)}</div>`:''}<div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
+  }).join('');
+}
+function renderLeaders(items){
+  document.getElementById('leaderCount').textContent=items.length;
+  const medals=['🥇','🥈','🥉','🏅','🏅'];
+  document.getElementById('leaderList').innerHTML=items.length?items.map((item,i)=>`<div class="leaderRow"><div class="medal">${medals[i]||'🏅'}</div><div class="leaderName">${esc(item.employeeName)}</div><div class="leaderStats"><b>${item.accepted}</b> calls${item.longCalls?` · ${item.longCalls} long`:''}</div></div>`).join('')||'':'<div class="emptyCard">No call activity yet today.</div>';
+}
+
+async function load(){
+  try{
+    const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
+    const data=await api(`/api/spotlight-wall${key}`);
+    const spotlight=data.spotlight||{};
+    const shoutouts=spotlight.shoutouts||[],saves=spotlight.saves||[],callLeaders=spotlight.callLeaders||[];
+    const hasNewShout=shoutouts.some(item=>!seenShoutIds.has(`${item.ticketId}`));
+    const hasNewSave=saves.some(item=>!seenSaveIds.has(`${item.ticketId}`));
+    renderShoutouts(shoutouts);
+    renderSaves(saves);
+    renderLeaders(callLeaders);
+    if(!firstLoad&&(hasNewShout||hasNewSave)){chime();burstConfetti()}
+    shoutouts.forEach(item=>seenShoutIds.add(`${item.ticketId}`));
+    saves.forEach(item=>seenSaveIds.add(`${item.ticketId}`));
+    firstLoad=false;
+    document.getElementById('dateLabel').textContent=spotlight.date?`Today's wins across the team · ${spotlight.date}`:"Today's wins across the team";
+    setMessage('','')
+  }catch(error){
+    setMessage(error.status===401?'This link is not authorized. Ask your administrator for the correct Spotlight Wall link.':`Could not load Spotlight Wall. ${error.response?.error||error.message}`,'error')
+  }
+}
+function tickClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString()}
+load();
+setInterval(load,15000);
+tickClock();
+setInterval(tickClock,1000);
+</script>
+</body></html>

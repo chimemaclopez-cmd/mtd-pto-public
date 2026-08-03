@@ -413,6 +413,7 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
+async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], generatedAt: '' }); }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 
@@ -868,6 +869,19 @@ const server = http.createServer(async (req, res) => {
       if (!statusWallKeyMatches(parsed, cookies)) return json(res, 401, { ok: false, error: 'Not authorized.' });
       const data = await computeStatusWall();
       return json(res, 200, data);
+    }
+
+    // --- Spotlight Wall: key-gated (not session-gated), same shared link as Status Wall ---
+    if (parsed.pathname === '/spotlight-wall') {
+      if (!statusWallKeyMatches(parsed, cookies)) return sendText(res, 401, 'Not authorized. Use the link provided to you.', 'text/plain; charset=utf-8');
+      if (parsed.searchParams.get('key')) res.setHeader('Set-Cookie', statusWallCookieHeader(isSecureReq));
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'spotlight-wall.html'), 'utf8'), 'text/html; charset=utf-8');
+    }
+
+    if (parsed.pathname === '/api/spotlight-wall' && req.method === 'GET') {
+      if (!statusWallKeyMatches(parsed, cookies)) return json(res, 401, { ok: false, error: 'Not authorized.' });
+      const spotlight = await loadSpotlightSnapshot();
+      return json(res, 200, { ok: true, spotlight });
     }
 
     // --- Everything below requires a signed-in session ---
