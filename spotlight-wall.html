@@ -80,7 +80,7 @@ const ROTATE_MS=30000;
 // (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
 // reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
 // file compares it against whatever is currently live and force-reloads when they differ.
-const SW_VERSION='2026-08-04.1';
+const SW_VERSION='2026-08-04.2';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -284,7 +284,13 @@ const REMINDER_ITEMS=[
   {type:'reminder',text:'Curaytor employees (@curaytor.com): do not reply or engage. Forward their emails and assign their tickets to Phillip Wallace without replying. Leave any shared Slack channel with them.'},
   {type:'reminder',text:'Curaytor-package client asking about the transition? A dedicated Lofty rep will review their account - transition runs through Aug 20, 2026. To expedite, direct them to transitionsupport@lofty.com.'},
   {type:'reminder',text:"Curaytor-package client already with the Transition Team? Do not reply again - hand the ticket to their assigned Transition Team member and add an internal note summarizing the concern."},
-  {type:'reminder',text:'Not sure if a requester is a Curaytor employee or a Curaytor-package client? Do not respond until confirmed with your Team Lead or Phillip Wallace.'}
+  {type:'reminder',text:'Not sure if a requester is a Curaytor employee or a Curaytor-package client? Do not respond until confirmed with your Team Lead or Phillip Wallace.'},
+  {type:'reminder',text:'Do not confirm a cancellation is completed, or say an account will not auto-renew, unless a conclusive Jira note confirms it.'},
+  {type:'reminder',text:'Contract end date, renewal, or cancellation questions? Refer to the SMB Team (MRR $648 and under) or the MM/ENT Team (MRR $649+). Unsure? File a Jira ticket to the right department and CCS assignee.'},
+  {type:'reminder',text:'Growth Team Form is back - use it for new account opens, downgrades, and churn/cancellation requests. Segments: MM/ENT = MRR $649+, SMB = MRR $648 and below.'},
+  {type:'reminder',text:'New account opening: prospects go to the Lofty.com demo page. An existing MM/ENT member wanting a separate solo account, or a Real Broker account with 2+ seats, needs the AGT/CVT Form.'},
+  {type:'reminder',text:'Downgrade requests: MM/ENT -> submit the AGT Form. SMB -> endorse to the assigned SMB CSM.'},
+  {type:'reminder',text:'Churn/cancellation requests: create an AM-Cancellation Jira, assigned to the CSM (MM/ENT) or the SMB CCS (SMB). Always verify MRR and segment before routing.'}
 ];
 let reminderCursor=0;
 function nextReminderItem(){
