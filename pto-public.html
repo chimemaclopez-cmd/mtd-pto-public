@@ -477,7 +477,7 @@ function endTour(){$('tourWelcomeModal').hidden=true;$('tourOverlay').hidden=tru
 const CHANGELOG=[
   {version:'1.2.0',items:['New "Site KPI" tab showing company-wide MTD Call Completion Rate (8AM–8PM ET), Long Call Rate, Resolution Rate, and CSAT.']}
 ];
-function pendingChangelog(){if(!sessionUser?.lastSeenVersion)return[];const idx=CHANGELOG.findIndex(c=>c.version===sessionUser.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
+function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
 function dismissWhatsNew(){$('whatsNewModal').hidden=true;if(sessionUser)sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{})}
 function tourNext(){if(tourIndex>=activeTourSteps.length-1){endTour();return}tourIndex++;positionTour()}
