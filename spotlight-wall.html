@@ -75,6 +75,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 <script type="module">
 const params=new URLSearchParams(location.search);
 const ROTATE_MS=30000;
+// This page is meant to stay open on a TV all day (or longer) without ever being manually
+// refreshed - but a 15s data poll only refreshes DATA, not the code itself, so a code deploy
+// (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
+// reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
+// file compares it against whatever is currently live and force-reloads when they differ.
+const SW_VERSION='2026-08-03.6';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -315,11 +321,14 @@ function buildQueue(spotlight){
   while(woven.length<MIN_QUEUE_LENGTH)woven.push(nextFillerItem());
   return{list:woven};
 }
-let quizRevealTimer=null;
+let quizRevealTimer=null,alertInterval=null,alertStopTimer=null;
 function showSlide(index){
   if(!queue.length)return;
   const item=queue[index];
   clearTimeout(quizRevealTimer);
+  // A repeating alert from a previous slide must never bleed into this one - always clear it
+  // here before deciding whether the new slide starts its own.
+  clearInterval(alertInterval);alertInterval=null;clearTimeout(alertStopTimer);
   document.getElementById('stage').innerHTML=slideForItem(item);
   document.getElementById('dots').innerHTML=queue.map((_,i)=>`<div class="dot${i===index?' active':''}"></div>`).join('');
   const bar=document.getElementById('progressBar');
@@ -336,7 +345,17 @@ function showSlide(index){
   if(item.kind==='birthday'&&item.daysUntil===0){birthdayChime();burstConfetti()}
   else if(item.pendingAnnounce&&firstLoad===false){
     const k=keyFor(item);
-    if(item.kind==='shoutout'){if(item.mentionsName||item.hasComment){loudChime();burstConfetti()}else{chime()}}
+    if(item.kind==='shoutout'){
+      if(item.mentionsName||item.hasComment){
+        // A named/commented shoutout needs to be noticeable from across the floor, not just a
+        // quick blip - repeat the loud chime for the entire time this slide is on screen
+        // instead of firing it once at the start.
+        burstConfetti();loudChime();
+        alertInterval=setInterval(loudChime,3200);
+        const dwell=item.durationMs||ROTATE_MS;
+        alertStopTimer=setTimeout(()=>{clearInterval(alertInterval);alertInterval=null},Math.max(0,dwell-200));
+      }else{chime()}
+    }
     else if(item.kind==='save'){chime();burstConfetti()}
     if(k)announcedKeys.add(k);
   }
@@ -415,8 +434,20 @@ async function load(){
   }
 }
 function tickClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString()}
+// Re-fetches this page's own HTML (bypassing cache) every 5 minutes and reloads the tab the
+// moment SW_VERSION no longer matches what's actually deployed - the fix for a display that's
+// been open since before a deploy and would otherwise keep silently running yesterday's code.
+async function checkForUpdate(){
+  try{
+    const response=await fetch(location.pathname+location.search,{cache:'no-store',credentials:'same-origin'});
+    const html=await response.text();
+    const match=html.match(/const SW_VERSION='([^']+)'/);
+    if(match&&match[1]!==SW_VERSION)location.reload();
+  }catch(_){/* a failed check is just retried on the next interval - nothing actionable here */}
+}
 load();
 setInterval(load,15000);
+setInterval(checkForUpdate,5*60*1000);
 tickClock();
 setInterval(tickClock,1000);
 </script>
