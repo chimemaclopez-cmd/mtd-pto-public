@@ -418,6 +418,40 @@ async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdk
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
 async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, generatedAt: '' }); }
+// Adds each highlighted employee's uploaded profile photo (if any) to their Spotlight Wall
+// item - resolved by email for shoutouts/saves/callLeaders, and by name via the roster for
+// birthdays/anniversaries (computeCelebrations() only carries a name, not an email). An
+// employee who hasn't uploaded a photo simply gets no photoBase64 field - the wall leaves
+// that slide without an avatar rather than showing any kind of placeholder.
+async function attachProfilePhotos(spotlight) {
+  const roster = await loadRosterSnapshot();
+  const emailByName = new Map((roster.records || []).map(x => [String(x.employeeName || '').trim(), ptoLogic.cleanEmail(x.employeeEmail || '')]));
+  const emails = new Set();
+  for (const item of [...(spotlight.shoutouts || []), ...(spotlight.saves || []), ...(spotlight.callLeaders || [])]) {
+    const email = ptoLogic.cleanEmail(item.employeeEmail || '');
+    if (email) emails.add(email);
+  }
+  for (const item of [...(spotlight.celebrations?.birthdays || []), ...(spotlight.celebrations?.anniversaries || [])]) {
+    const email = emailByName.get(String(item.employeeName || '').trim());
+    if (email) emails.add(email);
+  }
+  const photoByEmail = new Map();
+  await Promise.all([...emails].map(async email => {
+    const photo = await getSnapshot(`profile-photo:${email}`, PROFILE_PHOTO_KEY_PREFIX + email, null);
+    if (photo?.contentBase64) photoByEmail.set(email, photo.contentBase64);
+  }));
+  const withPhoto = (item, email) => { const photo = email && photoByEmail.get(email); return photo ? { ...item, photoBase64: photo } : item; };
+  return {
+    ...spotlight,
+    shoutouts: (spotlight.shoutouts || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
+    saves: (spotlight.saves || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
+    callLeaders: (spotlight.callLeaders || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
+    celebrations: {
+      birthdays: (spotlight.celebrations?.birthdays || []).map(x => withPhoto(x, emailByName.get(String(x.employeeName || '').trim()))),
+      anniversaries: (spotlight.celebrations?.anniversaries || []).map(x => withPhoto(x, emailByName.get(String(x.employeeName || '').trim())))
+    }
+  };
+}
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 
@@ -884,7 +918,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/spotlight-wall' && req.method === 'GET') {
       if (!statusWallKeyMatches(parsed, cookies)) return json(res, 401, { ok: false, error: 'Not authorized.' });
-      const spotlight = await loadSpotlightSnapshot();
+      const spotlight = await attachProfilePhotos(await loadSpotlightSnapshot());
       return json(res, 200, { ok: true, spotlight });
     }
 

@@ -23,6 +23,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 .slide{width:min(1150px,92vw);text-align:center;animation:slideIn .55s cubic-bezier(.2,1,.3,1) both}
 @keyframes slideIn{0%{opacity:0;transform:translateY(24px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
 .slideIcon{font-size:110px;line-height:1;margin-bottom:10px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));display:inline-block;animation:iconBounce 1.8s ease-in-out infinite}
+.slidePhoto{width:150px;height:150px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;border:4px solid rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(0,0,0,.35);animation:iconBounce 1.8s ease-in-out infinite}
 @keyframes iconBounce{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-10px) scale(1.06)}}
 .slideLabel{font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;opacity:.85;margin-bottom:14px}
 .slideName{font-weight:900;letter-spacing:-.01em;text-shadow:0 3px 14px rgba(0,0,0,.4);margin-bottom:14px;animation:nameGlow 2.4s ease-in-out infinite}
@@ -50,6 +51,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 .leaderBoard{display:flex;flex-direction:column;gap:16px;max-width:880px;margin:0 auto}
 .leaderRow{display:flex;align-items:center;gap:24px;background:rgba(255,255,255,.12);border-radius:18px;padding:20px 32px;backdrop-filter:blur(4px)}
 .leaderMedal{font-size:48px;width:64px;text-align:center}
+.leaderPhoto{width:52px;height:52px;border-radius:50%;object-fit:cover;margin-right:10px;border:2px solid rgba(255,255,255,.5)}
 .leaderName{font-size:36px;font-weight:900;flex:1;text-align:left}
 .leaderStats{font-size:27px;font-weight:800;opacity:.9}
 .progressTrack{flex:0 0 auto;height:5px;background:rgba(255,255,255,.15);margin:0 34px 6px;border-radius:999px;overflow:hidden}
@@ -80,7 +82,7 @@ const ROTATE_MS=30000;
 // (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
 // reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
 // file compares it against whatever is currently live and force-reloads when they differ.
-const SW_VERSION='2026-08-04.5';
+const SW_VERSION='2026-08-04.6';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -301,17 +303,20 @@ function sizeFor(text,tier){
   return len>140?'sizeM':len>70?'sizeL':'sizeXL';
 }
 function slideForItem(item){
+  // A real uploaded profile photo replaces the emoji icon on hero slides - an employee who
+  // hasn't uploaded one yet just keeps the icon, no placeholder avatar shown in its place.
+  const heroVisual=(icon,photoBase64)=>photoBase64?`<img class="slidePhoto" src="${esc(photoBase64)}" alt="">`:`<div class="slideIcon">${icon}</div>`;
   if(item.kind==='shoutout'){
     // Every good rating gets a slide, but the ones with real customer words - especially ones
     // naming the rep - get a bigger icon/badge (and, in showSlide, a louder chime + confetti).
     const icon=item.mentionsName?'🏆':item.hasComment?'🌟':'👍';
     const badge=item.mentionsName?'Customer Shoutout · Named by Customer':(item.hasComment?'Customer Shoutout':'Good CSAT Rating');
     const body=item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Left a good rating today - nice work!</div>';
-    return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-gold">${badge}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${body}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+    return `<div class="slide">${heroVisual(icon,item.photoBase64)}<div class="slideBadge badge-gold">${badge}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${body}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   }
-  if(item.kind==='save')return `<div class="slide"><div class="slideIcon">🔄</div><div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
-  if(item.kind==='birthday')return `<div class="slide"><div class="slideIcon">🎂</div><div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
-  if(item.kind==='anniversary')return `<div class="slide"><div class="slideIcon">🏆</div><div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  if(item.kind==='save')return `<div class="slide">${heroVisual('🔄',item.photoBase64)}<div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  if(item.kind==='birthday')return `<div class="slide">${heroVisual('🎂',item.photoBase64)}<div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  if(item.kind==='anniversary')return `<div class="slide">${heroVisual('🏆',item.photoBase64)}<div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='weather'){
     const icon=item.level==='warning'?'⛈️':item.level==='caution'?'🌦️':'☀️';
     const badgeStyle=item.level==='warning'?'background:#fde3e3;color:#a11d1d':item.level==='caution'?'background:#fff2cc;color:#8a5a00':'background:#dbe4ff;color:#2e46b8';
@@ -319,7 +324,7 @@ function slideForItem(item){
     const outlookLine=item.metroManilaOutlook?`<div class="slideMeta" style="margin-top:8px;opacity:.65">Metro Manila outlook: ${esc(item.metroManilaOutlook)}</div>`:'';
     return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-purple" style="${badgeStyle}">Weather · ${esc(item.city)}</div><div class="slideBody sizeL">${esc(item.advisory)}</div><div class="slideMeta">${tempLine}</div>${outlookLine}</div>`;
   }
-  if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
+  if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div>${l.photoBase64?`<img class="leaderPhoto" src="${esc(l.photoBase64)}" alt="">`:''}<div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
   if(item.type==='quiz')return `<div class="slide"><div class="slideIcon">🧠</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Quick Trivia</div><div class="slideBody sizeL">${esc(item.question)}</div><div class="quizOptions">${item.options.map((opt,i)=>`<div class="quizOption" data-idx="${i}">${String.fromCharCode(65+i)}. ${esc(opt)}</div>`).join('')}</div><div class="slideMeta quizReveal" style="opacity:0;margin-top:14px">Correct answer highlighted above</div></div>`;
   if(item.type==='phishing')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#fde3e3;color:#a11d1d">Spot the Phishing Attempt</div><div class="fillerSvgWrap">${item.svg}</div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
   if(item.type==='video')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
