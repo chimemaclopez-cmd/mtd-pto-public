@@ -292,7 +292,10 @@ function buildQueue(spotlight){
   // On a quiet day (e.g. just the weather slide, real.length===1) the modulo-3 weave above
   // never fires, so the queue would otherwise be a single slide forever - pad it out with
   // filler so quotes/tips/Lofty updates keep rotating regardless of how few real items exist.
-  const MIN_QUEUE_LENGTH=8;
+  // 25 slides at 30s each is a ~12.5 minute cycle before any repeat, drawing from the full
+  // ~75-item pool - a big improvement over the original 8 (a 4-minute loop of only 8 items,
+  // which read as "just repeating the same few things") for a slow-content day.
+  const MIN_QUEUE_LENGTH=25;
   while(woven.length<MIN_QUEUE_LENGTH)woven.push(nextFillerItem());
   return{list:woven};
 }
@@ -322,27 +325,64 @@ function showSlide(index){
     if(k)announcedKeys.add(k);
   }
 }
+// buildQueue() calls nextFillerItem(), which permanently advances the day's filler cursor -
+// so it must only run at a moment the viewer will actually see, never on every 15s poll (that
+// would silently churn through the pool behind the scenes while the dots/slide sit still,
+// making the visible sequence feel arbitrary and the pool feel like it never progresses).
+// latestSpotlight holds the freshest fetched data; rebuildQueue() is the ONLY place allowed
+// to call buildQueue(), and it always shows the result immediately.
+let latestSpotlight={},lastRealSignature='';
+function realSignature(spotlight){
+  const parts=[];
+  (spotlight.shoutouts||[]).forEach(x=>parts.push(`s:${x.ticketId}`));
+  (spotlight.saves||[]).forEach(x=>parts.push(`v:${x.ticketId}`));
+  (spotlight.celebrations?.birthdays||[]).forEach(x=>parts.push(`b:${x.employeeName}:${x.daysUntil}`));
+  (spotlight.celebrations?.anniversaries||[]).forEach(x=>parts.push(`a:${x.employeeName}:${x.daysUntil}`));
+  (spotlight.callLeaders||[]).forEach(x=>parts.push(`l:${x.employeeName}:${x.accepted}`));
+  if(spotlight.weather)parts.push(`w:${spotlight.weather.condition}:${spotlight.weather.level}`);
+  return parts.join('|');
+}
+function rebuildQueue(){
+  const{list}=buildQueue(latestSpotlight);
+  queue=list;
+  queueIndex=0;
+  showSlide(0);
+}
 function startRotation(){
   clearInterval(rotateTimer);
-  queueIndex=0;showSlide(0);
-  rotateTimer=setInterval(()=>{queueIndex=(queueIndex+1)%queue.length;showSlide(queueIndex)},ROTATE_MS);
+  rebuildQueue();
+  rotateTimer=setInterval(()=>{
+    const next=queueIndex+1;
+    if(next>=queue.length){
+      // Natural end of this cycle - the one safe, predictable moment to pull in fresh
+      // filler picks, so the dots always match what is actually about to play.
+      rebuildQueue();
+    }else{
+      queueIndex=next;showSlide(queueIndex);
+    }
+  },ROTATE_MS);
 }
 
 async function load(){
   try{
     const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
     const data=await api(`/api/spotlight-wall${key}`);
-    const spotlight=data.spotlight||{};
-    const{list}=buildQueue(spotlight);
-    queue=list;
+    latestSpotlight=data.spotlight||{};
+    const signature=realSignature(latestSpotlight);
     if(firstLoad){
+      lastRealSignature=signature;
+      startRotation();
       // On the very first load, mark everything already visible as "announced" so the wall
       // doesn't fire a chime for every pre-existing item the moment it opens - only genuinely
       // new arrivals after that get the sound.
       queue.forEach(item=>{const k=keyFor(item);if(k)announcedKeys.add(k)});
-      startRotation();firstLoad=false;
+      firstLoad=false;
+    }else if(signature!==lastRealSignature){
+      // Genuinely new/changed real content (a new shoutout, updated weather, etc.) is worth
+      // surfacing right away rather than waiting for the current cycle to finish.
+      lastRealSignature=signature;
+      rebuildQueue();
     }
-    if(queueIndex>=queue.length)queueIndex=0;
     setMessage('','')
   }catch(error){
     setMessage(error.status===401?'This link is not authorized. Ask your administrator for the correct Spotlight Wall link.':`Could not load Spotlight Wall. ${error.response?.error||error.message}`,'error')
