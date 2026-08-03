@@ -45,6 +45,10 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+// Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
+// reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
+// sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
+const PORTAL_VERSION = '1.2.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -798,7 +802,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), portalRole: portalRoleFor(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -897,11 +901,16 @@ const server = http.createServer(async (req, res) => {
     const mustChangePassword = Boolean(credential?.mustChangePassword);
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), portalRole: portalRoleFor(session.employeeEmail) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(session.employeeEmail) });
     }
 
     if (parsed.pathname === '/api/my/tour-complete' && req.method === 'POST') {
-      if (credential) { credential.tourSeen = true; await saveCredential(credential); }
+      if (credential) { credential.tourSeen = true; credential.lastSeenVersion = PORTAL_VERSION; await saveCredential(credential); }
+      return json(res, 200, { ok: true });
+    }
+
+    if (parsed.pathname === '/api/my/whats-new-seen' && req.method === 'POST') {
+      if (credential) { credential.lastSeenVersion = PORTAL_VERSION; await saveCredential(credential); }
       return json(res, 200, { ok: true });
     }
 
