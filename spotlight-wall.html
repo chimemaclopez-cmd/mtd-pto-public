@@ -207,7 +207,7 @@ const FILLER_ITEMS=[
   {type:'lofty',attr:'Lofty AOS',text:'In Lofty AOS, your Profile settings feed your email signature and public-facing details - photo, name, phone number, license ID, and social media links all live there.'},
   {type:'lofty',attr:'Lofty AOS',text:"Lofty AOS account security lives under Account & Security: change your password, turn on Two-Factor Authentication, and see (and log out of) every device currently signed into your account."},
   {type:'lofty',attr:'Lofty AOS',text:'Lofty is rolling out AOS in stages, so not every account gets every feature at once - your leads, history, and settings still carry over unchanged either way.'},
-  {type:'video',attr:'Lofty AOS',caption:'Your First Time Logging Into Lofty AOS',embed:'https://www.loom.com/embed/81b6bf10a1004191a5fb49ebe4a7df1b?autoplay=1&muted=1'}
+  {type:'video',attr:'Lofty AOS',caption:'Your First Time Logging Into Lofty AOS',embed:'https://www.loom.com/embed/81b6bf10a1004191a5fb49ebe4a7df1b?autoplay=1',durationMs:98000}
 ,
   {type:'hr',text:'Attendance is tracked through ESS/Jeonsoft - remember to clock in and out at the start and end of each shift.'},
   {type:'hr',text:'Running late? As a guideline, notify your supervisor at least 1 hour before your shift for expected lateness, and at least 2 hours before for a planned absence.'},
@@ -320,7 +320,7 @@ function showSlide(index){
   document.getElementById('stage').innerHTML=slideForItem(item);
   document.getElementById('dots').innerHTML=queue.map((_,i)=>`<div class="dot${i===index?' active':''}"></div>`).join('');
   const bar=document.getElementById('progressBar');
-  bar.classList.remove('run');void bar.offsetWidth;bar.style.animationDuration=`${ROTATE_MS}ms`;bar.classList.add('run');
+  bar.classList.remove('run');void bar.offsetWidth;bar.style.animationDuration=`${item.durationMs||ROTATE_MS}ms`;bar.classList.add('run');
   if(item.type==='quiz'){
     quizRevealTimer=setTimeout(()=>{
       document.querySelectorAll('.quizOption').forEach(el=>{if(Number(el.dataset.idx)===item.correct)el.classList.add('correct')});
@@ -362,9 +362,17 @@ function rebuildQueue(){
   showSlide(0);
 }
 function startRotation(){
-  clearInterval(rotateTimer);
+  clearTimeout(rotateTimer);
   rebuildQueue();
-  rotateTimer=setInterval(()=>{
+  scheduleNextSlide();
+}
+// Most slides share the fixed ROTATE_MS dwell time, but a few (e.g. an embedded video) need
+// to stay on screen for their own actual length instead - a self-rescheduling setTimeout (vs.
+// a single fixed setInterval) lets each slide say how long it needs before advancing.
+function scheduleNextSlide(){
+  clearTimeout(rotateTimer);
+  const dwell=(queue[queueIndex]&&queue[queueIndex].durationMs)||ROTATE_MS;
+  rotateTimer=setTimeout(()=>{
     const next=queueIndex+1;
     if(next>=queue.length){
       // Natural end of this cycle - the one safe, predictable moment to pull in fresh
@@ -373,7 +381,8 @@ function startRotation(){
     }else{
       queueIndex=next;showSlide(queueIndex);
     }
-  },ROTATE_MS);
+    scheduleNextSlide();
+  },dwell);
 }
 
 async function load(){
@@ -395,6 +404,7 @@ async function load(){
       // surfacing right away rather than waiting for the current cycle to finish.
       lastRealSignature=signature;
       rebuildQueue();
+      scheduleNextSlide();
     }
     setMessage('','')
   }catch(error){
