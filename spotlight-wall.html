@@ -208,7 +208,13 @@ function slideForItem(item){
   if(item.kind==='save')return `<div class="slide"><div class="slideIcon">🔄</div><div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   if(item.kind==='birthday')return `<div class="slide"><div class="slideIcon">🎂</div><div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='anniversary')return `<div class="slide"><div class="slideIcon">🏆</div><div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
-  if(item.kind==='leaders')return `<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
+  if(item.kind==='weather'){
+    const icon=item.level==='warning'?'⛈️':item.level==='caution'?'🌦️':'☀️';
+    const badgeStyle=item.level==='warning'?'background:#fde3e3;color:#a11d1d':item.level==='caution'?'background:#fff2cc;color:#8a5a00':'background:#dbe4ff;color:#2e46b8';
+    const tempLine=(item.tempMax!=null&&item.tempMin!=null)?`${Math.round(item.tempMin)}°–${Math.round(item.tempMax)}°C · ${esc(item.condition)}`:esc(item.condition||'');
+    return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-purple" style="${badgeStyle}">Weather · ${esc(item.city)}</div><div class="slideBody sizeL">${esc(item.advisory)}</div><div class="slideMeta">${tempLine}</div></div>`;
+  }
+  if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
   if(item.type==='lofty')return `<div class="slide"><div class="slideIcon">📣</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">What's New in Lofty · ${esc(item.attr)}</div>${item.image?`<img class="fillerImg" src="${esc(item.image)}" alt="">`:''}<div class="slideBody ${sizeFor(item.text,'body')}">${esc(item.text)}</div></div>`;
   const icon=item.type==='quote'?'💬':item.type==='security'?'🛡️':'💡';
   const label=item.type==='quote'?'Worth Remembering':item.type==='security'?'Security Tip':'Good to Know';
@@ -235,8 +241,11 @@ function buildQueue(spotlight){
   const birthdays=(spotlight.celebrations?.birthdays||[]).map(x=>({...x,kind:'birthday'}));
   const anniversaries=(spotlight.celebrations?.anniversaries||[]).map(x=>({...x,kind:'anniversary'}));
   const callLeaders=spotlight.callLeaders||[];
-  const real=[...shoutouts,...saves,...birthdays,...anniversaries];
-  if(callLeaders.length)real.splice(Math.min(2,real.length),0,{kind:'leaders',callLeaders});
+  // Weather always leads the rotation (not woven in as random filler) since it's daily
+  // commute-safety info reps should reliably see, not something that should get crowded out.
+  const weatherItem=spotlight.weather?[{...spotlight.weather,kind:'weather'}]:[];
+  const real=[...weatherItem,...shoutouts,...saves,...birthdays,...anniversaries];
+  if(callLeaders.length)real.splice(Math.min(3,real.length),0,{kind:'leaders',callLeaders});
   for(const item of real){const k=keyFor(item);if(k)item.pendingAnnounce=!announcedKeys.has(k)}
   if(!real.length)return{list:todaysFillerList().map(x=>({...x}))};
   // Weave in one filler item every 3 real items so the wall stays varied even on a busy day.
