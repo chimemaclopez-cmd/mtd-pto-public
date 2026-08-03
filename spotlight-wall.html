@@ -80,7 +80,7 @@ const ROTATE_MS=30000;
 // (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
 // reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
 // file compares it against whatever is currently live and force-reloads when they differ.
-const SW_VERSION='2026-08-03.6';
+const SW_VERSION='2026-08-03.7';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -113,6 +113,31 @@ function loudChime(){
     [523.25,0,.35],[659.25,.1,.35],[783.99,.2,.35],[1046.5,.32,.7],
     [523.25,.32,.7]
   ],{gainPeak:0.55});
+}
+// A handful of quick bandpass-filtered noise bursts, synthesized to sound like a burst of
+// applause - no audio file, just noise shaped into short percussive claps.
+function clapBurst(delay){
+  if(!soundOn)return;
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const now=audioCtx.currentTime,size=Math.floor(audioCtx.sampleRate*0.06);
+    const buffer=audioCtx.createBuffer(1,size,audioCtx.sampleRate),data=buffer.getChannelData(0);
+    for(let i=0;i<size;i++)data[i]=(Math.random()*2-1)*(1-i/size);
+    const noise=audioCtx.createBufferSource();noise.buffer=buffer;
+    const band=audioCtx.createBiquadFilter();band.type='bandpass';band.frequency.value=2000;band.Q.value=0.6;
+    const gain=audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001,now+delay);
+    gain.gain.exponentialRampToValueAtTime(0.6,now+delay+.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+delay+.1);
+    noise.connect(band).connect(gain).connect(audioCtx.destination);
+    noise.start(now+delay);noise.stop(now+delay+.15);
+  }catch(_){}
+}
+// A CSAT rating with real customer words - especially one naming the rep - earns the biggest
+// reaction: a burst of synthesized applause under a bright triumphant chime.
+function celebrationChime(){
+  [0,.09,.16,.24,.34,.45].forEach(clapBurst);
+  playNotes([[659.25,.05,.3],[783.99,.2,.3],[987.77,.35,.3],[1318.51,.5,.6]],{gainPeak:0.5});
 }
 // "Happy Birthday to You" opening phrase, played on a synthesized tone (public-domain
 // melody, no lyrics) - triggers only when a birthday slide for TODAY comes into view.
@@ -348,13 +373,13 @@ function showSlide(index){
     if(item.kind==='shoutout'){
       if(item.mentionsName||item.hasComment){
         // A named/commented shoutout needs to be noticeable from across the floor, not just a
-        // quick blip - repeat the loud chime for the entire time this slide is on screen
-        // instead of firing it once at the start.
-        burstConfetti();loudChime();
-        alertInterval=setInterval(loudChime,3200);
+        // quick blip - repeat the celebratory applause+chime for the entire time this slide is
+        // on screen instead of firing it once at the start.
+        burstConfetti();celebrationChime();
+        alertInterval=setInterval(celebrationChime,3200);
         const dwell=item.durationMs||ROTATE_MS;
         alertStopTimer=setTimeout(()=>{clearInterval(alertInterval);alertInterval=null},Math.max(0,dwell-200));
-      }else{chime()}
+      }else{loudChime()}
     }
     else if(item.kind==='save'){chime();burstConfetti()}
     if(k)announcedKeys.add(k);
