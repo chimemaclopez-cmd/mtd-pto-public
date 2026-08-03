@@ -39,6 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 .badge-gold{background:#fff2cc;color:#8a5a00}
 .badge-teal{background:#d7f9ee;color:#0a6b52}
 .badge-purple{background:#ece4fb;color:#5b2fae}
+.fillerImg{max-width:min(560px,70vw);max-height:32vh;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);margin:6px 0 18px;display:block;margin-left:auto;margin-right:auto}
 .leaderBoard{display:flex;flex-direction:column;gap:16px;max-width:880px;margin:0 auto}
 .leaderRow{display:flex;align-items:center;gap:24px;background:rgba(255,255,255,.12);border-radius:18px;padding:20px 32px;backdrop-filter:blur(4px)}
 .leaderMedal{font-size:48px;width:64px;text-align:center}
@@ -146,8 +147,56 @@ const FILLER_ITEMS=[
   {type:'security',text:'Suspicious link, unexpected attachment, or an odd request claiming to be "IT"? Report it before you click.'},
   {type:'hr',text:'Have a workplace concern? Start with a chat with your supervisor — it can escalate through department heads and HR, with a guaranteed written response.'},
   {type:'quote',text:'Well done is better than well said.',attr:'Benjamin Franklin'},
-  {type:'security',text:'Company systems and email may be monitored for security purposes — keep all activity on them professional and business-related.'}
+  {type:'security',text:'Company systems and email may be monitored for security purposes — keep all activity on them professional and business-related.'},
+  {type:'hr',text:"Certified solo parents get extra paid parental leave each year under the Solo Parents' Welfare Act, on top of regular leave credits."},
+  {type:'quote',text:'Success is not final, failure is not fatal: it is the courage to continue that counts.',attr:'Winston Churchill'},
+  {type:'security',text:"Public Wi-Fi at a cafe or mall? Avoid logging into company systems until you're back on a trusted connection."},
+  {type:'hr',text:'Losing an immediate family member comes with paid bereavement leave, so you can be present with your family during that time.'},
+  {type:'quote',text:'The future belongs to those who believe in the beauty of their dreams.',attr:'Eleanor Roosevelt'},
+  {type:'security',text:'A request that pressures you to act fast, skip verification, or keep something secret is a classic red flag — slow down and check.'},
+  {type:'hr',text:'Salary is deposited automatically to your bank account every payday — no lining up or chasing down a physical check.'},
+  {type:'quote',text:'Whether you think you can or you think you can’t, you’re right.',attr:'Henry Ford'},
+  {type:'security',text:'Never enter your password after clicking a link from an email or chat message — go to the site directly instead.'},
+  {type:'hr',text:'Your performance review includes a dedicated Learning & Development Plan — a chance to map out trainings and growth activities with your supervisor.'},
+  {type:'quote',text:'It does not matter how slowly you go as long as you do not stop.',attr:'Confucius'},
+  {type:'security',text:'Keeping your work area paper-free and screen locked protects customer data even when you step away for a moment.'},
+  {type:'hr',text:'Safety comes first: management commits to safe equipment, proper training, and treating safety as the priority whenever it competes with productivity.'},
+  {type:'quote',text:'You miss 100% of the shots you don’t take.',attr:'Wayne Gretzky'},
+  {type:'security',text:'If a caller claims to be from "IT" or "Support" and asks for your password, hang up and verify through official channels first.'},
+  {type:'hr',text:'Tenure comes with perks: a transportation allowance starts at regularization, and a rice allowance kicks in on your first work anniversary.'},
+  {type:'quote',text:'What we think, we become.',attr:'Buddha'},
+  {type:'security',text:'Two-factor authentication and unique passwords per account both make it much harder for anyone to misuse a leaked password.'},
+  // Condensed in our own words from Lofty's public "Feature Updates for Lofty 4.48" help
+  // article (help.lofty.com) - images hotlinked directly from that same public article, no
+  // hosting cost. Update this block whenever a newer "Feature Updates for Lofty X.XX" article
+  // is published, so this doesn't go stale.
+  {type:'lofty',attr:'Lofty 4.48',text:'After every mass email send, you now get an automatic results summary showing who received it, who was skipped and why, plus a downloadable CSV.',image:'https://help.lofty.com/hc/article_attachments/53756114461979'},
+  {type:'lofty',attr:'Lofty 4.48',text:'Connect your Google Business Profile straight to Lofty - create, schedule, and track GBP posts without ever leaving the CRM.',image:'https://help.lofty.com/hc/article_attachments/53756114463131'},
+  {type:'lofty',attr:'Lofty 4.48',text:"Four new specialized AI Sales Agents joined the lineup: Anna (Residential), Sadie (FSBO), Nora (Recruiting), and Vera (Commercial).",image:'https://help.lofty.com/hc/article_attachments/53757174658843'},
+  {type:'lofty',attr:'Lofty 4.48',text:"Team members can now run their team's shared Sales Agent and their own personal Sales Agent at the same time, instead of picking one.",image:'https://help.lofty.com/hc/article_attachments/53757163545371'},
+  {type:'lofty',attr:'Lofty 4.48',text:"Your AI Sales Agent now moves a lead's pipeline stage based on what they actually do (like requesting a tour), not a fixed schedule.",image:'https://help.lofty.com/hc/article_attachments/53757168464155'},
+  {type:'lofty',attr:'Lofty 4.48',text:"A lead's entire conversation - SMS, email, chat, and calls - now shows up in one time-ordered view from the Sales Agent sidebar.",image:'https://help.lofty.com/hc/article_attachments/53757371669403'},
+  {type:'lofty',attr:'Lofty 4.48',text:'When a lead clicks a listing in a property alert email, your AI Sales Agent now automatically follows up on that exact property.'}
 ];
+// Deterministic day-based shuffle so the rotation feels different every day instead of
+// re-randomizing (and risking repeats) on every 15s poll - same seed all day, reshuffles at
+// local midnight.
+function mulberry32(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function todaySeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()}
+function shuffledForToday(items){const rng=mulberry32(todaySeed()),arr=[...items];for(let i=arr.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+let todaysFillerSeed=todaySeed(),todaysFiller=shuffledForToday(FILLER_ITEMS),fillerCursor=0;
+function nextFillerItem(){
+  const seed=todaySeed();
+  if(seed!==todaysFillerSeed){todaysFillerSeed=seed;todaysFiller=shuffledForToday(FILLER_ITEMS);fillerCursor=0}
+  const item=todaysFiller[fillerCursor%todaysFiller.length];
+  fillerCursor++;
+  return item;
+}
+function todaysFillerList(){
+  const seed=todaySeed();
+  if(seed!==todaysFillerSeed){todaysFillerSeed=seed;todaysFiller=shuffledForToday(FILLER_ITEMS);fillerCursor=0}
+  return todaysFiller;
+}
 
 function sizeFor(text,tier){
   const len=(text||'').length;
@@ -160,13 +209,19 @@ function slideForItem(item){
   if(item.kind==='birthday')return `<div class="slide"><div class="slideIcon">🎂</div><div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='anniversary')return `<div class="slide"><div class="slideIcon">🏆</div><div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='leaders')return `<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
+  if(item.type==='lofty')return `<div class="slide"><div class="slideIcon">📣</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">What's New in Lofty · ${esc(item.attr)}</div>${item.image?`<img class="fillerImg" src="${esc(item.image)}" alt="">`:''}<div class="slideBody ${sizeFor(item.text,'body')}">${esc(item.text)}</div></div>`;
   const icon=item.type==='quote'?'💬':item.type==='security'?'🛡️':'💡';
   const label=item.type==='quote'?'Worth Remembering':item.type==='security'?'Security Tip':'Good to Know';
   return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-purple">${label}</div><div class="slideBody ${item.type==='quote'?'isQuote':''} ${sizeFor(item.text,'body')}">${esc(item.text)}</div>${item.attr?`<div class="slideMeta">— ${esc(item.attr)}</div>`:''}</div>`;
 }
 
 let queue=[],queueIndex=0,rotateTimer=null;
-const seenKeys=new Set();
+// Keys that have already had their sound+confetti played - separate from "have we ever seen
+// this item" so a brand-new shoutout/save keeps its "announce me" flag alive across however
+// many 15s polls happen before the carousel actually rotates to it (polls run 2x as often as
+// slide changes), instead of firing the sound the instant it's detected in the background
+// while a completely different slide is on screen.
+const announcedKeys=new Set();
 let firstLoad=true;
 
 function keyFor(item){
@@ -182,20 +237,12 @@ function buildQueue(spotlight){
   const callLeaders=spotlight.callLeaders||[];
   const real=[...shoutouts,...saves,...birthdays,...anniversaries];
   if(callLeaders.length)real.splice(Math.min(2,real.length),0,{kind:'leaders',callLeaders});
-  let hasNewShout=false,hasNewSave=false;
-  for(const item of real){
-    const k=keyFor(item);
-    if(k&&!seenKeys.has(k)){
-      seenKeys.add(k);
-      if(item.kind==='shoutout')hasNewShout=true;
-      else if(item.kind==='save')hasNewSave=true;
-    }
-  }
-  if(!real.length)return{list:FILLER_ITEMS.map(x=>({...x})),hasNewShout:false,hasNewSave:false};
+  for(const item of real){const k=keyFor(item);if(k)item.pendingAnnounce=!announcedKeys.has(k)}
+  if(!real.length)return{list:todaysFillerList().map(x=>({...x}))};
   // Weave in one filler item every 3 real items so the wall stays varied even on a busy day.
   const woven=[];
-  real.forEach((item,i)=>{woven.push(item);if((i+1)%3===0)woven.push(FILLER_ITEMS[Math.floor(Math.random()*FILLER_ITEMS.length)])});
-  return{list:woven,hasNewShout,hasNewSave};
+  real.forEach((item,i)=>{woven.push(item);if((i+1)%3===0)woven.push(nextFillerItem())});
+  return{list:woven};
 }
 function showSlide(index){
   if(!queue.length)return;
@@ -204,10 +251,15 @@ function showSlide(index){
   document.getElementById('dots').innerHTML=queue.map((_,i)=>`<div class="dot${i===index?' active':''}"></div>`).join('');
   const bar=document.getElementById('progressBar');
   bar.classList.remove('run');void bar.offsetWidth;bar.style.animationDuration=`${ROTATE_MS}ms`;bar.classList.add('run');
-  // Play the birthday jingle each time we actually land on someone's real birthday today -
-  // tied to the slide being on screen, not to "new data" polling, so it celebrates every
-  // time it comes back around during the day.
+  // Every sound is tied to the slide actually being on screen right now, never to background
+  // polling, so what you hear always matches what you're looking at.
   if(item.kind==='birthday'&&item.daysUntil===0){birthdayChime();burstConfetti()}
+  else if(item.pendingAnnounce&&firstLoad===false){
+    const k=keyFor(item);
+    if(item.kind==='shoutout'){loudChime();burstConfetti()}
+    else if(item.kind==='save'){chime();burstConfetti()}
+    if(k)announcedKeys.add(k);
+  }
 }
 function startRotation(){
   clearInterval(rotateTimer);
@@ -220,11 +272,15 @@ async function load(){
     const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
     const data=await api(`/api/spotlight-wall${key}`);
     const spotlight=data.spotlight||{};
-    const{list,hasNewShout,hasNewSave}=buildQueue(spotlight);
+    const{list}=buildQueue(spotlight);
     queue=list;
-    if(firstLoad){startRotation();firstLoad=false}
-    else if(hasNewShout){loudChime();burstConfetti()}
-    else if(hasNewSave){chime();burstConfetti()}
+    if(firstLoad){
+      // On the very first load, mark everything already visible as "announced" so the wall
+      // doesn't fire a chime for every pre-existing item the moment it opens - only genuinely
+      // new arrivals after that get the sound.
+      queue.forEach(item=>{const k=keyFor(item);if(k)announcedKeys.add(k)});
+      startRotation();firstLoad=false;
+    }
     if(queueIndex>=queue.length)queueIndex=0;
     setMessage('','')
   }catch(error){
