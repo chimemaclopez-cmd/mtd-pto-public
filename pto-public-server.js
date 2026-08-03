@@ -413,7 +413,7 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
-async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], generatedAt: '' }); }
+async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, generatedAt: '' }); }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 

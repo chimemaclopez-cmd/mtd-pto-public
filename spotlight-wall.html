@@ -18,7 +18,7 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Seg
 .soundToggle:hover{background:rgba(255,255,255,.24)}
 .message{margin:16px 0;padding:11px 15px;border-radius:12px;background:rgba(255,255,255,.85);color:#7a2020;font-weight:700}
 .message[hidden]{display:none}
-.board{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:20px;margin-top:22px}
+.board{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:18px;margin-top:22px}
 @media(max-width:1050px){.board{grid-template-columns:1fr}}
 .col{display:flex;flex-direction:column;gap:14px}
 .colHead{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.4px}
@@ -51,6 +51,15 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Seg
 .leaderName{font-weight:800;font-size:14px;flex:1}
 .leaderStats{font-size:12px;color:#6b6f80;text-align:right}
 .leaderStats b{color:var(--ink);font-size:15px}
+.celebCard{background:var(--paper);border-radius:16px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,0,0,.25);border-left:6px solid var(--purple);animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both}
+.celebCard .cardTop{margin-bottom:2px}
+.badge.purple{background:#ece4fb;color:#5b2fae}
+.fillerCard{background:rgba(255,255,255,.9);border-radius:16px;padding:18px 20px;box-shadow:0 10px 26px rgba(0,0,0,.18);border-left:6px dashed rgba(0,0,0,.15);animation:fillerFade .5s ease both}
+@keyframes fillerFade{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+.fillerLabel{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;color:#8b8f9c;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.fillerText{font-size:14px;line-height:1.5;color:#2a2d3a}
+.fillerText.isQuote{font-style:italic}
+.fillerAttr{margin-top:8px;font-size:12px;color:#8b8f9c;font-weight:700}
 .confettiLayer{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
 .confettiPiece{position:absolute;top:-20px;font-size:20px;animation:confettiFall linear forwards}
 @keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(540deg);opacity:0}}
@@ -78,6 +87,10 @@ body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Seg
   <div class="col">
     <div class="colHead"><span class="emoji">📞</span> Call Volume Leaders <span class="colCount" id="leaderCount">0</span></div>
     <div class="leaderList" id="leaderList"></div>
+  </div>
+  <div class="col">
+    <div class="colHead"><span class="emoji">🎂</span> Celebrations <span class="colCount" id="celebCount">0</span></div>
+    <div class="cardList" id="celebList"></div>
   </div>
 </div>
 </div>
@@ -129,7 +142,7 @@ let firstLoad=true;
 function renderShoutouts(items){
   const list=document.getElementById('shoutList');
   document.getElementById('shoutCount').textContent=items.length;
-  if(!items.length){list.innerHTML='<div class="emptyCard">No customer shoutouts yet today — check back soon!</div>';return}
+  if(!items.length){renderFiller('shoutList',0);return}
   list.innerHTML=items.map(item=>{
     const id=`${item.ticketId}`,isNew=!firstLoad&&!seenShoutIds.has(id);
     return `<div class="shoutCard${item.mentionsName?' mentioned':''}${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span>${item.mentionsName?'<span class="badge gold">Named by customer</span>':''}</div><div class="quote">${esc(item.comment)}</div><div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
@@ -138,7 +151,7 @@ function renderShoutouts(items){
 function renderSaves(items){
   const list=document.getElementById('saveList');
   document.getElementById('saveCount').textContent=items.length;
-  if(!items.length){list.innerHTML='<div class="emptyCard">No CSAT turnarounds yet today.</div>';return}
+  if(!items.length){renderFiller('saveList',7);return}
   list.innerHTML=items.map(item=>{
     const id=`${item.ticketId}`,isNew=!firstLoad&&!seenSaveIds.has(id);
     return `<div class="saveCard${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span><span class="badge teal">Turned it around</span></div>${item.comment?`<div class="quote">${esc(item.comment)}</div>`:''}<div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
@@ -149,18 +162,73 @@ function renderLeaders(items){
   const medals=['🥇','🥈','🥉','🏅','🏅'];
   document.getElementById('leaderList').innerHTML=items.length?items.map((item,i)=>`<div class="leaderRow"><div class="medal">${medals[i]||'🏅'}</div><div class="leaderName">${esc(item.employeeName)}</div><div class="leaderStats"><b>${item.accepted}</b> calls${item.longCalls?` · ${item.longCalls} long`:''}</div></div>`).join('')||'':'<div class="emptyCard">No call activity yet today.</div>';
 }
+function renderCelebrations(celebrations){
+  const birthdays=(celebrations?.birthdays||[]).map(b=>({...b,kind:'birthday'})),anniversaries=(celebrations?.anniversaries||[]).map(a=>({...a,kind:'anniversary'}));
+  const items=[...birthdays,...anniversaries].sort((a,b)=>a.daysUntil-b.daysUntil);
+  document.getElementById('celebCount').textContent=items.length;
+  if(!items.length){renderFiller('celebList',13);return}
+  document.getElementById('celebList').innerHTML=items.map(item=>{
+    const when=item.daysUntil===0?'Today!':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`;
+    return item.kind==='birthday'
+      ?`<div class="celebCard"><div class="cardTop"><span class="repName">🎉 ${esc(item.employeeName)}</span><span class="badge purple">Birthday</span></div><div class="cardMeta"><span>${when}</span></div></div>`
+      :`<div class="celebCard"><div class="cardTop"><span class="repName">🏆 ${esc(item.employeeName)}</span><span class="badge purple">${item.years} yr${item.years===1?'':'s'} anniversary</span></div><div class="cardMeta"><span>${when}</span></div></div>`;
+  }).join('');
+}
+
+// Rotating filler content for whenever a column has nothing real to show yet - short,
+// genuinely useful items (not just decorative filler) so the wall never looks dead.
+// HR tidbits sourced from the actual Moatable employee handbook (benefits, leave, safety,
+// grievance process); security tips reflect the handbook's real Data Security section
+// (login/password confidentiality, encryption, monitoring notice).
+const FILLER_ITEMS=[
+  {type:'quote',text:'The only way to do great work is to love what you do.',attr:'Steve Jobs'},
+  {type:'security',text:'Never share your Zendesk login or password with anyone, even IT. Keeping it safe is your responsibility.'},
+  {type:'hr',text:"Full-time regular employees earn 20 PTO credits a year, and unused credits can convert to cash at year end — they don't just disappear."},
+  {type:'quote',text:'Quality is not an act, it is a habit.',attr:'Aristotle'},
+  {type:'security',text:"Think before you click. Phishing emails often impersonate a coworker or vendor asking for urgent action — verify directly if something feels off."},
+  {type:'hr',text:'Moatable’s culture runs on four values: Innovation & Problem Solving, Efficiency & Speed, Collaboration, and "Be Like an Owner."'},
+  {type:'quote',text:'Great things are done by a series of small things brought together.',attr:'Vincent Van Gogh'},
+  {type:'security',text:'Customer data — including payment info — is strictly confidential. Never discuss, copy, or share it outside approved systems.'},
+  {type:'hr',text:'Every regular employee gets HMO coverage, extending to a first dependent after year one and a second after year two.'},
+  {type:'quote',text:'It always seems impossible until it is done.',attr:'Nelson Mandela'},
+  {type:'security',text:'Lock your screen every time you step away from your desk, even just for a minute.'},
+  {type:'hr',text:'Night shift comes with a pay bump — night differential adds at least 10% extra for hours worked between 10PM and 6AM.'},
+  {type:'quote',text:'Do what you can, with what you have, where you are.',attr:'Theodore Roosevelt'},
+  {type:'security',text:'Any file sent electronically for business use should be encrypted and password-protected, per company policy.'},
+  {type:'hr',text:'Married male employees get 7 paid days of paternity leave, and maternity leave covers 105 paid days.'},
+  {type:'quote',text:'Coming together is a beginning, staying together is progress, working together is success.',attr:'Henry Ford'},
+  {type:'security',text:'Suspicious link, unexpected attachment, or an odd request claiming to be "IT"? Report it before you click.'},
+  {type:'hr',text:'Have a workplace concern? Start with a chat with your supervisor — it can escalate through department heads and HR, with a guaranteed written response.'},
+  {type:'quote',text:'Well done is better than well said.',attr:'Benjamin Franklin'},
+  {type:'security',text:'Company systems and email may be monitored for security purposes — keep all activity on them professional and business-related.'}
+];
+let fillerTick=0;
+function renderFiller(elementId,offset){
+  const item=FILLER_ITEMS[(fillerTick+offset)%FILLER_ITEMS.length];
+  const icon=item.type==='quote'?'💬 Worth Remembering':item.type==='security'?'🛡️ Security Tip':'💡 Good to Know';
+  document.getElementById(elementId).innerHTML=`<div class="fillerCard"><div class="fillerLabel">${icon}</div><div class="fillerText${item.type==='quote'?' isQuote':''}">${esc(item.text)}</div>${item.attr?`<div class="fillerAttr">— ${esc(item.attr)}</div>`:''}</div>`;
+}
+let lastEmptyCols=new Set();
+function refreshFillers(){
+  fillerTick++;
+  if(lastEmptyCols.has('shoutList'))renderFiller('shoutList',0);
+  if(lastEmptyCols.has('saveList'))renderFiller('saveList',7);
+  if(lastEmptyCols.has('celebList'))renderFiller('celebList',13);
+}
 
 async function load(){
   try{
     const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
     const data=await api(`/api/spotlight-wall${key}`);
     const spotlight=data.spotlight||{};
-    const shoutouts=spotlight.shoutouts||[],saves=spotlight.saves||[],callLeaders=spotlight.callLeaders||[];
+    const shoutouts=spotlight.shoutouts||[],saves=spotlight.saves||[],callLeaders=spotlight.callLeaders||[],celebrations=spotlight.celebrations||{};
     const hasNewShout=shoutouts.some(item=>!seenShoutIds.has(`${item.ticketId}`));
     const hasNewSave=saves.some(item=>!seenSaveIds.has(`${item.ticketId}`));
     renderShoutouts(shoutouts);
     renderSaves(saves);
     renderLeaders(callLeaders);
+    renderCelebrations(celebrations);
+    lastEmptyCols=new Set([!shoutouts.length&&'shoutList',!saves.length&&'saveList',!((celebrations.birthdays||[]).length+(celebrations.anniversaries||[]).length)&&'celebList'].filter(Boolean));
     if(!firstLoad&&(hasNewShout||hasNewSave)){chime();burstConfetti()}
     shoutouts.forEach(item=>seenShoutIds.add(`${item.ticketId}`));
     saves.forEach(item=>seenSaveIds.add(`${item.ticketId}`));
@@ -174,6 +242,7 @@ async function load(){
 function tickClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString()}
 load();
 setInterval(load,15000);
+setInterval(refreshFillers,20000);
 tickClock();
 setInterval(tickClock,1000);
 </script>
