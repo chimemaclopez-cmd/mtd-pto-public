@@ -1,102 +1,70 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spotlight Wall</title><style>
-:root{--gold:#f5b400;--gold-dark:#c98f00;--teal:#0ecf9b;--teal-dark:#0a9d78;--blue:#3b5cde;--blue-dark:#2e46b8;--purple:#7c3fe0;--ink:#1c1f2e;--paper:rgba(255,255,255,.96)}
+:root{--gold:#f5b400;--gold-dark:#c98f00;--teal:#0ecf9b;--blue:#3b5cde;--purple:#7c3fe0;--ink:#1c1f2e}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:var(--ink);overflow-x:hidden;
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#fff;
   background:linear-gradient(120deg,#1c1f4a,#3b1f7a 35%,#7c1f6a 70%,#2a1f6a);
-  background-size:300% 300%;animation:bgShift 22s ease infinite}
+  background-size:300% 300%;animation:bgShift 24s ease infinite;
+  display:flex;flex-direction:column;height:100vh}
 @keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.wrap{max-width:1500px;margin:auto;padding:26px 26px 40px}
-.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;color:#fff}
-.headerLeft{display:flex;align-items:center;gap:14px}
-.lobLogo{height:38px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
-.title{font-size:32px;font-weight:900;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
-.title .spark{display:inline-block;animation:spin 3.5s linear infinite}
+.topBar{display:flex;justify-content:space-between;align-items:center;padding:22px 34px 6px;flex:0 0 auto}
+.topLeft{display:flex;align-items:center;gap:16px}
+.lobLogo{height:34px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.topTitle{font-size:22px;font-weight:900;letter-spacing:-.01em;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+.topTitle .spark{display:inline-block;animation:spin 3.5s linear infinite}
 @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-.sub{opacity:.85;font-size:13px;margin-top:2px}
-.clock{font-size:15px;font-weight:800;background:rgba(255,255,255,.14);padding:9px 16px;border-radius:999px;backdrop-filter:blur(6px)}
-.soundToggle{cursor:pointer;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:9px 16px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+.topRight{display:flex;gap:10px;align-items:center}
+.clock{font-size:15px;font-weight:800;background:rgba(255,255,255,.14);padding:8px 15px;border-radius:999px;backdrop-filter:blur(6px)}
+.soundToggle{cursor:pointer;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:8px 15px;font-weight:800;font-size:12px}
 .soundToggle:hover{background:rgba(255,255,255,.24)}
-.message{margin:16px 0;padding:11px 15px;border-radius:12px;background:rgba(255,255,255,.85);color:#7a2020;font-weight:700}
+.message{margin:8px 34px 0;padding:10px 15px;border-radius:12px;background:rgba(255,255,255,.9);color:#7a2020;font-weight:700;font-size:13px}
 .message[hidden]{display:none}
-.board{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:18px;margin-top:22px}
-@media(max-width:1050px){.board{grid-template-columns:1fr}}
-.col{display:flex;flex-direction:column;gap:14px}
-.colHead{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.4px}
-.colHead .emoji{font-size:22px}
-.colCount{background:rgba(255,255,255,.2);border-radius:999px;padding:2px 11px;font-size:12px}
-.cardList{display:flex;flex-direction:column;gap:12px;max-height:74vh;overflow:auto;padding-right:4px}
-.emptyCard{background:var(--paper);border-radius:16px;padding:22px;text-align:center;color:#6b6f80;font-weight:700;font-size:13px}
-.shoutCard,.saveCard{background:var(--paper);border-radius:16px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,0,0,.25);position:relative;overflow:hidden;animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both}
-@keyframes popIn{0%{transform:scale(.85) translateY(10px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
-.shoutCard.isNew,.saveCard.isNew{animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both,glowPulse 1.8s ease-out 1}
-@keyframes glowPulse{0%{box-shadow:0 0 0 0 rgba(245,180,0,.7),0 10px 26px rgba(0,0,0,.25)}100%{box-shadow:0 0 0 22px rgba(245,180,0,0),0 10px 26px rgba(0,0,0,.25)}}
-.shoutCard{border-left:6px solid var(--gold)}
-.shoutCard.mentioned{border-left-color:var(--gold-dark);background:linear-gradient(135deg,#fff,#fff7e0)}
-.saveCard{border-left:6px solid var(--teal)}
-.cardTop{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.repName{font-weight:900;font-size:15px}
-.badge{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;padding:3px 9px;border-radius:999px;white-space:nowrap}
-.badge.gold{background:#fff2cc;color:#8a5a00}
-.badge.teal{background:#d7f9ee;color:#0a6b52}
-.quote{margin:9px 0 6px;font-size:14px;line-height:1.45;color:#2a2d3a;font-style:italic}
-.quote::before{content:"\201C"}.quote::after{content:"\201D"}
-.cardMeta{font-size:11px;color:#8b8f9c;display:flex;justify-content:space-between;gap:8px}
-.ticketLink{color:#5b6dd6;text-decoration:none;font-weight:700}
-.ticketLink:hover{text-decoration:underline}
-.leaderList{background:var(--paper);border-radius:16px;padding:8px;box-shadow:0 10px 26px rgba(0,0,0,.25)}
-.leaderRow{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:12px;transition:background .12s}
-.leaderRow:hover{background:#f3f4fb}
-.leaderRow+.leaderRow{border-top:1px solid #eceef5}
-.medal{font-size:22px;width:30px;text-align:center}
-.leaderName{font-weight:800;font-size:14px;flex:1}
-.leaderStats{font-size:12px;color:#6b6f80;text-align:right}
-.leaderStats b{color:var(--ink);font-size:15px}
-.celebCard{background:var(--paper);border-radius:16px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,0,0,.25);border-left:6px solid var(--purple);animation:popIn .45s cubic-bezier(.2,1.4,.4,1) both}
-.celebCard .cardTop{margin-bottom:2px}
-.badge.purple{background:#ece4fb;color:#5b2fae}
-.fillerCard{background:rgba(255,255,255,.9);border-radius:16px;padding:18px 20px;box-shadow:0 10px 26px rgba(0,0,0,.18);border-left:6px dashed rgba(0,0,0,.15);animation:fillerFade .5s ease both}
-@keyframes fillerFade{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
-.fillerLabel{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;color:#8b8f9c;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.fillerText{font-size:14px;line-height:1.5;color:#2a2d3a}
-.fillerText.isQuote{font-style:italic}
-.fillerAttr{margin-top:8px;font-size:12px;color:#8b8f9c;font-weight:700}
+.stage{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:20px 60px;min-height:0}
+.slide{width:min(1150px,92vw);text-align:center;animation:slideIn .55s cubic-bezier(.2,1,.3,1) both}
+@keyframes slideIn{0%{opacity:0;transform:translateY(24px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
+.slideIcon{font-size:74px;line-height:1;margin-bottom:6px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.3))}
+.slideLabel{font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;opacity:.85;margin-bottom:14px}
+.slideName{font-weight:900;letter-spacing:-.01em;text-shadow:0 3px 14px rgba(0,0,0,.4);margin-bottom:10px}
+.slideName.sizeXL{font-size:76px}
+.slideName.sizeL{font-size:58px}
+.slideBody{font-weight:600;line-height:1.4;text-shadow:0 2px 10px rgba(0,0,0,.3);margin:0 auto;max-width:980px}
+.slideBody.isQuote{font-style:italic}
+.slideBody.sizeXL{font-size:40px}
+.slideBody.sizeL{font-size:32px}
+.slideBody.sizeM{font-size:26px}
+.slideMeta{margin-top:18px;font-size:16px;opacity:.75;font-weight:700}
+.slideBadge{display:inline-block;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;padding:6px 16px;border-radius:999px;margin-bottom:14px}
+.badge-gold{background:#fff2cc;color:#8a5a00}
+.badge-teal{background:#d7f9ee;color:#0a6b52}
+.badge-purple{background:#ece4fb;color:#5b2fae}
+.leaderBoard{display:flex;flex-direction:column;gap:14px;max-width:760px;margin:0 auto}
+.leaderRow{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.12);border-radius:16px;padding:16px 26px;backdrop-filter:blur(4px)}
+.leaderMedal{font-size:38px;width:52px;text-align:center}
+.leaderName{font-size:28px;font-weight:900;flex:1;text-align:left}
+.leaderStats{font-size:22px;font-weight:700;opacity:.9}
+.progressTrack{flex:0 0 auto;height:5px;background:rgba(255,255,255,.15);margin:0 34px 6px;border-radius:999px;overflow:hidden}
+.progressBar{height:100%;background:rgba(255,255,255,.85);width:0%}
+.progressBar.run{animation:fillBar linear both}
+@keyframes fillBar{0%{width:0%}100%{width:100%}}
+.dots{flex:0 0 auto;display:flex;justify-content:center;gap:7px;padding-bottom:16px}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3)}
+.dot.active{background:#fff}
 .confettiLayer{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
-.confettiPiece{position:absolute;top:-20px;font-size:20px;animation:confettiFall linear forwards}
+.confettiPiece{position:absolute;top:-20px;font-size:24px;animation:confettiFall linear forwards}
 @keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(540deg);opacity:0}}
-.appCredit{text-align:center;color:rgba(255,255,255,.55);font-size:11px;padding:26px 0 6px}
 </style></head><body>
 <div class="confettiLayer" id="confettiLayer"></div>
-<div class="wrap">
-<div class="header">
-  <div class="headerLeft"><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div><div class="title"><span class="spark">✨</span> Spotlight Wall</div><div class="sub" id="dateLabel">Today's wins across the team</div></div></div>
-  <div style="display:flex;gap:10px;align-items:center">
-    <button class="soundToggle" id="soundToggle" type="button">🔊 Sound On</button>
-    <div class="clock" id="clock"></div>
-  </div>
+<div class="topBar">
+  <div class="topLeft"><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><span class="topTitle"><span class="spark">✨</span> Spotlight Wall</span></div>
+  <div class="topRight"><button class="soundToggle" id="soundToggle" type="button">🔊 Sound On</button><div class="clock" id="clock"></div></div>
 </div>
 <div id="message" class="message" hidden></div>
-<div class="board">
-  <div class="col">
-    <div class="colHead"><span class="emoji">🌟</span> Customer Shoutouts <span class="colCount" id="shoutCount">0</span></div>
-    <div class="cardList" id="shoutList"></div>
-  </div>
-  <div class="col">
-    <div class="colHead"><span class="emoji">🔄</span> Save of the Day <span class="colCount" id="saveCount">0</span></div>
-    <div class="cardList" id="saveList"></div>
-  </div>
-  <div class="col">
-    <div class="colHead"><span class="emoji">📞</span> Call Volume Leaders <span class="colCount" id="leaderCount">0</span></div>
-    <div class="leaderList" id="leaderList"></div>
-  </div>
-  <div class="col">
-    <div class="colHead"><span class="emoji">🎂</span> Celebrations <span class="colCount" id="celebCount">0</span></div>
-    <div class="cardList" id="celebList"></div>
-  </div>
-</div>
-</div>
-<div class="appCredit">Built by Mac · V1.2.0 · &copy; 2026 Lofty. All Rights Reserved.</div>
+<div class="stage" id="stage"></div>
+<div class="progressTrack"><div class="progressBar" id="progressBar"></div></div>
+<div class="dots" id="dots"></div>
 <script type="module">
 const params=new URLSearchParams(location.search);
+const ROTATE_MS=8000;
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -123,12 +91,12 @@ function chime(){
 const CONFETTI_EMOJI=['🎉','🎊','⭐','✨','🥳'];
 function burstConfetti(){
   const layer=document.getElementById('confettiLayer');
-  for(let i=0;i<18;i++){
+  for(let i=0;i<22;i++){
     const el=document.createElement('div');
     el.className='confettiPiece';
     el.textContent=CONFETTI_EMOJI[Math.floor(Math.random()*CONFETTI_EMOJI.length)];
     el.style.left=`${Math.random()*100}%`;
-    el.style.fontSize=`${14+Math.random()*16}px`;
+    el.style.fontSize=`${16+Math.random()*18}px`;
     el.style.animationDuration=`${2.2+Math.random()*1.6}s`;
     el.style.animationDelay=`${Math.random()*.4}s`;
     layer.appendChild(el);
@@ -136,56 +104,16 @@ function burstConfetti(){
   }
 }
 
-const seenShoutIds=new Set(),seenSaveIds=new Set();
-let firstLoad=true;
-
-function renderShoutouts(items){
-  const list=document.getElementById('shoutList');
-  document.getElementById('shoutCount').textContent=items.length;
-  if(!items.length){renderFiller('shoutList',0);return}
-  list.innerHTML=items.map(item=>{
-    const id=`${item.ticketId}`,isNew=!firstLoad&&!seenShoutIds.has(id);
-    return `<div class="shoutCard${item.mentionsName?' mentioned':''}${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span>${item.mentionsName?'<span class="badge gold">Named by customer</span>':''}</div><div class="quote">${esc(item.comment)}</div><div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
-  }).join('');
-}
-function renderSaves(items){
-  const list=document.getElementById('saveList');
-  document.getElementById('saveCount').textContent=items.length;
-  if(!items.length){renderFiller('saveList',7);return}
-  list.innerHTML=items.map(item=>{
-    const id=`${item.ticketId}`,isNew=!firstLoad&&!seenSaveIds.has(id);
-    return `<div class="saveCard${isNew?' isNew':''}"><div class="cardTop"><span class="repName">${esc(item.employeeName)}</span><span class="badge teal">Turned it around</span></div>${item.comment?`<div class="quote">${esc(item.comment)}</div>`:''}<div class="cardMeta"><span>${esc(item.subject)}</span><a class="ticketLink" href="https://chimecrm.zendesk.com/agent/tickets/${item.ticketId}" target="_blank" rel="noopener">#${item.ticketId}</a></div></div>`;
-  }).join('');
-}
-function renderLeaders(items){
-  document.getElementById('leaderCount').textContent=items.length;
-  const medals=['🥇','🥈','🥉','🏅','🏅'];
-  document.getElementById('leaderList').innerHTML=items.length?items.map((item,i)=>`<div class="leaderRow"><div class="medal">${medals[i]||'🏅'}</div><div class="leaderName">${esc(item.employeeName)}</div><div class="leaderStats"><b>${item.accepted}</b> calls${item.longCalls?` · ${item.longCalls} long`:''}</div></div>`).join('')||'':'<div class="emptyCard">No call activity yet today.</div>';
-}
-function renderCelebrations(celebrations){
-  const birthdays=(celebrations?.birthdays||[]).map(b=>({...b,kind:'birthday'})),anniversaries=(celebrations?.anniversaries||[]).map(a=>({...a,kind:'anniversary'}));
-  const items=[...birthdays,...anniversaries].sort((a,b)=>a.daysUntil-b.daysUntil);
-  document.getElementById('celebCount').textContent=items.length;
-  if(!items.length){renderFiller('celebList',13);return}
-  document.getElementById('celebList').innerHTML=items.map(item=>{
-    const when=item.daysUntil===0?'Today!':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`;
-    return item.kind==='birthday'
-      ?`<div class="celebCard"><div class="cardTop"><span class="repName">🎉 ${esc(item.employeeName)}</span><span class="badge purple">Birthday</span></div><div class="cardMeta"><span>${when}</span></div></div>`
-      :`<div class="celebCard"><div class="cardTop"><span class="repName">🏆 ${esc(item.employeeName)}</span><span class="badge purple">${item.years} yr${item.years===1?'':'s'} anniversary</span></div><div class="cardMeta"><span>${when}</span></div></div>`;
-  }).join('');
-}
-
-// Rotating filler content for whenever a column has nothing real to show yet - short,
-// genuinely useful items (not just decorative filler) so the wall never looks dead.
-// HR tidbits sourced from the actual Moatable employee handbook (benefits, leave, safety,
-// grievance process); security tips reflect the handbook's real Data Security section
-// (login/password confidentiality, encryption, monitoring notice).
+// Rotating filler content for whenever there's nothing real to show yet - short, genuinely
+// useful items (not just decorative filler). HR tidbits and security tips are grounded in
+// the actual Moatable employee handbook (benefits/leave/safety, and its real Data Security
+// section on login/password confidentiality, encryption, monitoring notice) - never invented.
 const FILLER_ITEMS=[
   {type:'quote',text:'The only way to do great work is to love what you do.',attr:'Steve Jobs'},
   {type:'security',text:'Never share your Zendesk login or password with anyone, even IT. Keeping it safe is your responsibility.'},
   {type:'hr',text:"Full-time regular employees earn 20 PTO credits a year, and unused credits can convert to cash at year end — they don't just disappear."},
   {type:'quote',text:'Quality is not an act, it is a habit.',attr:'Aristotle'},
-  {type:'security',text:"Think before you click. Phishing emails often impersonate a coworker or vendor asking for urgent action — verify directly if something feels off."},
+  {type:'security',text:'Think before you click. Phishing emails often impersonate a coworker or vendor asking for urgent action — verify directly if something feels off.'},
   {type:'hr',text:'Moatable’s culture runs on four values: Innovation & Problem Solving, Efficiency & Speed, Collaboration, and "Be Like an Owner."'},
   {type:'quote',text:'Great things are done by a series of small things brought together.',attr:'Vincent Van Gogh'},
   {type:'security',text:'Customer data — including payment info — is strictly confidential. Never discuss, copy, or share it outside approved systems.'},
@@ -202,18 +130,59 @@ const FILLER_ITEMS=[
   {type:'quote',text:'Well done is better than well said.',attr:'Benjamin Franklin'},
   {type:'security',text:'Company systems and email may be monitored for security purposes — keep all activity on them professional and business-related.'}
 ];
-let fillerTick=0;
-function renderFiller(elementId,offset){
-  const item=FILLER_ITEMS[(fillerTick+offset)%FILLER_ITEMS.length];
-  const icon=item.type==='quote'?'💬 Worth Remembering':item.type==='security'?'🛡️ Security Tip':'💡 Good to Know';
-  document.getElementById(elementId).innerHTML=`<div class="fillerCard"><div class="fillerLabel">${icon}</div><div class="fillerText${item.type==='quote'?' isQuote':''}">${esc(item.text)}</div>${item.attr?`<div class="fillerAttr">— ${esc(item.attr)}</div>`:''}</div>`;
+
+function sizeFor(text,tier){
+  const len=(text||'').length;
+  if(tier==='name')return len>22?'sizeL':'sizeXL';
+  return len>140?'sizeM':len>70?'sizeL':'sizeXL';
 }
-let lastEmptyCols=new Set();
-function refreshFillers(){
-  fillerTick++;
-  if(lastEmptyCols.has('shoutList'))renderFiller('shoutList',0);
-  if(lastEmptyCols.has('saveList'))renderFiller('saveList',7);
-  if(lastEmptyCols.has('celebList'))renderFiller('celebList',13);
+function slideForItem(item){
+  if(item.kind==='shoutout')return `<div class="slide"><div class="slideIcon">🌟</div><div class="slideBadge badge-gold">Customer Shoutout${item.mentionsName?' · Named by Customer':''}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div><div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  if(item.kind==='save')return `<div class="slide"><div class="slideIcon">🔄</div><div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  if(item.kind==='birthday')return `<div class="slide"><div class="slideIcon">🎂</div><div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  if(item.kind==='anniversary')return `<div class="slide"><div class="slideIcon">🏆</div><div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  if(item.kind==='leaders')return `<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div><div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
+  const icon=item.type==='quote'?'💬':item.type==='security'?'🛡️':'💡';
+  const label=item.type==='quote'?'Worth Remembering':item.type==='security'?'Security Tip':'Good to Know';
+  return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-purple">${label}</div><div class="slideBody ${item.type==='quote'?'isQuote':''} ${sizeFor(item.text,'body')}">${esc(item.text)}</div>${item.attr?`<div class="slideMeta">— ${esc(item.attr)}</div>`:''}</div>`;
+}
+
+let queue=[],queueIndex=0,rotateTimer=null;
+const seenKeys=new Set();
+let firstLoad=true;
+
+function keyFor(item){
+  if(item.kind==='shoutout'||item.kind==='save')return `${item.kind}:${item.ticketId}`;
+  if(item.kind==='birthday'||item.kind==='anniversary')return `${item.kind}:${item.employeeName}:${item.daysUntil}`;
+  return null;
+}
+function buildQueue(spotlight){
+  const shoutouts=(spotlight.shoutouts||[]).map(x=>({...x,kind:'shoutout'}));
+  const saves=(spotlight.saves||[]).map(x=>({...x,kind:'save'}));
+  const birthdays=(spotlight.celebrations?.birthdays||[]).map(x=>({...x,kind:'birthday'}));
+  const anniversaries=(spotlight.celebrations?.anniversaries||[]).map(x=>({...x,kind:'anniversary'}));
+  const callLeaders=spotlight.callLeaders||[];
+  const real=[...shoutouts,...saves,...birthdays,...anniversaries];
+  if(callLeaders.length)real.splice(Math.min(2,real.length),0,{kind:'leaders',callLeaders});
+  let hasNew=false;
+  for(const item of real){const k=keyFor(item);if(k&&!seenKeys.has(k)){hasNew=true;seenKeys.add(k)}}
+  if(!real.length)return{list:FILLER_ITEMS.map(x=>({...x})),hasNew:false};
+  // Weave in one filler item every 3 real items so the wall stays varied even on a busy day.
+  const woven=[];
+  real.forEach((item,i)=>{woven.push(item);if((i+1)%3===0)woven.push(FILLER_ITEMS[Math.floor(Math.random()*FILLER_ITEMS.length)])});
+  return{list:woven,hasNew};
+}
+function showSlide(index){
+  if(!queue.length)return;
+  document.getElementById('stage').innerHTML=slideForItem(queue[index]);
+  document.getElementById('dots').innerHTML=queue.map((_,i)=>`<div class="dot${i===index?' active':''}"></div>`).join('');
+  const bar=document.getElementById('progressBar');
+  bar.classList.remove('run');void bar.offsetWidth;bar.style.animationDuration=`${ROTATE_MS}ms`;bar.classList.add('run');
+}
+function startRotation(){
+  clearInterval(rotateTimer);
+  queueIndex=0;showSlide(0);
+  rotateTimer=setInterval(()=>{queueIndex=(queueIndex+1)%queue.length;showSlide(queueIndex)},ROTATE_MS);
 }
 
 async function load(){
@@ -221,19 +190,11 @@ async function load(){
     const key=params.get('key')?`?key=${encodeURIComponent(params.get('key'))}`:'';
     const data=await api(`/api/spotlight-wall${key}`);
     const spotlight=data.spotlight||{};
-    const shoutouts=spotlight.shoutouts||[],saves=spotlight.saves||[],callLeaders=spotlight.callLeaders||[],celebrations=spotlight.celebrations||{};
-    const hasNewShout=shoutouts.some(item=>!seenShoutIds.has(`${item.ticketId}`));
-    const hasNewSave=saves.some(item=>!seenSaveIds.has(`${item.ticketId}`));
-    renderShoutouts(shoutouts);
-    renderSaves(saves);
-    renderLeaders(callLeaders);
-    renderCelebrations(celebrations);
-    lastEmptyCols=new Set([!shoutouts.length&&'shoutList',!saves.length&&'saveList',!((celebrations.birthdays||[]).length+(celebrations.anniversaries||[]).length)&&'celebList'].filter(Boolean));
-    if(!firstLoad&&(hasNewShout||hasNewSave)){chime();burstConfetti()}
-    shoutouts.forEach(item=>seenShoutIds.add(`${item.ticketId}`));
-    saves.forEach(item=>seenSaveIds.add(`${item.ticketId}`));
-    firstLoad=false;
-    document.getElementById('dateLabel').textContent=spotlight.date?`Today's wins across the team · ${spotlight.date}`:"Today's wins across the team";
+    const{list,hasNew}=buildQueue(spotlight);
+    queue=list;
+    if(firstLoad){startRotation();firstLoad=false}
+    else if(hasNew){chime();burstConfetti()}
+    if(queueIndex>=queue.length)queueIndex=0;
     setMessage('','')
   }catch(error){
     setMessage(error.status===401?'This link is not authorized. Ask your administrator for the correct Spotlight Wall link.':`Could not load Spotlight Wall. ${error.response?.error||error.message}`,'error')
@@ -242,7 +203,6 @@ async function load(){
 function tickClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString()}
 load();
 setInterval(load,15000);
-setInterval(refreshFillers,20000);
 tickClock();
 setInterval(tickClock,1000);
 </script>
