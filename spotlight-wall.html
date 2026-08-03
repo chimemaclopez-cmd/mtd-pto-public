@@ -251,6 +251,11 @@ function buildQueue(spotlight){
   // Weave in one filler item every 3 real items so the wall stays varied even on a busy day.
   const woven=[];
   real.forEach((item,i)=>{woven.push(item);if((i+1)%3===0)woven.push(nextFillerItem())});
+  // On a quiet day (e.g. just the weather slide, real.length===1) the modulo-3 weave above
+  // never fires, so the queue would otherwise be a single slide forever - pad it out with
+  // filler so quotes/tips/Lofty updates keep rotating regardless of how few real items exist.
+  const MIN_QUEUE_LENGTH=8;
+  while(woven.length<MIN_QUEUE_LENGTH)woven.push(nextFillerItem());
   return{list:woven};
 }
 function showSlide(index){
