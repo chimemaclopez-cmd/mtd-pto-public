@@ -5,6 +5,9 @@ export const getMyKpi=(period='')=>api(`/api/my/kpi${period?`?period=${encodeURI
 export const getMySchedule=(startDate='',endDate='')=>{const query=new URLSearchParams(Object.entries({startDate,endDate}).filter(([,value])=>value));return api(`/api/my/schedule${query.size?`?${query}`:''}`)};
 export const getMyAttendance=(month='',endDate='')=>{const query=new URLSearchParams(Object.entries({month,endDate}).filter(([,value])=>value));return api(`/api/my/attendance${query.size?`?${query}`:''}`)};
 export const updateMyContact=(payload)=>api('/api/my/contact',{method:'PUT',body:JSON.stringify(payload)});
+export const getMyProfilePhoto=()=>api('/api/my/profile-photo');
+export const uploadMyProfilePhoto=(contentBase64)=>api('/api/my/profile-photo',{method:'POST',body:JSON.stringify({contentBase64})});
+export const deleteMyProfilePhoto=()=>api('/api/my/profile-photo',{method:'DELETE'});
 export const getMyStatus=()=>api('/api/my/status');
 export const setMyStatus=(activityId)=>api('/api/my/status',{method:'POST',body:JSON.stringify({activityId})});
 export const clockInStatus=()=>api('/api/my/status/clock-in',{method:'POST'});

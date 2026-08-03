@@ -69,6 +69,10 @@ const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
 const MAX_ATTACHMENT_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB original file, base64-encoded
+const PROFILE_PHOTO_KEY_PREFIX = 'mtdkpi:profile-photo:';
+// The client resizes/compresses to a small square JPEG before ever uploading, so a generous
+// cap here is just a backstop against something slipping past that, not the primary control.
+const MAX_PROFILE_PHOTO_BASE64_LENGTH = 700 * 1024;
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -975,6 +979,28 @@ const server = http.createServer(async (req, res) => {
       pending[identity] = { ...(pending[identity] || {}), employeeEmail: identity, ...update, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson('mtdkpi:roster-contact-updates', pending);
       return json(res, 200, { ok: true, employee: roster.records[index] });
+    }
+
+    // Small enough (client-side resized to a square JPEG before upload) to live directly in
+    // the cloud store keyed per employee - no local-disk sync needed like the attendance
+    // attachments, since this is just a live display value, not an HR record.
+    if (parsed.pathname === '/api/my/profile-photo' && req.method === 'GET') {
+      const photo = await cloudStore.kvGetJson(PROFILE_PHOTO_KEY_PREFIX + identity, null);
+      return json(res, 200, { ok: true, photoBase64: photo?.contentBase64 || '' });
+    }
+
+    if (parsed.pathname === '/api/my/profile-photo' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const contentBase64 = String(body.contentBase64 || '');
+      if (!/^data:image\/(jpeg|png|webp);base64,/.test(contentBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
+      if (contentBase64.length > MAX_PROFILE_PHOTO_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
+      await cloudStore.kvSetJson(PROFILE_PHOTO_KEY_PREFIX + identity, { contentBase64, updatedAt: new Date().toISOString() });
+      return json(res, 200, { ok: true, photoBase64: contentBase64 });
+    }
+
+    if (parsed.pathname === '/api/my/profile-photo' && req.method === 'DELETE') {
+      await cloudStore.kvSetJson(PROFILE_PHOTO_KEY_PREFIX + identity, null);
+      return json(res, 200, { ok: true });
     }
 
     if (parsed.pathname === '/api/my/team-roster' && req.method === 'GET') {
