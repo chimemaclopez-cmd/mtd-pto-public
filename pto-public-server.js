@@ -408,6 +408,7 @@ function serverDefaultAssignmentFor(employee) {
 async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:snapshot:schedules', { schedules: [], overrides: [] }); }
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
+async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 
@@ -1158,6 +1159,15 @@ const server = http.createServer(async (req, res) => {
         if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
       return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
+    }
+
+    if (parsed.pathname === '/api/my/site-metrics' && req.method === 'GET') {
+      const siteMetricsData = await loadSiteMetricsSnapshot();
+      const periods = siteMetricsData.periods || {};
+      const availablePeriods = Object.keys(periods).sort((a, b) => b.localeCompare(a));
+      const requestedPeriod = String(parsed.searchParams.get('period') || '');
+      const period = (requestedPeriod && periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
+      return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods });
     }
 
     if (parsed.pathname === '/api/my/notifications' && req.method === 'GET') {
