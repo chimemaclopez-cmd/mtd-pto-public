@@ -247,7 +247,14 @@ function sizeFor(text,tier){
   return len>140?'sizeM':len>70?'sizeL':'sizeXL';
 }
 function slideForItem(item){
-  if(item.kind==='shoutout')return `<div class="slide"><div class="slideIcon">🌟</div><div class="slideBadge badge-gold">Customer Shoutout${item.mentionsName?' · Named by Customer':''}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div><div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  if(item.kind==='shoutout'){
+    // Every good rating gets a slide, but the ones with real customer words - especially ones
+    // naming the rep - get a bigger icon/badge (and, in showSlide, a louder chime + confetti).
+    const icon=item.mentionsName?'🏆':item.hasComment?'🌟':'👍';
+    const badge=item.mentionsName?'Customer Shoutout · Named by Customer':(item.hasComment?'Customer Shoutout':'Good CSAT Rating');
+    const body=item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Left a good rating today - nice work!</div>';
+    return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-gold">${badge}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${body}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  }
   if(item.kind==='save')return `<div class="slide"><div class="slideIcon">🔄</div><div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   if(item.kind==='birthday')return `<div class="slide"><div class="slideIcon">🎂</div><div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='anniversary')return `<div class="slide"><div class="slideIcon">🏆</div><div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
@@ -329,7 +336,7 @@ function showSlide(index){
   if(item.kind==='birthday'&&item.daysUntil===0){birthdayChime();burstConfetti()}
   else if(item.pendingAnnounce&&firstLoad===false){
     const k=keyFor(item);
-    if(item.kind==='shoutout'){loudChime();burstConfetti()}
+    if(item.kind==='shoutout'){if(item.mentionsName||item.hasComment){loudChime();burstConfetti()}else{chime()}}
     else if(item.kind==='save'){chime();burstConfetti()}
     if(k)announcedKeys.add(k);
   }
