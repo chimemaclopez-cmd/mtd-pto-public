@@ -1214,5 +1214,5 @@ $('chatCloseBtn').onclick=closeChatPanel;
 document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('tourWelcomeModal').hidden){endTour();return}if(!$('tourOverlay').hidden){endTour();return}if(!$('changePasswordModal').hidden){if($('changePasswordModal').dataset.forced==='1')return;$('changePasswordModal').hidden=true;return}const openModal=[...document.querySelectorAll('.modal')].find(m=>!m.hidden);if(openModal){openModal.hidden=true;return}if(chatPanelOpen)closeChatPanel()});
 init();
 </script>
-<div class="appCredit">Built by Mac · V1.0.0 · &copy; 2026 Lofty. All Rights Reserved.</div>
+<div class="appCredit">Built by Mac · V1.2.0 · &copy; 2026 Lofty. All Rights Reserved.</div>
 </body></html>
