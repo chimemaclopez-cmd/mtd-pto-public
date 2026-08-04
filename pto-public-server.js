@@ -48,7 +48,7 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.3.0';
+const PORTAL_VERSION = '1.4.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1250,7 +1250,13 @@ const server = http.createServer(async (req, res) => {
       const availablePeriods = Object.keys(periods).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
       const period = (requestedPeriod && periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
-      return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods });
+      // Daily EOD history for the trend table - one row per captured day (or, for months from
+      // before daily capture existed, the month's final snapshot), oldest first. availablePeriods
+      // above stays as-is (still just backs the single-period dropdown/cards the KPI page uses).
+      const history = availablePeriods
+        .map(key => ({ period: key, endDate: key.split('|')[1] || key, ...periods[key] }))
+        .sort((a, b) => a.endDate.localeCompare(b.endDate));
+      return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods, history });
     }
 
     if (parsed.pathname === '/api/my/notifications' && req.method === 'GET') {
