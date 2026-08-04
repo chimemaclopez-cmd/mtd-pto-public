@@ -58,7 +58,7 @@ const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactN
 // (HR-sensitive, stays admin-only on MTD_Roster_Management.html) - only day-to-day profile
 // fields a lead would reasonably self-serve, plus employeeId which is admin/lead-set only
 // (never in ROSTER_CONTACT_FIELDS, so a rep can never set their own).
-const TEAM_EDITABLE_PROFILE_FIELDS = ['employeeName','employeeId','primaryChannel','kpiType','hireDate','scheduleGroup','seniorTsrAssignment','notes',...ROSTER_CONTACT_FIELDS];
+const TEAM_EDITABLE_PROFILE_FIELDS = ['employeeName','employeeId','jobTitle','primaryChannel','kpiType','hireDate','scheduleGroup','seniorTsrAssignment','notes',...ROSTER_CONTACT_FIELDS];
 // Mirrors shared/kpi-config.js's ATTENDANCE_CODES - duplicated here (like ROSTER_CONTACT_FIELDS
 // above) since this file is CommonJS and that config lives in an ES module.
 const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
