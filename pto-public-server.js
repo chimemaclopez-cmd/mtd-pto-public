@@ -48,7 +48,7 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.5.0';
+const PORTAL_VERSION = '1.7.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -65,6 +65,19 @@ const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','E
 // Mirrors shared/scoring.js's performanceStatus() tiering (best to worst), duplicated here
 // for the same CommonJS/ES-module reason as ATTENDANCE_CODES above.
 const PERFORMANCE_TIER = { Exceptional: 4, Exceeds: 3, Meets: 2, Watch: 1, Intervention: 0 };
+// Mirrors shared/scoring.js's scoreCsat/performanceStatus (also duplicated in zendesk-proxy.js
+// as scoreCsatBand/its own inline tiering) - needed here too now that a DSAT dispute can be
+// decided from this deployed portal, not just the local admin tool.
+function scoreCsatBandForDsat(v, weight = 40) {
+  if (v == null || !Number.isFinite(+v)) return { points: null };
+  v = +v;
+  const band = (score, multiplier, points) => ({ score, multiplier, points });
+  return v >= 95 ? band(5, 1, weight) : v >= 90 ? band(4, .9, weight * .9) : v >= 85 ? band(3, .8, weight * .8) : v >= 80 ? band(2, .7, weight * .7) : band(1, .6, weight * .6);
+}
+function performanceStatusForDsat(value) {
+  if (value == null) return 'Not Rated';
+  return value >= 95 ? 'Exceptional' : value >= 90 ? 'Exceeds' : value >= 85 ? 'Meets' : value >= 80 ? 'Watch' : 'Intervention';
+}
 const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
@@ -90,7 +103,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -632,6 +645,10 @@ const DISCIPLINE_CLEANSING_MONTHS = { Misdemeanor: 6, MinorOffense: 9, MajorOffe
 // employee.
 const PRE_DISCIPLINARY_APPROVER_EMAIL = 'charlotte@lofty.com';
 const FINAL_DISCIPLINARY_APPROVER_EMAIL = 'janet.memoracion@moatable.com';
+// Reviews every bad CSAT ticket company-wide (not just her own team) for validity, and is the
+// final approver on rep-filed CSAT disputes - a QA function distinct from the disciplinary
+// HR/SOM chain above, so it gets its own role rather than overloading either of those.
+const DSAT_REVIEWER_EMAIL = 'sunshine.simon@lofty.com';
 // Drives which tabs pto-public.html shows a signed-in user - most accounts are a normal
 // rep/team-lead ('REP', the default), but a couple of identities hold a narrower,
 // oversight-only role instead of day-to-day queue work, so their portal view is curated
@@ -640,6 +657,7 @@ function portalRoleFor(email) {
   const clean = ptoLogic.cleanEmail(email);
   if (clean === FINAL_DISCIPLINARY_APPROVER_EMAIL) return 'HR';
   if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
+  if (clean === DSAT_REVIEWER_EMAIL) return 'QA';
   return 'REP';
 }
 
@@ -1193,6 +1211,100 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, dispute, emailSent, emailError: emailError || undefined });
     }
 
+    // QA DSAT review: company-wide, not scoped to any one team - Sunshine reviews every bad
+    // CSAT ticket (disputed or not) and is the final approver on rep-filed disputes too.
+    if (parsed.pathname === '/api/qa/dsat-review' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const kpiResultsData = await loadKpiResultsSnapshot();
+      const availablePeriods = Object.keys(kpiResultsData.periods || {}).sort((a, b) => b.localeCompare(a));
+      const requestedPeriod = String(parsed.searchParams.get('period') || '');
+      const period = (requestedPeriod && kpiResultsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
+      const rows = period ? (kpiResultsData.periods[period] || []) : [];
+      const disputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
+      const tickets = [];
+      for (const row of rows) {
+        for (const t of (row.csat?.badTickets || [])) {
+          const dispute = disputes.find(x => String(x.ticketId) === String(t.ticketId) && ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(row.employeeEmail));
+          tickets.push({
+            employeeEmail: ptoLogic.cleanEmail(row.employeeEmail), employeeName: row.employeeName,
+            ticketId: t.ticketId, subject: t.subject || '', surveyDate: t.surveyDate || '', comment: t.comment || '',
+            period,
+            dispute: dispute ? { id: dispute.id, status: dispute.status, reason: dispute.reason, decidedBy: dispute.decidedBy, decisionNotes: dispute.decisionNotes, decidedAt: dispute.decidedAt, filedByQa: Boolean(dispute.filedByQa) } : null
+          });
+        }
+      }
+      tickets.sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
+      return json(res, 200, { ok: true, period, availablePeriods, tickets });
+    }
+
+    if (parsed.pathname === '/api/qa/dsat-review/decide' && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const decision = String(body.decision || '').toUpperCase();
+      if (!['APPROVED', 'REJECTED'].includes(decision)) return json(res, 400, { ok: false, error: 'A valid decision (APPROVED or REJECTED) is required.' });
+      const notes = String(body.notes || '').trim();
+      const disputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
+      let index = body.disputeId ? disputes.findIndex(x => x.id === String(body.disputeId)) : -1;
+      const now = new Date().toISOString();
+      if (index < 0) {
+        // No dispute exists yet for this ticket - she's flagging it herself. There's no
+        // "pending" step in that case: filed and decided in the same action.
+        const ticketId = String(body.ticketId || '').trim();
+        const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+        const period = String(body.period || '').trim();
+        if (!ticketId || !employeeEmail || !period) return json(res, 400, { ok: false, error: 'ticketId, employeeEmail, and period are required.' });
+        const kpiResultsData = await loadKpiResultsSnapshot();
+        const rows = (kpiResultsData.periods || {})[period] || [];
+        const row = rows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail);
+        const ticket = row && (row.csat?.badTickets || []).find(t => String(t.ticketId) === ticketId);
+        if (!ticket) return json(res, 404, { ok: false, error: "That ticket was not found among that employee's bad-rated CSAT tickets for this period." });
+        disputes.push({
+          id: `DISPUTE-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+          employeeEmail, employeeName: row.employeeName || employeeEmail,
+          ticketId, ticketSubject: ticket.subject || '', surveyDate: ticket.surveyDate || '', comment: ticket.comment || '',
+          period, reason: 'Flagged during QA DSAT review', status: 'PENDING', createdAt: now, decidedAt: null, decidedBy: '', decisionNotes: '', filedByQa: true
+        });
+        index = disputes.length - 1;
+      }
+      const dispute = disputes[index];
+      if (dispute.status !== 'PENDING') return json(res, 409, { ok: false, error: `This dispute has already been ${dispute.status.toLowerCase()}.` });
+      disputes[index] = { ...dispute, status: decision, decidedAt: now, decidedBy: session.employeeName, decisionNotes: notes };
+      let kpiAdjustment = null;
+      if (decision === 'APPROVED') {
+        const notValidDsatCount = disputes.filter(x => x.status === 'APPROVED' && ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(dispute.employeeEmail) && x.period === dispute.period).length;
+        const kpiResultsData = await loadKpiResultsSnapshot();
+        const rows = (kpiResultsData.periods || {})[dispute.period] || [];
+        const row = rows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(dispute.employeeEmail));
+        if (row) {
+          const csat = row.csat || {}, good = csat.good || 0, bad = csat.bad || 0;
+          const adjustedBad = Math.max(0, bad - notValidDsatCount), adjustedValid = good + adjustedBad;
+          const adjustedRate = adjustedValid ? good / adjustedValid * 100 : null;
+          const adjustedScore = adjustedRate == null ? { points: null } : scoreCsatBandForDsat(adjustedRate);
+          const delta = (csat.points != null && adjustedScore.points != null) ? adjustedScore.points - csat.points : null;
+          kpiAdjustment = {
+            notValidDsatCount, adjustedCsatGood: good, adjustedCsatBad: adjustedBad, adjustedCsatRate: adjustedRate, adjustedCsatPoints: adjustedScore.points,
+            baseKpiBefore: row.baseKpi, finalKpiBefore: row.finalKpi, performanceStatusBefore: row.performanceStatus,
+            adjustedBaseKpi: (row.baseKpi != null && delta != null) ? row.baseKpi + delta : row.baseKpi,
+            adjustedFinalKpi: (row.finalKpi != null && delta != null) ? row.finalKpi + delta : row.finalKpi,
+            lastAdjustedAt: now
+          };
+          kpiAdjustment.adjustedPerformanceStatus = performanceStatusForDsat(kpiAdjustment.adjustedFinalKpi);
+        }
+        // The recomputed row lives only on the dispute record here, never written into the
+        // cloud kpi-results snapshot directly - zendesk-proxy.js owns kpi-results.json and
+        // pushes its own copy to the cloud every sync tick, which would silently overwrite a
+        // direct write from this process. Unlike a dispute decided through zendesk-proxy.js's
+        // own local admin route (which sets row.disputeAdjustment before writing the file),
+        // there is currently no background job reconciling QA-decided disputes made here back
+        // into kpi-results.json - a rep's "Final KPI (After Approved Dispute)" tile on their
+        // own KPI tab will not reflect a decision Sunshine makes from this deployed route
+        // until that reconciliation is built. Known limitation, not yet fixed.
+        disputes[index].kpiAdjustment = kpiAdjustment;
+      }
+      await cloudStore.kvSetJson(DISPUTES_KEY, disputes);
+      return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
+    }
+
     if (parsed.pathname === '/api/my/announcements' && req.method === 'GET') {
       const snapshot = await loadAnnouncementsSnapshot();
       const announcements = (snapshot.announcements || [])
@@ -1592,7 +1704,9 @@ const server = http.createServer(async (req, res) => {
       const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
       const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       const data = await loadCoaching();
-      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // The QA reviewer also sees whatever coaching logs she's personally initiated on behalf
+      // of a team lead, even for an employee who isn't one of her own direct reports.
+      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) || (portalRoleFor(identity) === 'QA' && x.createdBy === identity)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, categories: COACHING_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
     }
 
@@ -1610,7 +1724,12 @@ const server = http.createServer(async (req, res) => {
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
       const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
-      if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      // The QA DSAT reviewer can also file a coaching log for any active employee whose
+      // validated DSAT calls for it, on behalf of that employee's actual team lead - not just
+      // her own reports. The record still attributes teamLeadEmail/teamLeadName to the real
+      // team lead; createdBy (below) is what shows it was actually entered by QA.
+      const isQaOnBehalf = !isDirectReport && portalRoleFor(identity) === 'QA' && employee && employee.active !== false;
+      if (!isDirectReport && !isQaOnBehalf) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const currentStanding = await buildCoachingStandingSnapshot(email);
       const data = await loadCoaching();
       const year = coachingDate.slice(0, 4);
@@ -1620,13 +1739,14 @@ const server = http.createServer(async (req, res) => {
       const status = body.status === 'SENT' ? 'SENT' : 'DRAFT';
       const record = {
         coachingId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
-        teamLeadEmail: identity, teamLeadName: leaderName || session.employeeName || '',
+        teamLeadEmail: isQaOnBehalf ? ptoLogic.cleanEmail(employee.teamLeadEmail || '') : identity,
+        teamLeadName: isQaOnBehalf ? (employee.teamLeadName || '') : (leaderName || session.employeeName || ''),
         coachingDate, category, currentStanding, observation,
         discussionSummary: String(body.discussionSummary || '').trim(),
         actionPlan: String(body.actionPlan || '').trim(),
         targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : null,
         status, createdAt: now, updatedAt: now, sentAt: status === 'SENT' ? now : null,
-        acknowledgment: null, createdBy: identity
+        acknowledgment: null, createdBy: identity, initiatedByQa: isQaOnBehalf ? (session.employeeName || identity) : null
       };
       data.sequenceByYear[year] = sequence;
       data.records.push(record);
