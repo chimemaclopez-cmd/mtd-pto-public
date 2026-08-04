@@ -1250,12 +1250,38 @@ const server = http.createServer(async (req, res) => {
       const availablePeriods = Object.keys(periods).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
       const period = (requestedPeriod && periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
-      // Daily EOD history for the trend table - one row per captured day (or, for months from
-      // before daily capture existed, the month's final snapshot), oldest first. availablePeriods
-      // above stays as-is (still just backs the single-period dropdown/cards the KPI page uses).
-      const history = availablePeriods
-        .map(key => ({ period: key, endDate: key.split('|')[1] || key, ...periods[key] }))
+      // Daily EOD history for the trend table - each stored period is a cumulative
+      // month-to-date-through-that-day snapshot (that's what the cards above use), but "EOD"
+      // means that single day's own activity, not blended with the rest of the month. Derive
+      // it by subtracting the previous same-month day's cumulative counts, so day 1 of a month
+      // (nothing earlier to subtract) and every day after it show that day alone.
+      const sortedByDate = availablePeriods
+        .map(key => ({ period: key, month: key.split('|')[0] || '', endDate: key.split('|')[1] || key, ...periods[key] }))
         .sort((a, b) => a.endDate.localeCompare(b.endDate));
+      const history = sortedByDate.map((row, i) => {
+        const prev = sortedByDate[i - 1];
+        const sameMonthPrev = prev && prev.month === row.month ? prev : null;
+        // No same-month day before this one: if it's the 1st, that cumulative IS the day's own
+        // total already. Otherwise (e.g. the only entry captured for an older month, before
+        // daily capture existed) there's no way to isolate that single day - it's really the
+        // whole month's total, and isDailyIsolated:false says so for the UI to label honestly.
+        if (!sameMonthPrev) return { ...row, isDailyIsolated: row.endDate.endsWith('-01') };
+        const cc = row.callCompletion || {}, pcc = sameMonthPrev.callCompletion || {};
+        const lcr = row.longCallRate || {}, plcr = sameMonthPrev.longCallRate || {};
+        const cs = row.csat || {}, pcs = sameMonthPrev.csat || {};
+        const totalInbound = (cc.totalInbound || 0) - (pcc.totalInbound || 0);
+        const completedInbound = (cc.completedInbound || 0) - (pcc.completedInbound || 0);
+        const accepted = (lcr.accepted || 0) - (plcr.accepted || 0);
+        const longCalls = (lcr.longCalls || 0) - (plcr.longCalls || 0);
+        const good = (cs.good || 0) - (pcs.good || 0);
+        const bad = (cs.bad || 0) - (pcs.bad || 0);
+        return {
+          period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated, isDailyIsolated: true,
+          callCompletion: { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null },
+          longCallRate: { accepted, longCalls, rate: accepted ? longCalls / accepted * 100 : null },
+          csat: { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
+        };
+      });
       return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods, history });
     }
 
