@@ -78,6 +78,27 @@ function performanceStatusForDsat(value) {
   if (value == null) return 'Not Rated';
   return value >= 95 ? 'Exceptional' : value >= 90 ? 'Exceeds' : value >= 85 ? 'Meets' : value >= 80 ? 'Watch' : 'Intervention';
 }
+// Computes the "after approved dispute" KPI preview for one KPI-results row, given how many
+// of that employee's disputes are currently APPROVED for that same period. Deliberately a pure
+// function of the row + a count, not of any single dispute record, so /api/my/kpi can call it
+// fresh on every read (see below) instead of trusting a value cached at decide-time, which
+// would go stale the moment a second dispute for the same employee/period gets approved.
+function buildDsatKpiAdjustment(row, notValidDsatCount) {
+  if (!notValidDsatCount) return null;
+  const csat = row.csat || {}, good = csat.good || 0, bad = csat.bad || 0;
+  const adjustedBad = Math.max(0, bad - notValidDsatCount), adjustedValid = good + adjustedBad;
+  const adjustedRate = adjustedValid ? good / adjustedValid * 100 : null;
+  const adjustedScore = adjustedRate == null ? { points: null } : scoreCsatBandForDsat(adjustedRate);
+  const delta = (csat.points != null && adjustedScore.points != null) ? adjustedScore.points - csat.points : null;
+  const adjustment = {
+    notValidDsatCount, adjustedCsatGood: good, adjustedCsatBad: adjustedBad, adjustedCsatRate: adjustedRate, adjustedCsatPoints: adjustedScore.points,
+    baseKpiBefore: row.baseKpi, finalKpiBefore: row.finalKpi, performanceStatusBefore: row.performanceStatus,
+    adjustedBaseKpi: (row.baseKpi != null && delta != null) ? row.baseKpi + delta : row.baseKpi,
+    adjustedFinalKpi: (row.finalKpi != null && delta != null) ? row.finalKpi + delta : row.finalKpi
+  };
+  adjustment.adjustedPerformanceStatus = performanceStatusForDsat(adjustment.adjustedFinalKpi);
+  return adjustment;
+}
 const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
@@ -1276,29 +1297,16 @@ const server = http.createServer(async (req, res) => {
         const rows = (kpiResultsData.periods || {})[dispute.period] || [];
         const row = rows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(dispute.employeeEmail));
         if (row) {
-          const csat = row.csat || {}, good = csat.good || 0, bad = csat.bad || 0;
-          const adjustedBad = Math.max(0, bad - notValidDsatCount), adjustedValid = good + adjustedBad;
-          const adjustedRate = adjustedValid ? good / adjustedValid * 100 : null;
-          const adjustedScore = adjustedRate == null ? { points: null } : scoreCsatBandForDsat(adjustedRate);
-          const delta = (csat.points != null && adjustedScore.points != null) ? adjustedScore.points - csat.points : null;
-          kpiAdjustment = {
-            notValidDsatCount, adjustedCsatGood: good, adjustedCsatBad: adjustedBad, adjustedCsatRate: adjustedRate, adjustedCsatPoints: adjustedScore.points,
-            baseKpiBefore: row.baseKpi, finalKpiBefore: row.finalKpi, performanceStatusBefore: row.performanceStatus,
-            adjustedBaseKpi: (row.baseKpi != null && delta != null) ? row.baseKpi + delta : row.baseKpi,
-            adjustedFinalKpi: (row.finalKpi != null && delta != null) ? row.finalKpi + delta : row.finalKpi,
-            lastAdjustedAt: now
-          };
-          kpiAdjustment.adjustedPerformanceStatus = performanceStatusForDsat(kpiAdjustment.adjustedFinalKpi);
+          kpiAdjustment = buildDsatKpiAdjustment(row, notValidDsatCount);
+          if (kpiAdjustment) kpiAdjustment.lastAdjustedAt = now;
         }
-        // The recomputed row lives only on the dispute record here, never written into the
-        // cloud kpi-results snapshot directly - zendesk-proxy.js owns kpi-results.json and
-        // pushes its own copy to the cloud every sync tick, which would silently overwrite a
-        // direct write from this process. Unlike a dispute decided through zendesk-proxy.js's
-        // own local admin route (which sets row.disputeAdjustment before writing the file),
-        // there is currently no background job reconciling QA-decided disputes made here back
-        // into kpi-results.json - a rep's "Final KPI (After Approved Dispute)" tile on their
-        // own KPI tab will not reflect a decision Sunshine makes from this deployed route
-        // until that reconciliation is built. Known limitation, not yet fixed.
+        // This is stored on the dispute record purely as an audit snapshot of what the
+        // adjustment looked like at the moment of this decision - it is NOT what the rep's own
+        // KPI tab displays. /api/my/kpi recomputes the adjustment fresh on every read (via
+        // buildDsatKpiAdjustment, counting all currently-APPROVED disputes for that
+        // employee/period) precisely so it never depends on which route decided a dispute, or
+        // on kpi-results.json - a file this process must never write to directly, since
+        // zendesk-proxy.js owns it and overwrites it wholesale on every cloud sync tick.
         disputes[index].kpiAdjustment = kpiAdjustment;
       }
       await cloudStore.kvSetJson(DISPUTES_KEY, disputes);
@@ -1317,9 +1325,13 @@ const server = http.createServer(async (req, res) => {
       const [kpiResults, roster] = await Promise.all([loadKpiResultsSnapshot(), loadRosterSnapshot()]);
       const periods = kpiResults.periods || {};
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const dsatDisputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
       const results = Object.entries(periods)
         .flatMap(([period, rows]) => (rows || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => ({ period, ...x })))
-        .sort((a, b) => b.period.localeCompare(a.period));
+        .sort((a, b) => b.period.localeCompare(a.period))
+        // Merged in fresh on every read, not trusted from any stored field on the row itself -
+        // see buildDsatKpiAdjustment for why this can't be a value written at decide-time.
+        .map(row => ({ ...row, disputeAdjustment: buildDsatKpiAdjustment(row, dsatDisputes.filter(d => d.status === 'APPROVED' && ptoLogic.cleanEmail(d.employeeEmail) === identity && d.period === row.period).length) }));
       const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim(),leaderEmail=ptoLogic.cleanEmail(signedInEmployee?.employeeEmail||identity);
       const assignedMembers=(roster.records||[]).filter(x=>x.active!==false&&ptoLogic.cleanEmail(x.employeeEmail)!==identity&&(ptoLogic.cleanEmail(x.teamLeadEmail)===leaderEmail||String(x.teamLeadName||'').trim()===leaderName));
       const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
