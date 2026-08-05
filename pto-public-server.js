@@ -1239,27 +1239,29 @@ const server = http.createServer(async (req, res) => {
     }
 
     // QA DSAT review: company-wide, not scoped to any one team - Sunshine reviews every bad
-    // CSAT ticket (disputed or not) and is the final approver on rep-filed disputes too.
+    // CSAT ticket (disputed or not) and is the final approver on rep-filed disputes too. Source
+    // is site-metrics' badTicketsDetail (every bad-rated ticket site-wide, resolved against the
+    // FULL active roster), not kpi-results.json's per-employee badTickets - that field is scoped
+    // to Voice/Non-Voice/Senior TSR for KPI-scoring purposes and would silently hide bad CSAT
+    // tickets assigned to a Database Agent, a team lead, or anyone else active.
     if (parsed.pathname === '/api/qa/dsat-review' && req.method === 'GET') {
       if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const kpiResultsData = await loadKpiResultsSnapshot();
-      const availablePeriods = Object.keys(kpiResultsData.periods || {}).sort((a, b) => b.localeCompare(a));
+      const siteMetricsData = await loadSiteMetricsSnapshot();
+      const availablePeriods = Object.keys(siteMetricsData.periods || {}).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
-      const period = (requestedPeriod && kpiResultsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
-      const rows = period ? (kpiResultsData.periods[period] || []) : [];
+      const period = (requestedPeriod && siteMetricsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
+      const badTicketsDetail = (period && siteMetricsData.periods[period]?.csat?.badTicketsDetail) || [];
       const disputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
-      const tickets = [];
-      for (const row of rows) {
-        for (const t of (row.csat?.badTickets || [])) {
-          const dispute = disputes.find(x => String(x.ticketId) === String(t.ticketId) && ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(row.employeeEmail));
-          tickets.push({
-            employeeEmail: ptoLogic.cleanEmail(row.employeeEmail), employeeName: row.employeeName,
-            ticketId: t.ticketId, subject: t.subject || '', surveyDate: t.surveyDate || '', comment: t.comment || '',
-            period,
-            dispute: dispute ? { id: dispute.id, status: dispute.status, reason: dispute.reason, decidedBy: dispute.decidedBy, decisionNotes: dispute.decisionNotes, decidedAt: dispute.decidedAt, filedByQa: Boolean(dispute.filedByQa) } : null
-          });
-        }
-      }
+      const tickets = badTicketsDetail.map(t => {
+        const employeeEmail = ptoLogic.cleanEmail(t.employeeEmail || '');
+        const dispute = disputes.find(x => String(x.ticketId) === String(t.ticketId) && ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail);
+        return {
+          employeeEmail, employeeName: t.employeeName || 'Unassigned',
+          ticketId: t.ticketId, subject: t.subject || '', surveyDate: t.surveyDate || '', comment: t.comment || '',
+          period,
+          dispute: dispute ? { id: dispute.id, status: dispute.status, reason: dispute.reason, decidedBy: dispute.decidedBy, decisionNotes: dispute.decisionNotes, decidedAt: dispute.decidedAt, filedByQa: Boolean(dispute.filedByQa) } : null
+        };
+      });
       tickets.sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
       return json(res, 200, { ok: true, period, availablePeriods, tickets });
     }
@@ -1277,17 +1279,16 @@ const server = http.createServer(async (req, res) => {
         // No dispute exists yet for this ticket - she's flagging it herself. There's no
         // "pending" step in that case: filed and decided in the same action.
         const ticketId = String(body.ticketId || '').trim();
-        const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
         const period = String(body.period || '').trim();
-        if (!ticketId || !employeeEmail || !period) return json(res, 400, { ok: false, error: 'ticketId, employeeEmail, and period are required.' });
-        const kpiResultsData = await loadKpiResultsSnapshot();
-        const rows = (kpiResultsData.periods || {})[period] || [];
-        const row = rows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail);
-        const ticket = row && (row.csat?.badTickets || []).find(t => String(t.ticketId) === ticketId);
-        if (!ticket) return json(res, 404, { ok: false, error: "That ticket was not found among that employee's bad-rated CSAT tickets for this period." });
+        if (!ticketId || !period) return json(res, 400, { ok: false, error: 'ticketId and period are required.' });
+        const siteMetricsData = await loadSiteMetricsSnapshot();
+        const badTicketsDetail = (siteMetricsData.periods || {})[period]?.csat?.badTicketsDetail || [];
+        const ticket = badTicketsDetail.find(t => String(t.ticketId) === ticketId);
+        if (!ticket) return json(res, 404, { ok: false, error: 'That ticket was not found among the bad-rated CSAT tickets for this period.' });
+        const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || ticket.employeeEmail || '');
         disputes.push({
           id: `DISPUTE-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
-          employeeEmail, employeeName: row.employeeName || employeeEmail,
+          employeeEmail, employeeName: ticket.employeeName || employeeEmail || 'Unassigned',
           ticketId, ticketSubject: ticket.subject || '', surveyDate: ticket.surveyDate || '', comment: ticket.comment || '',
           period, reason: 'Flagged during QA DSAT review', status: 'PENDING', createdAt: now, decidedAt: null, decidedBy: '', decisionNotes: '', filedByQa: true
         });

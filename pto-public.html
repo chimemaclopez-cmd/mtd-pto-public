@@ -862,7 +862,7 @@ function renderDsatReviewBody(){
         actions+=`<button class="btn compact danger" data-dsat-reject="${esc(t.dispute.id)}">Reject</button> `;
       }
     }
-    if(!t.dispute||t.dispute.status==='REJECTED'){
+    if(t.employeeEmail&&(!t.dispute||t.dispute.status==='REJECTED')){
       actions+=`<button class="btn compact" data-dsat-coach="${esc(String(t.ticketId))}" data-dsat-coach-email="${esc(t.employeeEmail)}">Create Coaching Log</button>`;
     }
     return`<tr><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span></td><td>#${esc(String(t.ticketId))}<br><span class="muted">${esc(t.subject||'')}</span></td><td>${esc(t.comment||'—')}</td><td>${esc(t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'—')}</td><td>${statusHtml}${notes}</td><td>${actions}</td></tr>`;
