@@ -136,8 +136,8 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function sendText(res, status, text, type = 'text/plain; charset=utf-8') {
-  res.writeHead(status, { 'Content-Type': type });
+function sendText(res, status, text, type = 'text/plain; charset=utf-8', extraHeaders = {}) {
+  res.writeHead(status, { 'Content-Type': type, ...extraHeaders });
   res.end(text);
 }
 
@@ -835,17 +835,23 @@ const server = http.createServer(async (req, res) => {
     const isSecureReq = req.headers['x-forwarded-proto'] === 'https' || Boolean(req.socket.encrypted);
 
     // --- Always-reachable: page shell + static assets (the login form lives on this page) ---
+    // The main HTML shell and its ES-module scripts have no ETag/Last-Modified, so without an
+    // explicit no-cache a browser can serve a stale copy on a plain reload (or bfcache restore)
+    // after a deploy - a rep or leadership-role account can then run old logic indefinitely
+    // without any visible sign anything is wrong. Images/binary assets below are unaffected by
+    // deploys in the same way, so they keep normal caching for performance.
+    const NO_CACHE = { 'Cache-Control': 'no-cache' };
     if (parsed.pathname === '/' || parsed.pathname === '/pto') {
       const filePath = path.join(MTD_ROOT, 'pto-public.html');
-      return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), 'text/html; charset=utf-8');
+      return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), 'text/html; charset=utf-8', NO_CACHE);
     }
 
     if (parsed.pathname === '/manifest.json') {
-      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'manifest.json'), 'utf8'), 'application/json; charset=utf-8');
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'manifest.json'), 'utf8'), 'application/json; charset=utf-8', NO_CACHE);
     }
 
     if (parsed.pathname === '/sw.js') {
-      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'sw.js'), 'utf8'), 'text/javascript; charset=utf-8');
+      return sendText(res, 200, fs.readFileSync(path.join(MTD_ROOT, 'sw.js'), 'utf8'), 'text/javascript; charset=utf-8', NO_CACHE);
     }
 
     const sharedBinaryMatch = parsed.pathname.match(/^\/shared\/([a-zA-Z0-9._/-]+)$/);
@@ -857,7 +863,7 @@ const server = http.createServer(async (req, res) => {
     const sharedMatch = parsed.pathname.match(/^\/shared\/([a-zA-Z0-9._-]+)$/);
     if (sharedMatch && STATIC_SHARED.has(sharedMatch[1])) {
       const filePath = path.join(MTD_ROOT, 'shared', sharedMatch[1]);
-      return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), contentTypeFor(sharedMatch[1]));
+      return sendText(res, 200, fs.readFileSync(filePath, 'utf8'), contentTypeFor(sharedMatch[1]), NO_CACHE);
     }
 
     if (parsed.pathname === '/api/health') {
