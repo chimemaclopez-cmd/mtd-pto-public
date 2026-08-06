@@ -1,7 +1,3 @@
-import {api} from './ui-utils.js';
-
-export const draftAssist=(text)=>api('/api/my/draft-assist',{method:'POST',body:JSON.stringify({text})});
-
 // Minimal rich-text support for content pasted from Word/PDF (SOP/process docs, announcements):
 // a contenteditable field keeps whatever basic formatting the browser carries over on paste
 // (bold, italic, lists, headings, paragraphs), and sanitizeRichHtml() strips everything else
@@ -52,14 +48,10 @@ export function richTextFieldHtml(fieldId) {
 <button type="button" class="btn compact" data-rt-cmd="insertUnorderedList" title="Bullet List">&bull; List</button>
 <button type="button" class="btn compact" data-rt-cmd="insertOrderedList" title="Numbered List">1. List</button>
 <button type="button" class="btn compact" data-rt-cmd="formatBlock" data-rt-value="P" title="Clear formatting">Clear</button>
-<button type="button" class="btn compact" data-rt-ai="rephrase" title="Fix grammar, spelling, and awkward wording">&#10024; Rephrase</button>
 </div><div class="richTextBody" id="${fieldId}" contenteditable="true" data-placeholder="Paste from your Word/PDF SOP, or type here..."></div>`;
 }
 
-// onAiAssist(fieldId) is provided by the page (not this module) since showing the suggestion
-// and accepting/discarding it needs a modal that's specific to that page's layout - this
-// module only knows about the field itself, not the surrounding UI.
-export function wireRichTextToolbar(root = document, { onAiAssist } = {}) {
+export function wireRichTextToolbar(root = document) {
   root.querySelectorAll('[data-rt-toolbar]').forEach(toolbar => {
     const fieldId = toolbar.dataset.rtToolbar;
     toolbar.querySelectorAll('button[data-rt-cmd]').forEach(btn => {
@@ -67,9 +59,6 @@ export function wireRichTextToolbar(root = document, { onAiAssist } = {}) {
         document.getElementById(fieldId)?.focus();
         document.execCommand(btn.dataset.rtCmd, false, btn.dataset.rtValue || null);
       };
-    });
-    toolbar.querySelectorAll('button[data-rt-ai]').forEach(btn => {
-      btn.onclick = () => onAiAssist?.(fieldId);
     });
   });
 }

@@ -35,7 +35,6 @@
 */
 
 const http = require('http');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -46,38 +45,6 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
-// Optional: powers the "Rephrase" button on the Alignment and Announcement composers. Set
-// ANTHROPIC_API_KEY in this service's environment (Render dashboard, not a committed file) -
-// left blank, that button just shows "not configured yet" instead of erroring.
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
-function callClaude(prompt) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] });
-    const req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) },
-      timeout: 20000
-    }, res => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        let parsed;
-        try { parsed = JSON.parse(data); } catch { return reject(new Error('Claude returned an unreadable response.')); }
-        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `Claude returned HTTP ${res.statusCode}.`));
-        const text = parsed.content?.[0]?.text;
-        if (!text) return reject(new Error('Claude returned no suggestion - try rephrasing or shortening the text.'));
-        resolve(text.trim());
-      });
-    });
-    req.on('timeout', () => req.destroy(new Error('Claude request timed out.')));
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
@@ -1452,21 +1419,6 @@ const server = http.createServer(async (req, res) => {
       list[index] = { ...current, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
       return json(res, 200, { ok: true, announcement: list[index] });
-    }
-
-    if (parsed.pathname === '/api/my/draft-assist' && req.method === 'POST') {
-      if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to use this.' });
-      if (!ANTHROPIC_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set ANTHROPIC_API_KEY.' });
-      const body = await readJsonBody(req);
-      const text = String(body.text || '').trim();
-      if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
-      const prompt = `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
-      try {
-        const suggestion = await callClaude(prompt);
-        return json(res, 200, { ok: true, suggestion });
-      } catch (error) {
-        return json(res, 502, { ok: false, error: `AI assist failed: ${error.message}` });
-      }
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
