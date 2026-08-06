@@ -46,34 +46,33 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
-// Optional: powers the "Fix Grammar" / "Help Me Draft" buttons on the Alignment and
-// Announcement composers. Get a free key at https://aistudio.google.com/apikey and set
-// GEMINI_API_KEY in this service's environment (Render dashboard, not a committed file) -
-// left blank, those buttons just show "not configured yet" instead of erroring.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-function callGemini(prompt) {
+// Optional: powers the "Rephrase" button on the Alignment and Announcement composers. Set
+// ANTHROPIC_API_KEY in this service's environment (Render dashboard, not a committed file) -
+// left blank, that button just shows "not configured yet" instead of erroring.
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+function callClaude(prompt) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+    const body = JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] });
     const req = https.request({
-      hostname: 'generativelanguage.googleapis.com',
-      path: `/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) },
       timeout: 20000
     }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         let parsed;
-        try { parsed = JSON.parse(data); } catch { return reject(new Error('Gemini returned an unreadable response.')); }
-        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `Gemini returned HTTP ${res.statusCode}.`));
-        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) return reject(new Error('Gemini returned no suggestion - try rephrasing or shortening the text.'));
+        try { parsed = JSON.parse(data); } catch { return reject(new Error('Claude returned an unreadable response.')); }
+        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `Claude returned HTTP ${res.statusCode}.`));
+        const text = parsed.content?.[0]?.text;
+        if (!text) return reject(new Error('Claude returned no suggestion - try rephrasing or shortening the text.'));
         resolve(text.trim());
       });
     });
-    req.on('timeout', () => req.destroy(new Error('Gemini request timed out.')));
+    req.on('timeout', () => req.destroy(new Error('Claude request timed out.')));
     req.on('error', reject);
     req.write(body);
     req.end();
@@ -1457,16 +1456,13 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/draft-assist' && req.method === 'POST') {
       if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to use this.' });
-      if (!GEMINI_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GEMINI_API_KEY.' });
+      if (!ANTHROPIC_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set ANTHROPIC_API_KEY.' });
       const body = await readJsonBody(req);
       const text = String(body.text || '').trim();
-      const mode = body.mode === 'draft' ? 'draft' : 'grammar';
       if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
-      const prompt = mode === 'draft'
-        ? `Expand the following rough notes into clear, professional prose suitable for an internal company SOP or announcement. Keep it concise - a short paragraph or two. Return ONLY the drafted text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`
-        : `Fix the grammar, spelling, and clarity of the following text. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the corrected text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
+      const prompt = `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
       try {
-        const suggestion = await callGemini(prompt);
+        const suggestion = await callClaude(prompt);
         return json(res, 200, { ok: true, suggestion });
       } catch (error) {
         return json(res, 502, { ok: false, error: `AI assist failed: ${error.message}` });
