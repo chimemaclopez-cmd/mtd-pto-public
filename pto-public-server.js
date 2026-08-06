@@ -441,6 +441,9 @@ async function computeStatusWall() {
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
 const DISPUTE_CC_EMAIL = process.env.DISPUTE_CC_EMAIL || 'charlotte@lofty.com';
 const DISPUTES_KEY = 'mtdkpi:csat-disputes';
+// Must match the same literal in zendesk-proxy.js's syncCsatRefreshRequestsFromCloud() - the
+// two processes only share state through this key, there's no shared module between them.
+const CSAT_REFRESH_REQUESTS_KEY = 'mtdkpi:csat-refresh-requests';
 const PTO_KEY = 'mtdkpi:pto-requests';
 const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
@@ -1376,6 +1379,24 @@ const server = http.createServer(async (req, res) => {
       });
       tickets.sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
       return json(res, 200, { ok: true, period, availablePeriods, tickets });
+    }
+
+    // This server has no Zendesk credentials of its own and can't pull fresh CSAT data
+    // directly - it can only queue a request in Upstash for the local admin process
+    // (zendesk-proxy.js) to pick up on its next ~30s sync tick and act on. Non-destructive
+    // (just asks for a data pull, decides nothing), so it's allowed the same way the GET
+    // above is - real QA identity or an admin currently previewing as QA.
+    if (parsed.pathname === '/api/qa/dsat-review/refresh' && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'QA' && effectiveViewAsRole(identity, session) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const period = String(body.period || '').trim();
+      const [month, endDate] = period.includes('|') ? period.split('|') : ['', ''];
+      const resolvedMonth = /^\d{4}-\d{2}$/.test(month) ? month : todayEasternDate().slice(0, 7);
+      const resolvedEndDate = ptoLogic.validDate(endDate) ? endDate : todayEasternDate();
+      const queue = await cloudStore.kvGetJson(CSAT_REFRESH_REQUESTS_KEY, []);
+      queue.push({ month: resolvedMonth, endDate: resolvedEndDate, requestedBy: identity, requestedAt: new Date().toISOString() });
+      await cloudStore.kvSetJson(CSAT_REFRESH_REQUESTS_KEY, queue);
+      return json(res, 200, { ok: true, requested: { month: resolvedMonth, endDate: resolvedEndDate } });
     }
 
     if (parsed.pathname === '/api/qa/dsat-review/decide' && req.method === 'POST') {

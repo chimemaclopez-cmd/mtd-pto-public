@@ -358,7 +358,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn primary" type="submit">Post Announcement</button>
 </div>
 </form></div>
-<section id="dsatReviewView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="dsatReviewPeriod"></select></div></div><div class="sectionTitle">DSAT Review</div><div class="sub">Every bad CSAT rating for this period, company-wide. Flag one as Not Valid to file and decide a dispute in one step, or Approve/Reject a rep-filed dispute already pending. Once a DSAT stands as valid, you can start a coaching log on behalf of the rep's team lead.</div><div class="cards" id="dsatReviewCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Employee</th><th>Ticket</th><th>Comment</th><th>Survey Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dsatReviewBody"></tbody></table></div></section>
+<section id="dsatReviewView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="dsatReviewPeriod"></select></div><button class="btn" id="dsatReviewRefreshBtn" type="button">Request CSAT Refresh</button><span class="sub" id="dsatReviewRefreshStatus"></span></div><div class="sectionTitle">DSAT Review</div><div class="sub">Every bad CSAT rating for this period, company-wide. Flag one as Not Valid to file and decide a dispute in one step, or Approve/Reject a rep-filed dispute already pending. Once a DSAT stands as valid, you can start a coaching log on behalf of the rep's team lead.</div><div class="cards" id="dsatReviewCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Employee</th><th>Ticket</th><th>Comment</th><th>Survey Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dsatReviewBody"></tbody></table></div></section>
 <section id="siteCoachingView" hidden>
 <div class="sectionTitle">All Coaching</div>
 <div class="sub">Every coaching session filed company-wide, across every team lead. Read-only oversight - drafts stay private to the team lead until sent.</div>
@@ -392,7 +392,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="chatPanel" class="chatPanel" hidden><div class="chatPanelHeader"><div><b>Team Chat</b><div class="sub" id="chatOnlineCount">0 online</div></div><button type="button" id="chatCloseBtn" class="chatCloseBtn" aria-label="Close chat">✕</button></div><div class="chatPanelBody"><div class="chatReconnect" id="chatReconnect" hidden>Reconnecting…</div><div class="chatOnlineStrip" id="chatOnlineList"></div><div id="chatMessages" class="chatMessages"></div><form id="chatForm" class="chatInputRow"><input id="chatInput" autocomplete="off" placeholder="Message the team…" maxlength="2000"><button class="btn primary" type="submit">Send</button></form></div></div>
 </div>
 <script type="module">
-import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket} from './shared/qa-dsat-service.js';
+import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh} from './shared/qa-dsat-service.js';
 import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
@@ -1480,6 +1480,26 @@ async function loadDsatReviewTab(period=''){
   }
 }
 $('dsatReviewPeriod').onchange=()=>{const period=$('dsatReviewPeriod').value;if(!period)return;selectedDsatReviewPeriod=period;loadDsatReviewTab(period)};
+let dsatReviewRefreshCooldownUntil=0;
+$('dsatReviewRefreshBtn').onclick=async()=>{
+  if(Date.now()<dsatReviewRefreshCooldownUntil)return;
+  const btn=$('dsatReviewRefreshBtn'),statusEl=$('dsatReviewRefreshStatus');
+  btn.disabled=true;statusEl.textContent='Requesting...';
+  try{
+    await requestDsatRefresh(selectedDsatReviewPeriod);
+    // The actual pull runs on the local admin machine and takes a couple of minutes for a
+    // full CSAT dataset - there's nothing to poll faster than that, so just tell her when to
+    // expect it and let the normal period dropdown/tab reload pick up the fresh data whenever
+    // she checks back, rather than pretending this is instant.
+    statusEl.textContent='Refresh requested - usually ready in a minute or two. Reopen this tab or reselect the period to check.';
+    dsatReviewRefreshCooldownUntil=Date.now()+60000;
+    setTimeout(()=>{btn.disabled=Date.now()<dsatReviewRefreshCooldownUntil},60000);
+  }catch(error){
+    statusEl.textContent='';
+    setMessage(error.response?.error||error.message,'error');
+    btn.disabled=false;
+  }
+};
 $('dsatReviewBody').addEventListener('click',async event=>{
   const approveTicket=event.target.dataset.dsatApprove,rejectDisputeId=event.target.dataset.dsatReject,coachTicket=event.target.dataset.dsatCoach;
   if(approveTicket){
