@@ -107,12 +107,12 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .goalBadge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:850;white-space:nowrap}.goalBadge.met{background:#e3f7ec;color:#0f7a49}.goalBadge.gap{background:#fff2cc;color:#7a4a05}.goalBadge.na{background:#eef0f5;color:#697184}
 @media(max-width:900px){.teamGoalGrid{grid-template-columns:1fr}}@media(max-width:560px){.repGoalHead{display:block}.repGoalHead .sub{margin-top:4px}.repGoalGrid{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
-<header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — PTO requests, performance, and more.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><span class="sub" id="whoami"></span><div class="field" id="viewAsField" hidden style="min-width:170px"><label>View As (Preview)</label><select id="viewAsSelect"><option value="">My real access</option><option value="QA">QA</option><option value="SOM">SOM</option><option value="HR">HR</option></select></div><div class="headerButtonRow"><div class="field" style="min-width:180px"><label>Status</label><select id="statusSelect" disabled></select></div><button class="btn primary" id="timeInBtn">Time In</button><button class="btn danger" id="timeOutBtn" hidden>Time Out</button><button class="btn" id="notifBtn" hidden>🔔 Notifications<span id="notifBadge" class="tabBadge" hidden></span></button><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="changePasswordBtn">Change Password</button><button class="btn" id="logoutBtn">Log Out</button></div></div></div></header>
+<header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — PTO requests, performance, and more.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><span class="sub" id="whoami"></span><div class="field" id="viewAsField" hidden style="min-width:170px"><label>View As (Preview)</label><select id="viewAsSelect"><option value="">My real access</option><option value="QA">QA</option><option value="SOM">SOM</option><option value="HR">HR</option><option value="TRAINING">Training Manager</option></select></div><div class="headerButtonRow"><div class="field" style="min-width:180px"><label>Status</label><select id="statusSelect" disabled></select></div><button class="btn primary" id="timeInBtn">Time In</button><button class="btn danger" id="timeOutBtn" hidden>Time Out</button><button class="btn" id="notifBtn" hidden>🔔 Notifications<span id="notifBadge" class="tabBadge" hidden></span></button><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="changePasswordBtn">Change Password</button><button class="btn" id="logoutBtn">Log Out</button></div></div></div></header>
 <div id="message" class="message" hidden></div>
 <section id="maintenanceView" class="panel noPrint" hidden style="text-align:center;padding:36px 24px"><div style="font-size:40px;margin-bottom:6px">🛠️</div><div class="sectionTitle">We'll be right back</div><div class="sub" style="margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto">The portal is temporarily unavailable for maintenance. This usually clears up on its own within a few minutes — please check back shortly.</div><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn primary" type="button" id="maintenanceRetryBtn">Try Again</button></div><div class="sub" style="margin-top:18px;font-style:italic">Thank you for your patience — Mac</div></section>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
 <div class="noPrint" id="viewAsBanner" hidden style="background:#fff2cc;color:#8a5a00;padding:8px 16px;font-weight:700;text-align:center">Previewing as <span id="viewAsBannerRole"></span> (read-only preview — approvals/decisions stay disabled)</div>
-<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button></div>
+<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button><button class="btn" data-tab="training" id="trainingTabBtn" hidden>New Hires</button></div>
 <section id="profileCard" class="panel noPrint" hidden></section>
 <section id="kpiView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="kpiPeriod"></select></div></div><div id="teamKpiSection" hidden><div class="sectionTitle">My Team KPI Scores</div><div class="cards" id="teamKpiCards"></div><div class="teamGoalGrid"><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team CSAT Goal</div><div class="teamGoalTarget">Target: at least 90%</div></div><div class="teamGoalStats" id="teamCsatGoalStats"></div></div><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team Long Call Goal</div><div class="teamGoalTarget">Target: below 5%</div></div><div class="teamGoalStats" id="teamLcrGoalStats"></div></div></div><div class="repGoalPanel"><div class="repGoalHead"><div><div class="repGoalTitle">Rep Goal Tracker</div><div class="sub">Individual CSAT and long-call targets</div></div><div class="sub">CSAT ≥ 90% · Long calls &lt; 5%</div></div><div class="repGoalGrid" id="repGoalGrid"></div></div><div class="sub" id="teamKpiMeta"></div><div class="tableWrap" style="margin-top:10px"><table class="teamKpiTable"><thead><tr><th>Team Member</th><th>KPI Type</th><th>Eligible Workdays</th><th>CSAT</th><th>Productivity / Calls</th><th>LCR</th><th>Tickets</th><th>FRT</th><th>Team Metric</th><th>Updated Tickets</th><th>Bonus</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="teamKpiBody"></tbody></table></div></div><div class="sectionTitle" id="myKpiTitle">My KPI Score</div><div class="cards" id="kpiCards"></div><div class="sub" id="kpiMeta"></div><div class="tableWrap" id="kpiBreakdownWrap"><table><thead><tr><th>Metric</th><th>Actual</th><th>Points</th><th>Status</th></tr></thead><tbody id="kpiBreakdownBody"></tbody></table></div><div class="sectionTitle" id="kpiHistoryTitle" hidden>History</div><div class="tableWrap" id="kpiHistoryWrap" hidden><table><thead><tr><th>Period</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="kpiHistoryBody"></tbody></table></div></section>
 <section id="siteMetricsView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="siteMetricsPeriod"></select></div></div><div class="sectionTitle">Company-Wide MTD KPI (8AM–8PM ET)</div><div class="cards" id="siteMetricsCards"></div><div class="sub" id="siteMetricsMeta"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Metric</th><th>Definition</th></tr></thead><tbody><tr><td>Call Completion Rate</td><td>Answered/connected inbound calls ÷ total inbound calls, 8:00 AM–8:00 PM Eastern Time only.</td></tr><tr><td>Long Call Rate</td><td>Calls lasting 30 minutes or more ÷ accepted inbound calls.</td></tr><tr><td>CSAT</td><td>Good survey responses ÷ (good + bad) survey responses.</td></tr></tbody></table></div><div class="sectionTitle" style="margin-top:22px">Daily EOD Report</div><div class="sub">Day-by-day snapshot to track the dip and up. Months before daily capture began show only that month's final snapshot. Onsite/WFH/Present/Out counts let you check whether a dip or improvement lines up with the day's work-setup mix or staffing gaps. Present is always Onsite + WFH; Late is shown separately since a late entry doesn't record which setup that employee was in.</div><div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Date</th><th>Call Completion Rate</th><th>Long Call Rate</th><th>CSAT</th><th>Onsite</th><th>WFH</th><th>Present</th><th>Late</th><th>Planned Out</th><th>Unplanned Out</th></tr></thead><tbody id="siteMetricsHistoryBody"></tbody></table></div></section>
@@ -262,7 +262,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Title</th><th>Category</th><th>Effective Date</th><th>Status</th><th>Acknowledged</th><th>Actions</th></tr></thead><tbody id="teamAlignmentBody"></tbody></table></div>
 </div>
 <div id="alignmentReviewSection" hidden style="margin-top:28px">
-<div class="sectionTitle">Pending Approval</div>
+<div class="sectionTitle">Alignment Summary</div>
+<div class="sub">Company-wide, across every team lead - not just what's currently pending.</div>
+<div class="cards" id="alignmentReviewCards" style="margin-top:8px"></div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Team Lead</th><th>Total</th><th>Pending Approval</th><th>Approved</th><th>Rejected</th></tr></thead><tbody id="alignmentReviewByTeamBody"></tbody></table></div>
+<div class="sectionTitle" style="margin-top:22px">Pending Approval</div>
 <div class="sub">Alignment items submitted by team leads, company-wide, awaiting your decision.</div>
 <div id="alignmentReviewMessage" class="message" hidden></div>
 <div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Title</th><th>Category</th><th>Team Lead</th><th>Targets</th><th>Status</th><th>Actions</th></tr></thead><tbody id="alignmentReviewBody"></tbody></table></div>
@@ -358,6 +362,31 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn primary" type="submit">Post Announcement</button>
 </div>
 </form></div>
+<section id="trainingView" hidden>
+<div class="sectionTitle">Add New Hire</div>
+<div class="sub">Adds them to the roster in training - you'll automatically see them under Coaching, Disciplinary, Alignment, Team Attendance, and Team Roster too, the same way any team lead sees their own direct reports.</div>
+<form id="newHireForm" class="filters noPrint" style="margin-top:10px;margin-bottom:6px">
+<div class="field"><label>Full Name</label><input name="employeeName" required></div>
+<div class="field"><label>Email</label><input name="employeeEmail" type="email" required></div>
+<div class="field"><label>Primary Channel</label><select name="primaryChannel" id="newHirePrimaryChannel" required></select></div>
+<div class="field"><label>Hire Date</label><input name="hireDate" type="date"></div>
+<div class="field"><label>Schedule Group (optional)</label><input name="scheduleGroup"></div>
+<div class="field" style="align-self:flex-end"><button class="btn primary" type="submit">Add New Hire</button></div>
+</form>
+<div class="sectionTitle" style="margin-top:22px">Current Trainees</div>
+<div class="sub" id="trainingTraineeEmpty" hidden>No one is currently in training.</div>
+<div id="trainingTraineeList"></div>
+</section>
+<div class="modal" id="trainingEndorseModal" hidden><div class="dialog" role="dialog" aria-modal="true">
+<div class="title">Endorse to Ops</div>
+<div class="sub" id="trainingEndorseMeta"></div>
+<div class="field" style="margin-top:10px"><label>Production Role</label><select id="trainingEndorseKpiType"></select></div>
+<div class="field"><label>Reports To</label><select id="trainingEndorseTeamLead"></select></div>
+<div class="actions" style="margin-top:14px;justify-content:space-between">
+<button class="btn danger" id="trainingRejectBtn" type="button">Not Endorse</button>
+<span><button class="btn" id="trainingEndorseCancelBtn" type="button">Cancel</button> <button class="btn primary" id="trainingEndorseConfirmBtn" type="button">Confirm Endorse</button></span>
+</div>
+</div></div>
 <section id="dsatReviewView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="dsatReviewPeriod"></select></div><button class="btn" id="dsatReviewRefreshBtn" type="button">Request CSAT Refresh</button><span class="sub" id="dsatReviewRefreshStatus"></span></div><div class="sectionTitle">DSAT Review</div><div class="sub">Every bad CSAT rating for this period, company-wide. Flag one as Not Valid to file and decide a dispute in one step, or Approve/Reject a rep-filed dispute already pending. Once a DSAT stands as valid, you can start a coaching log on behalf of the rep's team lead.</div><div class="cards" id="dsatReviewCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Employee</th><th>Ticket</th><th>Comment</th><th>Survey Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dsatReviewBody"></tbody></table></div></section>
 <section id="siteCoachingView" hidden>
 <div class="sectionTitle">All Coaching</div>
@@ -393,14 +422,14 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh} from './shared/qa-dsat-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.11.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.12.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 async function runDraftAssist(){
   const instructions=$('draftAssistInstructionsInput').value.trim();
@@ -764,7 +793,7 @@ $('announcementList').addEventListener('click',async event=>{
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();}
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('trainingView').hidden=next!=='training';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='training')loadTrainingTab();}
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.dataset.tab));
 // A step's target may exist in the DOM but be hidden by role (Team Attendance for a
 // non-lead, every rep-facing tab for HR/SOM, etc.) - offsetParent is null for any element
@@ -821,7 +850,8 @@ const CHANGELOG=[
   {version:'1.8.0',items:['Team leads can now delete a coaching session that\'s still a Draft or Awaiting Signature (previously only Drafts could be deleted) - fixes cases like an accidental duplicate.','Discussion & Development Plan, Action Plan, and Follow-Up Date are now filled in by the employee when they review and sign a coaching session, instead of the team lead when they create it.','Every coaching session now shows a Coaching Code (e.g. COACH-2026-0001) for easy reference.']},
   {version:'1.9.0',items:['Added an "All Coaching" tab for company-wide coaching oversight - every session across every team, with summaries by team and by rep.','The Daily EOD Report on the Site KPI tab now shows Onsite, WFH, Present, Planned Out, and Unplanned Out headcounts per day, so you can check whether a dip or improvement lines up with the day\'s work-setup mix or staffing gaps.']},
   {version:'1.10.0',items:['New "Alignment" tab - team leads can paste in an SOP, process update, or feature update, pick which team members need to acknowledge it, and send it to the SOM for approval. Once approved, each rep reviews and e-signs it right in their portal.','Team Leads, HR, and the SOM can now post, edit, and delete company announcements directly from the portal - no admin dashboard needed.','Alignment content and announcements can now be pasted straight from a Word doc or PDF, keeping basic formatting like bold, headings, and lists.','Added an AI-assisted "Rephrase" button to the Alignment and Announcement composers, to help clean up grammar and awkward wording.']},
-  {version:'1.11.0',items:['Team leads can now generate a short comprehension quiz (AI-assisted, or written by hand) for an Alignment item, so reps have to read the material and answer questions correctly before their e-signature is accepted.','Quiz questions and answer choices are shown in random order for each rep to discourage copying, and each rep\'s number of wrong attempts is visible to the team lead as a sign of how well the material landed.','Added a short "read gate" before the quiz unlocks, so reps can\'t skip straight to guessing without reading the content first.','Extended the AI-assisted "Rephrase" button to Coaching and Disciplinary write-ups.']}
+  {version:'1.11.0',items:['Team leads can now generate a short comprehension quiz (AI-assisted, or written by hand) for an Alignment item, so reps have to read the material and answer questions correctly before their e-signature is accepted.','Quiz questions and answer choices are shown in random order for each rep to discourage copying, and each rep\'s number of wrong attempts is visible to the team lead as a sign of how well the material landed.','Added a short "read gate" before the quiz unlocks, so reps can\'t skip straight to guessing without reading the content first.','Extended the AI-assisted "Rephrase" button to Coaching and Disciplinary write-ups.']},
+  {version:'1.12.0',items:['New "New Hires" tab for the Training Manager - add a new hire straight into the roster, log their training scorecard (module completion, attendance, assessments), and decide whether to endorse them into a real production role and team.','Endorsing a new hire lets you pick their production role and which team lead they report to going forward - Coaching, Disciplinary, Alignment, Team Attendance, and Team Roster access for your trainees works automatically the same way it does for any team lead.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -840,7 +870,7 @@ function applyPortalRoleView(){
   // never explicitly restored here would otherwise stay stuck for whichever role logs in
   // next. Reset everything to the default (REP) view first, then layer role restrictions on.
   showTabs(['kpi','schedule','attendance','pto','announcements','coaching','disciplinary','alignment']);
-  $('siteCoachingTabBtn').hidden=true;$('dsatReviewTabBtn').hidden=true;
+  $('siteCoachingTabBtn').hidden=true;$('dsatReviewTabBtn').hidden=true;$('trainingTabBtn').hidden=true;
   $('statusSelect').closest('.field').hidden=false;$('timeInBtn').hidden=false;$('timeOutBtn').hidden=false;
   activeTab='profile';
   if(portalRole==='HR'){
@@ -858,6 +888,15 @@ function applyPortalRoleView(){
     $('dsatReviewTabBtn').hidden=false;
     $('statusSelect').closest('.field').hidden=true;$('timeInBtn').hidden=true;$('timeOutBtn').hidden=true;
     activeTab='dsatReview';
+  }else if(portalRole==='TRAINING'){
+    $('trainingTabBtn').hidden=false;
+    // Team Attendance/Team Roster visibility elsewhere in this app piggybacks on the KPI
+    // tab's isTeamLeader flag, which only counts production-KPI-scored direct reports - a
+    // Training Manager's reports are trainees (kpiType 'Trainee', not KPI-scored), so that
+    // flag would stay false for her even with trainees assigned. Show them explicitly here
+    // instead of relying on that flag.
+    $('teamAttendanceTabBtn').hidden=false;$('teamRosterTabBtn').hidden=false;
+    activeTab='training';
   }
   $('viewAsField').hidden=!isAdminUser;
   if(isAdminUser)$('viewAsSelect').value=viewAsRole;
@@ -1116,10 +1155,19 @@ function renderTeamAlignment(){
     return`<tr><td><b>${esc(r.title)}</b></td><td>${esc(r.category)}</td><td>${esc(r.effectiveDate||'—')}</td><td>${alignmentStatusPill(r.status)}</td><td>${r.status==='APPROVED'?`${signedCount} / ${targets.length}`:'—'}</td><td>${actions.join(' ')}</td></tr>`;
   }).join('')||'<tr><td colspan="6">No alignment items created yet.</td></tr>';
 }
+function renderAlignmentReviewSummary(){
+  if(!alignmentReviewSummary)return;
+  const{site,byTeam}=alignmentReviewSummary;
+  $('alignmentReviewCards').innerHTML=[['Total Items',site.total],['Pending Approval',site.pendingApproval],['Approved',site.approved],['Rejected',site.rejected],['Acknowledged (Approved Items)',`${site.totalAcknowledged} / ${site.totalTargets}`]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
+  $('alignmentReviewByTeamBody').innerHTML=byTeam.map(t=>`<tr><td><b>${esc(t.teamLeadName)}</b></td><td>${t.total}</td><td>${t.pendingApproval}</td><td>${t.approved}</td><td>${t.rejected}</td></tr>`).join('')||'<tr><td colspan="5">No alignment items filed yet.</td></tr>';
+}
 async function loadAlignmentReviewQueueTab(){
   try{
-    alignmentReviewRecords=(await loadAlignmentReviewQueue()).records||[];
+    const result=await loadAlignmentReviewQueue();
+    alignmentReviewRecords=result.records||[];
+    alignmentReviewSummary={site:result.site,byTeam:result.byTeam||[]};
     $('alignmentReviewSection').hidden=false;
+    renderAlignmentReviewSummary();
     renderAlignmentReview();
   }catch(error){
     $('alignmentReviewMessage').hidden=false;$('alignmentReviewMessage').className='message error';$('alignmentReviewMessage').textContent=error.response?.error||error.message;
@@ -1499,6 +1547,127 @@ $('dsatReviewRefreshBtn').onclick=async()=>{
     setMessage(error.response?.error||error.message,'error');
     btn.disabled=false;
   }
+};
+
+function daysInTraining(hireOrEffectiveDate){
+  if(!hireOrEffectiveDate)return null;
+  const ms=Date.now()-new Date(`${hireOrEffectiveDate}T00:00:00Z`).getTime();
+  return Math.max(0,Math.floor(ms/86400000));
+}
+function trainingScoreCardHtml(entry){
+  const scoreLabel=entry.score==null?'—':`${entry.score}/100`;
+  return `<div class="details" style="margin-top:6px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-weight:700">${esc(entry.category)} · ${esc(entry.title)} <span class="sub">(${scoreLabel})</span></div>${entry.notes?`<div class="sub">${esc(entry.notes)}</div>`:''}<div class="sub">${esc(entry.entryDate)}</div></div><button class="btn compact" type="button" data-delete-score="${esc(entry.scoreId)}">Remove</button></div>`;
+}
+function trainingTraineeCardHtml(trainee){
+  const email=esc(trainee.employeeEmail),expanded=expandedTraineeEmail===trainee.employeeEmail;
+  const scores=trainingScoresByEmail.get(trainee.employeeEmail)||[];
+  const avg=scores.filter(s=>s.score!=null).length?Math.round(scores.filter(s=>s.score!=null).reduce((sum,s)=>sum+s.score,0)/scores.filter(s=>s.score!=null).length):null;
+  const days=daysInTraining(trainee.effectiveDate||trainee.hireDate);
+  return `<div class="details" style="margin-top:10px">
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+<div><div style="font-weight:800;font-size:16px">${esc(trainee.employeeName)}</div><div class="sub">${esc(trainee.employeeEmail)} · ${esc(trainee.primaryChannel||'—')}${days!=null?` · Day ${days} of training`:''}${avg!=null?` · Avg score ${avg}/100`:''}</div></div>
+<div class="actions noPrint">
+<button class="btn compact" type="button" data-toggle-scorecard="${email}">${expanded?'Hide Scorecard':'View Scorecard'}</button>
+<button class="btn compact primary" type="button" data-endorse="${email}">Endorse / Not Endorse</button>
+</div>
+</div>
+${expanded?`<div style="margin-top:10px">
+<form class="filters noPrint" data-score-form="${email}" style="margin-bottom:4px">
+<div class="field"><label>Category</label><select name="category">${trainingScoreCategories.map(c=>`<option>${esc(c)}</option>`).join('')}</select></div>
+<div class="field"><label>Title / Description</label><input name="title" required placeholder="e.g. Week 1 Module Quiz"></div>
+<div class="field" style="max-width:110px"><label>Score (0-100)</label><input name="score" type="number" min="0" max="100"></div>
+<div class="field"><label>Date</label><input name="entryDate" type="date"></div>
+<div class="field" style="align-self:flex-end"><button class="btn compact primary" type="submit">Add Entry</button></div>
+</form>
+${scores.length?scores.map(trainingScoreCardHtml).join(''):'<div class="sub">No scorecard entries yet.</div>'}
+</div>`:''}
+</div>`;
+}
+function renderTrainingTraineeList(){
+  $('trainingTraineeEmpty').hidden=Boolean(trainingNewHires.length);
+  $('trainingTraineeList').innerHTML=trainingNewHires.map(trainingTraineeCardHtml).join('');
+  $('trainingTraineeList').querySelectorAll('[data-toggle-scorecard]').forEach(btn=>{
+    btn.onclick=async()=>{
+      const email=btn.dataset.toggleScorecard;
+      if(expandedTraineeEmail===email){expandedTraineeEmail=null;renderTrainingTraineeList();return}
+      expandedTraineeEmail=email;
+      if(!trainingScoresByEmail.has(email)){
+        try{const result=await loadTrainingScores(email);trainingScoresByEmail.set(email,result.records||[]);trainingScoreCategories=result.categories||trainingScoreCategories}
+        catch(error){setMessage(error.response?.error||error.message,'error');return}
+      }
+      renderTrainingTraineeList();
+    };
+  });
+  $('trainingTraineeList').querySelectorAll('[data-endorse]').forEach(btn=>{
+    btn.onclick=()=>openTrainingEndorseModal(btn.dataset.endorse);
+  });
+  $('trainingTraineeList').querySelectorAll('[data-score-form]').forEach(form=>{
+    form.onsubmit=async event=>{
+      event.preventDefault();
+      const email=form.dataset.scoreForm,values=Object.fromEntries(new FormData(form));
+      try{
+        await createTrainingScore({employeeEmail:email,category:values.category,title:values.title,score:values.score,notes:'',entryDate:values.entryDate});
+        trainingScoresByEmail.set(email,(await loadTrainingScores(email)).records||[]);
+        renderTrainingTraineeList();
+      }catch(error){setMessage(error.response?.error||error.message,'error')}
+    };
+  });
+  $('trainingTraineeList').querySelectorAll('[data-delete-score]').forEach(btn=>{
+    btn.onclick=async()=>{
+      if(!confirm('Remove this scorecard entry?'))return;
+      try{
+        await deleteTrainingScore(btn.dataset.deleteScore);
+        for(const [email,list] of trainingScoresByEmail)trainingScoresByEmail.set(email,list.filter(x=>x.scoreId!==btn.dataset.deleteScore));
+        renderTrainingTraineeList();
+      }catch(error){setMessage(error.response?.error||error.message,'error')}
+    };
+  });
+}
+async function loadTrainingTab(){
+  if(!$('newHirePrimaryChannel').options.length)$('newHirePrimaryChannel').innerHTML=PRIMARY_CHANNELS.map(c=>`<option>${esc(c)}</option>`).join('');
+  try{
+    const result=await loadTrainingNewHires();
+    trainingNewHires=result.trainees||[];trainingDestinations=result.destinations||[];trainingProductionKpiTypes=result.productionKpiTypes||[];
+    renderTrainingTraineeList();
+  }catch(error){setMessage(`New Hires could not be loaded. ${error.response?.error||error.message}`,'error')}
+}
+$('newHireForm').onsubmit=async event=>{
+  event.preventDefault();
+  const values=Object.fromEntries(new FormData(event.currentTarget));
+  try{
+    await createTrainingNewHire(values);
+    event.currentTarget.reset();
+    await loadTrainingTab();
+  }catch(error){setMessage(error.response?.error||error.message,'error')}
+};
+function openTrainingEndorseModal(employeeEmail){
+  const trainee=trainingNewHires.find(x=>x.employeeEmail===employeeEmail);
+  if(!trainee)return;
+  endorsingTraineeEmail=employeeEmail;
+  $('trainingEndorseMeta').textContent=`${trainee.employeeName} (${trainee.employeeEmail})`;
+  $('trainingEndorseKpiType').innerHTML=trainingProductionKpiTypes.map(t=>`<option>${esc(t)}</option>`).join('');
+  $('trainingEndorseTeamLead').innerHTML=trainingDestinations.map(d=>`<option value="${esc(d.employeeEmail)}">${esc(d.employeeName)}</option>`).join('');
+  $('trainingEndorseModal').hidden=false;
+}
+$('trainingEndorseCancelBtn').onclick=()=>{$('trainingEndorseModal').hidden=true;endorsingTraineeEmail=null};
+$('trainingEndorseConfirmBtn').onclick=async()=>{
+  if(!endorsingTraineeEmail)return;
+  const kpiType=$('trainingEndorseKpiType').value,teamLeadEmail=$('trainingEndorseTeamLead').value;
+  if(!kpiType||!teamLeadEmail)return setMessage('A production role and a destination team lead are both required.','error');
+  try{
+    await endorseTrainingNewHire(endorsingTraineeEmail,{decision:'ENDORSED',kpiType,teamLeadEmail});
+    $('trainingEndorseModal').hidden=true;endorsingTraineeEmail=null;
+    await loadTrainingTab();
+  }catch(error){setMessage(error.response?.error||error.message,'error')}
+};
+$('trainingRejectBtn').onclick=async()=>{
+  if(!endorsingTraineeEmail)return;
+  if(!confirm('Not endorse this trainee? They will be marked Terminated in the roster.'))return;
+  try{
+    await endorseTrainingNewHire(endorsingTraineeEmail,{decision:'REJECTED'});
+    $('trainingEndorseModal').hidden=true;endorsingTraineeEmail=null;
+    await loadTrainingTab();
+  }catch(error){setMessage(error.response?.error||error.message,'error')}
 };
 $('dsatReviewBody').addEventListener('click',async event=>{
   const approveTicket=event.target.dataset.dsatApprove,rejectDisputeId=event.target.dataset.dsatReject,coachTicket=event.target.dataset.dsatCoach;
@@ -2010,7 +2179,7 @@ $('disciplinaryAckSubmit').onclick=async()=>{
     $('disciplinaryAckError').hidden=false;$('disciplinaryAckError').textContent=error.response?.error||error.message;
   }finally{$('disciplinaryAckSubmit').disabled=false}
 };
-async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;profilePhoto=(await getMyProfilePhoto().catch(()=>({photoBase64:''}))).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();await loadAttendanceMonth($('attendanceMonth').value,$('attendanceEndDate').value);loading.complete(4);loading.begin(step=5);const announcementResult=await loadMyAnnouncements();announcements=announcementResult.announcements||[];canManageAnnouncementsFlag=Boolean(announcementResult.canManage);renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();refreshMyDisciplinary();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
+async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;profilePhoto=(await getMyProfilePhoto().catch(()=>({photoBase64:''}))).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();await loadAttendanceMonth($('attendanceMonth').value,$('attendanceEndDate').value);loading.complete(4);loading.begin(step=5);const announcementResult=await loadMyAnnouncements();announcements=announcementResult.announcements||[];canManageAnnouncementsFlag=Boolean(announcementResult.canManage);renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();if(portalRole!=='TRAINING'){$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader}refreshMyCoaching();refreshMyDisciplinary();if(portalRole==='TRAINING')loadTrainingTab();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
 $('attendanceMonth').onchange=async()=>{const month=$('attendanceMonth').value;if(!month)return;$('attendanceEndDate').min=`${month}-01`;$('attendanceEndDate').max=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`;if(!$('attendanceEndDate').value.startsWith(month))$('attendanceEndDate').value=$('attendanceEndDate').max;try{await loadAttendanceMonth(month,$('attendanceEndDate').value)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceEndDate').onchange=async()=>{const month=$('attendanceMonth').value,endDate=$('attendanceEndDate').value;if(!month||!endDate)return;try{await loadAttendanceMonth(month,endDate)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceThisMonthBtn').onclick=async()=>{const month=todayET().slice(0,7);$('attendanceMonth').value=month;$('attendanceEndDate').value=todayET();try{await loadAttendanceMonth(month,todayET())}catch(error){setMessage(`Could not load attendance. ${error.response?.error||error.message}`,'error')}};
@@ -2042,7 +2211,7 @@ $('viewAsSelect').onchange=async()=>{
     // right call during normal tab-to-tab navigation - but switching preview roles needs a
     // forced refresh, or a second preview in the same session would show the first role's
     // stale leftovers instead of this one's real data.
-    dsatReviewAvailablePeriods=[];siteCoachingOverview=null;
+    dsatReviewAvailablePeriods=[];siteCoachingOverview=null;trainingNewHires=[];trainingScoresByEmail=new Map();expandedTraineeEmail=null;
     applyPortalRoleView();setTab(activeTab);
   }catch(error){setMessage(error.response?.error||error.message,'error');$('viewAsSelect').value=viewAsRole}
 };

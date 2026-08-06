@@ -81,7 +81,7 @@ function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.11.0';
+const PORTAL_VERSION = '1.12.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -444,6 +444,14 @@ const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 // Must match the same literal in zendesk-proxy.js's syncCsatRefreshRequestsFromCloud() - the
 // two processes only share state through this key, there's no shared module between them.
 const CSAT_REFRESH_REQUESTS_KEY = 'mtdkpi:csat-refresh-requests';
+// New-hire creation and endorse/reject decisions both need to land in roster.json on the
+// local admin machine - same request-queue-and-poll pattern as CSAT_REFRESH_REQUESTS_KEY
+// above, consumed by syncNewHireRequestsFromCloud() in zendesk-proxy.js. Training scores are
+// simpler - Mae's own tool, no admin-side dependency, so that key is owned entirely here.
+const NEW_HIRE_REQUESTS_KEY = 'mtdkpi:new-hire-requests';
+const TRAINING_SCORES_KEY = 'mtdkpi:training-scores';
+const TRAINING_SCORE_CATEGORIES = ['Attendance', 'Module Completion', 'Assessment', 'Mock Call', 'Other'];
+const PRODUCTION_KPI_TYPES = ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR', 'Database Agent'];
 const PTO_KEY = 'mtdkpi:pto-requests';
 const AUDIT_KEY = 'mtdkpi:pto-audit';
 const SETTINGS_KEY = 'mtdkpi:pto-settings';
@@ -743,6 +751,12 @@ const FINAL_DISCIPLINARY_APPROVER_EMAIL = 'janet.memoracion@moatable.com';
 // final approver on rep-filed CSAT disputes - a QA function distinct from the disciplinary
 // HR/SOM chain above, so it gets its own role rather than overloading either of those.
 const DSAT_REVIEWER_EMAIL = 'sunshine.simon@lofty.com';
+// Training Manager: onboards new hires, tracks their training performance, and decides
+// whether to endorse each one into a real production role/team - see the /api/training/*
+// routes below. A trainee's teamLeadEmail is set to her during training, which is what
+// naturally gives her Coaching/Disciplinary/Alignment/Team Attendance access to them too -
+// those all already gate on "is this person's teamLeadEmail me," no new logic needed there.
+const TRAINING_MANAGER_EMAILS = new Set(['priscilla@lofty.com']);
 // Drives which tabs pto-public.html shows a signed-in user - most accounts are a normal
 // rep/team-lead ('REP', the default), but a couple of identities hold a narrower,
 // oversight-only role instead of day-to-day queue work, so their portal view is curated
@@ -752,17 +766,19 @@ function portalRoleFor(email) {
   if (clean === FINAL_DISCIPLINARY_APPROVER_EMAIL) return 'HR';
   if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
   if (clean === DSAT_REVIEWER_EMAIL) return 'QA';
+  if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
 }
-// The platform's own creator/admin can't otherwise see the QA/SOM/HR tabs - those are each
-// tied to one specific person's email, and Mac isn't any of them (he already gets real Team
-// Lead access on his own account since other active employees genuinely report to him - no
-// preview needed there). "View As" is READ-ONLY: it only widens what a GET request returns,
-// stored per-session via /api/my/view-as. Every write/decide endpoint below keeps checking
-// portalRoleFor()/disciplinaryReviewAccess() against the REAL identity with no override, so
-// an action taken while previewing can never get misattributed to the person being previewed.
+// The platform's own creator/admin can't otherwise see the QA/SOM/HR/TRAINING tabs - those
+// are each tied to one specific person's email, and Mac isn't any of them (he already gets
+// real Team Lead access on his own account since other active employees genuinely report to
+// him - no preview needed there). "View As" is READ-ONLY: it only widens what a GET request
+// returns, stored per-session via /api/my/view-as. Every write/decide endpoint below keeps
+// checking portalRoleFor()/disciplinaryReviewAccess() against the REAL identity with no
+// override, so an action taken while previewing can never get misattributed to the person
+// being previewed.
 const ADMIN_EMAILS = new Set(['mac@lofty.com']);
-const VIEW_AS_ROLES = new Set(['QA', 'SOM', 'HR']);
+const VIEW_AS_ROLES = new Set(['QA', 'SOM', 'HR', 'TRAINING']);
 function effectiveViewAsRole(identity, session) {
   return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
 }
@@ -781,6 +797,20 @@ async function loadDisciplinary() { return cloudStore.kvGetJson(DISCIPLINARY_KEY
 async function saveDisciplinary(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(DISCIPLINARY_KEY, data); return data; }
 async function loadDisciplinaryAudit() { return cloudStore.kvGetJson(DISCIPLINARY_AUDIT_KEY, { version: 1, events: [] }); }
 async function saveDisciplinaryAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(DISCIPLINARY_AUDIT_KEY, data); return data; }
+async function loadTrainingScores() { return cloudStore.kvGetJson(TRAINING_SCORES_KEY, { version: 1, records: [] }); }
+async function saveTrainingScores(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(TRAINING_SCORES_KEY, data); return data; }
+// Who a trainee can be endorsed to: any active employee that some OTHER active employee's
+// teamLeadEmail actually points to (self-references excluded) - the same "has direct reports"
+// relationship used elsewhere (canManageAnnouncements, presenceEligibleRoster in
+// zendesk-proxy.js) to identify a real team lead.
+function eligibleTrainingDestinations(roster) {
+  const active = (roster.records || []).filter(x => x.active !== false);
+  const teamLeadEmails = new Set(active.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) && ptoLogic.cleanEmail(x.teamLeadEmail) !== ptoLogic.cleanEmail(x.employeeEmail)).map(x => ptoLogic.cleanEmail(x.teamLeadEmail)));
+  return active.filter(x => teamLeadEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeName: x.employeeName, employeeEmail: ptoLogic.cleanEmail(x.employeeEmail) }));
+}
+// Only one Training Manager exists today, so "the training identity" for View-As preview and
+// for scoping training-scores reads is unambiguous - revisit this if a second one is added.
+function trainingManagerIdentity() { return [...TRAINING_MANAGER_EMAILS][0] || ''; }
 async function appendDisciplinaryAudit(violationId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
   const data = await loadDisciplinaryAudit();
   data.events.push({ auditId: `VIOL-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, violationId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
@@ -2276,7 +2306,37 @@ const server = http.createServer(async (req, res) => {
       if (portalRoleFor(identity) !== 'SOM' && effectiveViewAsRole(identity, session) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadAlignment();
       const records = (data.records || []).filter(x => x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { ok: true, records });
+      // Mirrors the byTeam/byRep summary shape /api/som/coaching-overview already returns -
+      // same "company-wide oversight, not just a raw list" pattern for this SOM tab too.
+      const statusKey = s => (s === 'PENDING_APPROVAL' ? 'pendingApproval' : s === 'APPROVED' ? 'approved' : s === 'REJECTED' ? 'rejected' : null);
+      const byTeam = new Map(), byCategory = new Map();
+      let totalTargets = 0, totalAcknowledged = 0;
+      for (const r of records) {
+        const key = statusKey(r.status);
+        const teamKey = r.teamLeadName || 'Unassigned';
+        if (!byTeam.has(teamKey)) byTeam.set(teamKey, { teamLeadName: teamKey, total: 0, pendingApproval: 0, approved: 0, rejected: 0 });
+        const team = byTeam.get(teamKey);
+        team.total++; if (key) team[key]++;
+        const categoryKey = r.category || 'Uncategorized';
+        byCategory.set(categoryKey, (byCategory.get(categoryKey) || 0) + 1);
+        if (r.status === 'APPROVED') {
+          totalTargets += (r.targetEmployees || []).length;
+          totalAcknowledged += Object.keys(r.acknowledgments || {}).length;
+        }
+      }
+      const site = {
+        total: records.length,
+        pendingApproval: records.filter(r => r.status === 'PENDING_APPROVAL').length,
+        approved: records.filter(r => r.status === 'APPROVED').length,
+        rejected: records.filter(r => r.status === 'REJECTED').length,
+        totalTargets, totalAcknowledged
+      };
+      return json(res, 200, {
+        ok: true, site,
+        byTeam: [...byTeam.values()].sort((a, b) => b.total - a.total),
+        byCategory: [...byCategory.entries()].map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total),
+        records
+      });
     }
 
     const alignmentDecideMatch = parsed.pathname.match(/^\/api\/som\/alignment-review\/([^/]+)\/decide$/);
@@ -2333,6 +2393,134 @@ const server = http.createServer(async (req, res) => {
       await saveAlignment(data);
       await appendAlignmentAudit(alignmentId, 'ACKNOWLEDGED', { user: identity, notes: signedName });
       return json(res, 200, { ok: true, record: next });
+    }
+
+    // --- Training Manager: onboard new hires, log training performance, endorse to Ops ---
+
+    if (parsed.pathname === '/api/training/new-hires' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'TRAINING' && effectiveViewAsRole(identity, session) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const trainingIdentity = portalRoleFor(identity) === 'TRAINING' ? identity : trainingManagerIdentity();
+      const roster = await loadRosterSnapshot();
+      const trainees = (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === trainingIdentity)
+        .sort((a, b) => (b.effectiveDate || '').localeCompare(a.effectiveDate || ''));
+      return json(res, 200, { ok: true, trainees, destinations: eligibleTrainingDestinations(roster), productionKpiTypes: PRODUCTION_KPI_TYPES });
+    }
+
+    if (parsed.pathname === '/api/training/new-hires' && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const employeeName = String(body.employeeName || '').trim();
+      const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const primaryChannel = String(body.primaryChannel || '').trim();
+      const hireDate = String(body.hireDate || '').trim();
+      const scheduleGroup = String(body.scheduleGroup || '').trim();
+      if (!employeeName) return json(res, 400, { ok: false, error: 'Employee name is required.' });
+      if (!employeeEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employeeEmail)) return json(res, 400, { ok: false, error: 'A valid employee email is required.' });
+      if (!primaryChannel) return json(res, 400, { ok: false, error: 'Primary channel is required.' });
+      if (hireDate && !ptoLogic.validDate(hireDate)) return json(res, 400, { ok: false, error: 'Hire date must be a valid date.' });
+      const roster = await loadRosterSnapshot();
+      if ((roster.records || []).some(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail)) return json(res, 409, { ok: false, error: 'An employee with this email already exists.' });
+      const now = new Date().toISOString();
+      const record = {
+        employeeName, employeeEmail, employeeId: '', jobTitle: '', teamLeadName: session.employeeName, teamLeadEmail: identity,
+        primaryChannel, kpiType: 'Trainee', employmentStatus: 'Trainee', hireDate, birthday: '', active: true,
+        effectiveDate: todayEasternDate(), separationDate: '', seniorTsrAssignment: '', scheduleGroup,
+        contactNumber: '', contactEmail: '', emergencyContactName: '', emergencyContactRelationship: '', emergencyContactNumber: '', currentResidence: '', notes: '',
+        lastUpdated: now
+      };
+      // Optimistic local update so the new hire shows up in Mae's own list immediately,
+      // instead of waiting for the admin process's next ~30s sync tick to write it to disk.
+      roster.records.push(record);
+      await cloudStore.kvSetJson('mtdkpi:snapshot:roster', roster);
+      snapshotCache.set('mtdkpi:snapshot:roster', { value: roster, at: Date.now() });
+      const queue = await cloudStore.kvGetJson(NEW_HIRE_REQUESTS_KEY, []);
+      queue.push({ action: 'create', record, requestedBy: identity, requestedAt: now });
+      await cloudStore.kvSetJson(NEW_HIRE_REQUESTS_KEY, queue);
+      return json(res, 201, { ok: true, employee: record });
+    }
+
+    const trainingEndorseMatch = parsed.pathname.match(/^\/api\/training\/new-hires\/([^/]+)\/endorse$/);
+    if (trainingEndorseMatch && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const targetEmail = ptoLogic.cleanEmail(decodeURIComponent(trainingEndorseMatch[1]));
+      const roster = await loadRosterSnapshot();
+      const trainee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === identity);
+      if (!trainee) return json(res, 404, { ok: false, error: 'This person is not one of your current trainees.' });
+      const body = await readJsonBody(req);
+      const decision = String(body.decision || '').toUpperCase();
+      if (!['ENDORSED', 'REJECTED'].includes(decision)) return json(res, 400, { ok: false, error: 'A valid decision (ENDORSED or REJECTED) is required.' });
+      const now = new Date().toISOString();
+      let request, updatedFields;
+      if (decision === 'ENDORSED') {
+        const kpiType = String(body.kpiType || '');
+        if (!PRODUCTION_KPI_TYPES.includes(kpiType)) return json(res, 400, { ok: false, error: 'A valid production role is required to endorse.' });
+        const destinationEmail = ptoLogic.cleanEmail(body.teamLeadEmail || '');
+        const destination = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === destinationEmail && x.active !== false);
+        if (!destination) return json(res, 400, { ok: false, error: 'A valid destination team lead is required to endorse.' });
+        const primaryChannel = String(body.primaryChannel || trainee.primaryChannel || '');
+        updatedFields = { kpiType, employmentStatus: 'Active', teamLeadName: destination.employeeName, teamLeadEmail: destinationEmail, primaryChannel, effectiveDate: todayEasternDate() };
+        request = { action: 'endorse', employeeEmail: targetEmail, ...updatedFields, requestedBy: identity, requestedAt: now };
+      } else {
+        updatedFields = { employmentStatus: 'Terminated', active: false, separationDate: todayEasternDate() };
+        request = { action: 'reject', employeeEmail: targetEmail, requestedBy: identity, requestedAt: now };
+      }
+      const index = roster.records.findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail);
+      roster.records[index] = { ...trainee, ...updatedFields, lastUpdated: now };
+      await cloudStore.kvSetJson('mtdkpi:snapshot:roster', roster);
+      snapshotCache.set('mtdkpi:snapshot:roster', { value: roster, at: Date.now() });
+      const queue = await cloudStore.kvGetJson(NEW_HIRE_REQUESTS_KEY, []);
+      queue.push(request);
+      await cloudStore.kvSetJson(NEW_HIRE_REQUESTS_KEY, queue);
+      return json(res, 200, { ok: true, employee: roster.records[index] });
+    }
+
+    if (parsed.pathname === '/api/training/scores' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'TRAINING' && effectiveViewAsRole(identity, session) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const trainingIdentity = portalRoleFor(identity) === 'TRAINING' ? identity : trainingManagerIdentity();
+      const roster = await loadRosterSnapshot();
+      const traineeEmails = new Set((roster.records || []).filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === trainingIdentity).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const requestedEmail = ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail') || '');
+      const data = await loadTrainingScores();
+      const records = (data.records || []).filter(x => traineeEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) && (!requestedEmail || ptoLogic.cleanEmail(x.employeeEmail) === requestedEmail))
+        .sort((a, b) => (b.entryDate || '').localeCompare(a.entryDate || ''));
+      return json(res, 200, { ok: true, records, categories: TRAINING_SCORE_CATEGORIES });
+    }
+
+    if (parsed.pathname === '/api/training/scores' && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const category = String(body.category || '');
+      const title = String(body.title || '').trim();
+      const entryDate = String(body.entryDate || '').trim() || todayEasternDate();
+      if (!TRAINING_SCORE_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid category is required.' });
+      if (!title) return json(res, 400, { ok: false, error: 'A title/description is required.' });
+      if (!ptoLogic.validDate(entryDate)) return json(res, 400, { ok: false, error: 'Entry date must be a valid date.' });
+      const roster = await loadRosterSnapshot();
+      const trainee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail && ptoLogic.cleanEmail(x.teamLeadEmail) === identity);
+      if (!trainee) return json(res, 403, { ok: false, error: 'That employee is not one of your trainees.' });
+      let score = null;
+      if (body.score !== '' && body.score != null) {
+        if (!Number.isFinite(Number(body.score))) return json(res, 400, { ok: false, error: 'Score must be a number.' });
+        score = Math.max(0, Math.min(100, Math.round(Number(body.score))));
+      }
+      const data = await loadTrainingScores();
+      const record = { scoreId: `TRN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, employeeEmail, employeeName: trainee.employeeName, category, title, score, notes: String(body.notes || '').trim(), entryDate, createdBy: identity, createdAt: new Date().toISOString() };
+      data.records.push(record);
+      await saveTrainingScores(data);
+      return json(res, 201, { ok: true, record });
+    }
+
+    const trainingScoreDeleteMatch = parsed.pathname.match(/^\/api\/training\/scores\/([^/]+)$/);
+    if (trainingScoreDeleteMatch && req.method === 'DELETE') {
+      if (portalRoleFor(identity) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const scoreId = decodeURIComponent(trainingScoreDeleteMatch[1]);
+      const data = await loadTrainingScores();
+      const index = (data.records || []).findIndex(x => x.scoreId === scoreId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Score entry not found.' });
+      data.records.splice(index, 1);
+      await saveTrainingScores(data);
+      return json(res, 200, { ok: true, deleted: scoreId });
     }
 
     if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'GET') {
