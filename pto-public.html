@@ -2186,6 +2186,8 @@ $('attendanceThisMonthBtn').onclick=async()=>{const month=todayET().slice(0,7);$
 $('attendanceLastMonthBtn').onclick=async()=>{const[y,m]=todayET().slice(0,7).split('-').map(Number),prevDate=new Date(Date.UTC(y,m-2,1)),month=`${prevDate.getUTCFullYear()}-${String(prevDate.getUTCMonth()+1).padStart(2,'0')}`,endDate=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`;$('attendanceMonth').value=month;$('attendanceEndDate').value=endDate;try{await loadAttendanceMonth(month,endDate)}catch(error){setMessage(`Could not load attendance. ${error.response?.error||error.message}`,'error')}};
 $('kpiPeriod').onchange=async()=>{const period=$('kpiPeriod').value;if(!period)return;selectedKpiPeriod=period;try{applyKpiResult(await getMyKpi(period))}catch(error){setMessage(`KPI period could not be loaded. ${error.response?.error||error.message}`,'error')}};
 $('siteMetricsPeriod').onchange=()=>{const period=$('siteMetricsPeriod').value;if(!period)return;selectedSiteMetricsPeriod=period;loadSiteMetricsTab(period)};
+function renderAppCredit(){$('appCreditVersion').textContent=`V${portalVersion}`}
+renderAppCredit();
 async function init(){
   let session;
   try{session=await getSession()}
@@ -2194,10 +2196,10 @@ async function init(){
     session={authenticated:false};
   }
   if(!session.authenticated){showLogin();return}
-  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);viewAsRole=session.viewAsRole||'';showApp();await load();if(mustChangePassword)openChangePassword(true);
+  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);viewAsRole=session.viewAsRole||'';showApp();await load();if(mustChangePassword)openChangePassword(true);
 }
 $('maintenanceRetryBtn').onclick=()=>{$('maintenanceView').hidden=true;init()};
-$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);viewAsRole=result.viewAsRole||'';showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
+$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);viewAsRole=result.viewAsRole||'';showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
 $('forgotPasswordLink').onclick=event=>{event.preventDefault();$('forgotPasswordHint').hidden=!$('forgotPasswordHint').hidden};
 $('logoutBtn').onclick=async()=>{try{await logout()}catch{}showLogin()};
 $('changePasswordBtn').onclick=()=>openChangePassword(false);
@@ -2247,5 +2249,5 @@ $('chatCloseBtn').onclick=closeChatPanel;
 document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('tourWelcomeModal').hidden){endTour();return}if(!$('tourOverlay').hidden){endTour();return}if(!$('whatsNewModal').hidden){dismissWhatsNew();return}if(!$('changePasswordModal').hidden){if($('changePasswordModal').dataset.forced==='1')return;$('changePasswordModal').hidden=true;return}const openModal=[...document.querySelectorAll('.modal')].find(m=>!m.hidden);if(openModal){openModal.hidden=true;return}if(chatPanelOpen)closeChatPanel()});
 init();
 </script>
-<div class="appCredit">Built by Mac · V1.2.0 · &copy; 2026 Lofty. All Rights Reserved.</div>
+<div class="appCredit">Built by Mac · <span id="appCreditVersion"></span> · &copy; 2026 Lofty. All Rights Reserved.</div>
 </body></html>
