@@ -51,9 +51,9 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 // a committed file) - left blank, those features just show "not configured yet."
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-function callGroq(prompt, { maxTokens = 1024 } = {}) {
+function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: GROQ_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+    const body = JSON.stringify({ model: GROQ_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }], ...(json ? { response_format: { type: 'json_object' } } : {}) });
     const req = https.request({
       hostname: 'api.groq.com',
       path: '/openai/v1/chat/completions',
@@ -81,7 +81,7 @@ function callGroq(prompt, { maxTokens = 1024 } = {}) {
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.10.0';
+const PORTAL_VERSION = '1.11.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1477,6 +1477,25 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (parsed.pathname === '/api/my/generate-quiz' && req.method === 'POST') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can generate a quiz.' });
+      if (!GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GROQ_API_KEY.' });
+      const body = await readJsonBody(req);
+      const text = String(body.text || '').trim();
+      if (!text) return json(res, 400, { ok: false, error: 'Add some content before generating a quiz.' });
+      const prompt = `Generate exactly 3 multiple-choice quiz questions that test whether someone actually understood the policy/SOP text below - not trivia, comprehension. Each question needs exactly 4 answer options with exactly one correct. Base every question strictly on what the text says - never invent details it doesn't contain. Respond with ONLY this exact JSON shape, no markdown, no preamble: {"questions":[{"text":"...","options":[{"text":"...","correct":true},{"text":"...","correct":false},{"text":"...","correct":false},{"text":"...","correct":false}]}]}\n\n<text>\n${text}\n</text>`;
+      try {
+        const raw = await callGroq(prompt, { maxTokens: 1500, json: true });
+        let parsedJson;
+        try { parsedJson = JSON.parse(raw); } catch { return json(res, 502, { ok: false, error: 'AI returned an unreadable quiz - try again.' }); }
+        const questions = sanitizeQuizQuestions(parsedJson.questions);
+        if (!questions.length) return json(res, 502, { ok: false, error: 'AI did not return any usable questions - try again or add questions manually.' });
+        return json(res, 200, { ok: true, questions });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: `Quiz generation failed: ${error.message}` });
+      }
+    }
+
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
       const [kpiResults, roster] = await Promise.all([loadKpiResultsSnapshot(), loadRosterSnapshot()]);
       const periods = kpiResults.periods || {};
@@ -2089,6 +2108,19 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       return (roster.records || []).filter(x => x.active !== false && x.kpiType !== 'Excluded' && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
     }
+    // Shared by /api/my/generate-quiz's AI output and the team-alignment create/edit routes'
+    // manually-authored questions - drops anything malformed (no text, fewer than 2 options,
+    // not exactly one marked correct) rather than trusting either source blindly.
+    function sanitizeQuizQuestions(raw) {
+      if (!Array.isArray(raw)) return [];
+      return raw.map((q, qi) => {
+        const text = String(q?.text || '').trim();
+        const options = Array.isArray(q?.options)
+          ? q.options.map((o, oi) => ({ id: `o${oi}`, text: String(o?.text || '').trim(), correct: Boolean(o?.correct) })).filter(o => o.text)
+          : [];
+        return { id: `q${qi}`, text, options };
+      }).filter(q => q.text && q.options.length >= 2 && q.options.filter(o => o.correct).length === 1);
+    }
     if (parsed.pathname === '/api/my/team-alignment' && req.method === 'GET') {
       const [isTeamLeader, eligibleTargets] = await Promise.all([hasDirectReports(identity, session.employeeName), eligibleAlignmentTargets(identity)]);
       const data = await loadAlignment();
@@ -2125,6 +2157,7 @@ const server = http.createServer(async (req, res) => {
         targetEmployees, status, createdAt: now, updatedAt: now,
         submittedAt: status === 'PENDING_APPROVAL' ? now : null,
         decidedAt: null, decidedByName: null, decisionNotes: null,
+        quiz: sanitizeQuizQuestions(body.quiz),
         acknowledgments: {}
       };
       data.sequenceByYear[year] = sequence;
@@ -2160,7 +2193,8 @@ const server = http.createServer(async (req, res) => {
         if (!title) return json(res, 400, { ok: false, error: 'A title is required.' });
         if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
         if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one employee who needs to acknowledge this.' });
-        const next = { ...current, title, category, body: contentHtml, effectiveDate, targetEmployees, updatedAt: now };
+        const quiz = body.quiz === undefined ? current.quiz : sanitizeQuizQuestions(body.quiz);
+        const next = { ...current, title, category, body: contentHtml, effectiveDate, targetEmployees, quiz, updatedAt: now };
         data.records[index] = next;
         await saveAlignment(data);
         await appendAlignmentAudit(alignmentId, 'EDITED', { user: identity, previousValue: current, newValue: next });
@@ -2233,8 +2267,14 @@ const server = http.createServer(async (req, res) => {
       if (!(current.targetEmployees || []).some(t => ptoLogic.cleanEmail(t.employeeEmail) === identity)) return json(res, 403, { ok: false, error: 'This item was not assigned to you.' });
       if (current.status !== 'APPROVED') return json(res, 409, { ok: false, error: 'Only an approved item can be acknowledged.' });
       if (current.acknowledgments?.[identity]) return json(res, 409, { ok: false, error: 'You have already acknowledged this.' });
+      // Correctness itself is checked client-side (the sign button stays disabled until every
+      // question is right) - this is a training/comprehension check, not a security boundary,
+      // so the server's role is just making sure that gate wasn't skipped, and recording how
+      // many wrong answers it took so the team lead sees more than a bare pass/fail.
+      if ((current.quiz || []).length && !body.quizPassed) return json(res, 400, { ok: false, error: 'Answer every quiz question correctly before signing.' });
+      const quizAttempts = Number.isFinite(Number(body.quizAttempts)) ? Math.max(0, Math.round(Number(body.quizAttempts))) : 0;
       const now = new Date().toISOString();
-      const next = { ...current, acknowledgments: { ...current.acknowledgments, [identity]: { signedName, signedAt: now } }, updatedAt: now };
+      const next = { ...current, acknowledgments: { ...current.acknowledgments, [identity]: { signedName, signedAt: now, quizAttempts } }, updatedAt: now };
       data.records[index] = next;
       await saveAlignment(data);
       await appendAlignmentAudit(alignmentId, 'ACKNOWLEDGED', { user: identity, notes: signedName });

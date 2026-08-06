@@ -10,3 +10,4 @@ export const loadAlignmentReviewQueue=()=>api('/api/som/alignment-review');
 export const decideAlignment=(alignmentId,payload)=>api(`/api/som/alignment-review/${encodeURIComponent(alignmentId)}/decide`,{method:'POST',body:JSON.stringify(payload)});
 export const loadMyAlignment=()=>api('/api/my/alignment');
 export const acknowledgeAlignment=(alignmentId,payload)=>api(`/api/my/alignment/${encodeURIComponent(alignmentId)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});
+export const generateAlignmentQuiz=text=>api('/api/my/generate-quiz',{method:'POST',body:JSON.stringify({text})});

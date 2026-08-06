@@ -275,6 +275,13 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Effective Date</label><input name="effectiveDate" type="date"></div>
 </div>
 <div class="field" style="margin-top:10px"><label>Content *</label><div id="alignmentBodyFieldContainer"></div><div class="sub" style="margin-top:4px">Paste directly from your Word/PDF SOP - basic formatting (bold, headings, lists) is kept.</div></div>
+<div class="field" style="margin-top:10px">
+<div class="actions noPrint" style="justify-content:space-between"><label>Quiz (optional)</label><button type="button" class="btn compact" id="generateQuizBtn">&#10024; Generate Quiz</button></div>
+<div class="sub" style="margin-top:2px">Reps answer this before they can sign, so acknowledging means they actually understood it - not just clicked through.</div>
+<div id="quizError" class="message error" hidden style="margin-top:6px"></div>
+<div id="quizQuestionList" style="margin-top:8px"></div>
+<button type="button" class="btn compact" id="addQuizQuestionBtn" style="margin-top:4px">+ Add Question Manually</button>
+</div>
 <div class="field" style="margin-top:10px"><label>Who needs to acknowledge this? *</label><div class="actions noPrint" style="justify-content:space-between;margin-bottom:6px"><input type="text" id="alignmentTargetFilter" placeholder="Filter by name..." style="flex:1;max-width:260px"><span><button type="button" class="btn compact" id="alignmentTargetSelectAll">Select All</button> <button type="button" class="btn compact" id="alignmentTargetSelectNone">Clear All</button></span></div><div id="alignmentTargetChecklist" class="details" style="max-height:240px;overflow:auto"></div><div class="sub" id="alignmentTargetCount" style="margin-top:4px"></div></div>
 <div id="alignmentFormError" class="message error" hidden style="margin-top:10px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
@@ -286,20 +293,32 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="modal" id="alignmentSignModal" hidden><div class="dialog" style="max-width:780px" role="dialog" aria-modal="true">
 <div class="title" id="alignmentSignTitle">Alignment Item</div>
 <div class="sub" id="alignmentSignMeta"></div>
+<div id="alignmentSignStep1">
 <div class="richContent" id="alignmentSignBody" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:14px"></div>
+</div>
+<div id="alignmentSignStep2" hidden>
+<div class="sub" style="font-weight:800;margin:10px 0 6px">Quick Check</div>
+<div id="alignmentQuizList"></div>
+<div class="sub" id="alignmentQuizProgress" style="margin-top:8px"></div>
+</div>
 <div id="alignmentSignForm" hidden>
 <div class="field" style="margin-top:14px"><label>Type your full name to sign *</label><input type="text" id="alignmentSignedNameInput" placeholder="Full name"></div>
 <div id="alignmentSignError" class="message error" hidden style="margin-top:8px"></div>
 </div>
-<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<div class="actions" style="justify-content:space-between;margin-top:14px">
+<a href="#" id="alignmentBackToContent" hidden style="color:var(--blue);font-size:13px;text-decoration:none">&larr; Back to Content</a>
+<div style="display:flex;gap:8px;margin-left:auto">
 <button type="button" class="btn" id="alignmentSignClose">Close</button>
+<button type="button" class="btn primary" id="alignmentContinueToQuiz" hidden>Continue to Quiz</button>
 <button type="button" class="btn primary" id="alignmentSignSubmit" hidden>Sign &amp; Acknowledge</button>
+</div>
 </div>
 </div></div>
 <div class="modal" id="alignmentDecideModal" hidden><div class="dialog" style="max-width:780px" role="dialog" aria-modal="true">
 <div class="title">Review Alignment Item</div>
 <div class="sub" id="alignmentDecideMeta"></div>
 <div class="richContent" id="alignmentDecideBody" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:14px"></div>
+<div id="alignmentDecideQuiz"></div>
 <div class="field" style="margin-top:14px"><label>Notes (optional)</label><textarea id="alignmentDecideNotesInput" placeholder="Feedback for the team lead, especially if rejecting"></textarea></div>
 <div id="alignmentDecideError" class="message error" hidden style="margin-top:8px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
@@ -373,14 +392,14 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket} from './shared/qa-dsat-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='';
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.11.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 async function runDraftAssist(){
   const instructions=$('draftAssistInstructionsInput').value.trim();
@@ -800,7 +819,8 @@ const CHANGELOG=[
   {version:'1.7.0',items:['Added a DSAT Review tool for the QA team to review disputed CSAT ratings and file coaching logs on a team lead\'s behalf once one is validated.']},
   {version:'1.8.0',items:['Team leads can now delete a coaching session that\'s still a Draft or Awaiting Signature (previously only Drafts could be deleted) - fixes cases like an accidental duplicate.','Discussion & Development Plan, Action Plan, and Follow-Up Date are now filled in by the employee when they review and sign a coaching session, instead of the team lead when they create it.','Every coaching session now shows a Coaching Code (e.g. COACH-2026-0001) for easy reference.']},
   {version:'1.9.0',items:['Added an "All Coaching" tab for company-wide coaching oversight - every session across every team, with summaries by team and by rep.','The Daily EOD Report on the Site KPI tab now shows Onsite, WFH, Present, Planned Out, and Unplanned Out headcounts per day, so you can check whether a dip or improvement lines up with the day\'s work-setup mix or staffing gaps.']},
-  {version:'1.10.0',items:['New "Alignment" tab - team leads can paste in an SOP, process update, or feature update, pick which team members need to acknowledge it, and send it to the SOM for approval. Once approved, each rep reviews and e-signs it right in their portal.','Team Leads, HR, and the SOM can now post, edit, and delete company announcements directly from the portal - no admin dashboard needed.','Alignment content and announcements can now be pasted straight from a Word doc or PDF, keeping basic formatting like bold, headings, and lists.','Added an AI-assisted "Rephrase" button to the Alignment and Announcement composers, to help clean up grammar and awkward wording.']}
+  {version:'1.10.0',items:['New "Alignment" tab - team leads can paste in an SOP, process update, or feature update, pick which team members need to acknowledge it, and send it to the SOM for approval. Once approved, each rep reviews and e-signs it right in their portal.','Team Leads, HR, and the SOM can now post, edit, and delete company announcements directly from the portal - no admin dashboard needed.','Alignment content and announcements can now be pasted straight from a Word doc or PDF, keeping basic formatting like bold, headings, and lists.','Added an AI-assisted "Rephrase" button to the Alignment and Announcement composers, to help clean up grammar and awkward wording.']},
+  {version:'1.11.0',items:['Team leads can now generate a short comprehension quiz (AI-assisted, or written by hand) for an Alignment item, so reps have to read the material and answer questions correctly before their e-signature is accepted.','Quiz questions and answer choices are shown in random order for each rep to discourage copying, and each rep\'s number of wrong attempts is visible to the team lead as a sign of how well the material landed.','Added a short "read gate" before the quiz unlocks, so reps can\'t skip straight to guessing without reading the content first.','Extended the AI-assisted "Rephrase" button to Coaching and Disciplinary write-ups.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -1130,6 +1150,54 @@ $('alignmentTargetChecklist').addEventListener('change',event=>{
 $('alignmentTargetFilter').addEventListener('input',()=>renderAlignmentTargetChecklist($('alignmentTargetFilter').value));
 $('alignmentTargetSelectAll').onclick=()=>{teamAlignmentMembers.forEach(m=>alignmentTargetChecked.add(m.employeeEmail));renderAlignmentTargetChecklist($('alignmentTargetFilter').value)};
 $('alignmentTargetSelectNone').onclick=()=>{alignmentTargetChecked.clear();renderAlignmentTargetChecklist($('alignmentTargetFilter').value)};
+function quizQuestionCardHtml(q,index){
+  const opts=(q.options&&q.options.length?q.options:[{},{},{},{}]);
+  return`<div class="quizQuestionCard" data-quiz-index="${index}" style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">
+<div style="display:flex;gap:8px;align-items:flex-start">
+<textarea class="quizQuestionText" placeholder="Question text" style="flex:1;min-height:44px">${esc(q.text||'')}</textarea>
+<button type="button" class="btn compact danger" data-remove-quiz-question="${index}">Remove</button>
+</div>
+<div class="quizOptionsList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+${opts.map((o,oi)=>`<div style="display:flex;gap:8px;align-items:center"><input type="radio" name="quizCorrect_${index}" class="quizOptionCorrect"${o.correct?' checked':''}><input type="text" class="quizOptionText" value="${esc(o.text||'')}" placeholder="Option ${oi+1}" style="flex:1"></div>`).join('')}
+</div>
+</div>`;
+}
+function renderQuizQuestionList(questions){
+  $('quizQuestionList').innerHTML=questions.map((q,i)=>quizQuestionCardHtml(q,i)).join('')||'<div class="sub">No quiz questions yet.</div>';
+}
+function collectQuizFromDom(){
+  return[...document.querySelectorAll('#quizQuestionList .quizQuestionCard')].map(card=>({
+    text:card.querySelector('.quizQuestionText').value.trim(),
+    options:[...card.querySelectorAll('.quizOptionsList > div')].map(row=>({
+      text:row.querySelector('.quizOptionText').value.trim(),
+      correct:row.querySelector('.quizOptionCorrect').checked
+    }))
+  }));
+}
+$('generateQuizBtn').onclick=async()=>{
+  const text=plainTextFromHtml(document.getElementById('alignmentBodyField')?.innerHTML||'');
+  if(!text){$('quizError').hidden=false;$('quizError').textContent='Add content before generating a quiz.';return}
+  $('quizError').hidden=true;
+  const btn=$('generateQuizBtn');const originalLabel=btn.textContent;btn.disabled=true;btn.textContent='Generating...';
+  try{
+    const result=await generateAlignmentQuiz(text);
+    renderQuizQuestionList(result.questions||[]);
+  }catch(error){
+    $('quizError').hidden=false;$('quizError').textContent=error.response?.error||error.message;
+  }finally{btn.disabled=false;btn.textContent=originalLabel}
+};
+$('addQuizQuestionBtn').onclick=()=>{
+  const current=collectQuizFromDom();
+  current.push({text:'',options:[{},{},{},{}]});
+  renderQuizQuestionList(current);
+};
+$('quizQuestionList').addEventListener('click',event=>{
+  const idx=event.target.dataset.removeQuizQuestion;
+  if(idx===undefined)return;
+  const current=collectQuizFromDom();
+  current.splice(Number(idx),1);
+  renderQuizQuestionList(current);
+});
 function openAlignmentForm(record){
   editingAlignmentId=record?record.alignmentId:null;
   const form=$('alignmentForm');
@@ -1140,6 +1208,8 @@ function openAlignmentForm(record){
   alignmentTargetChecked=new Set(record?(record.targetEmployees||[]).map(t=>t.employeeEmail):[]);
   $('alignmentTargetFilter').value='';
   renderAlignmentTargetChecklist();
+  renderQuizQuestionList(record?.quiz||[]);
+  $('quizError').hidden=true;
   if(record){
     form.elements.title.value=record.title||'';
     form.elements.category.value=record.category||'';
@@ -1161,6 +1231,7 @@ $('alignmentForm').onsubmit=async event=>{
   values.status=status;
   values.body=getRichTextValue('alignmentBodyField');
   values.targetEmployees=[...alignmentTargetChecked];
+  values.quiz=collectQuizFromDom().filter(q=>q.text&&q.options.some(o=>o.text));
   $('alignmentFormError').hidden=true;
   try{
     if(editingAlignmentId){
@@ -1193,41 +1264,133 @@ $('teamAlignmentBody').addEventListener('click',async event=>{
     try{await deleteTeamAlignment(deleteId);setMessage('Alignment item deleted.','ok');await loadAlignmentTab()}catch(error){$('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message}
   }
 });
+function quizReviewHtml(quiz){
+  if(!quiz||!quiz.length)return'';
+  return coachCard(`Quiz (${quiz.length} question${quiz.length===1?'':'s'})`,quiz.map((q,i)=>`<div class="coachField" style="margin-bottom:10px"><b>${i+1}. ${esc(q.text)}</b><div style="margin-top:4px">${q.options.map(o=>`<div style="color:${o.correct?'var(--green)':'inherit'}">${o.correct?'✓':'–'} ${esc(o.text)}</div>`).join('')}</div></div>`).join(''));
+}
 function alignmentDetailHtml(record){
-  const targets=record.targetEmployees||[];
-  const ackRows=targets.map(t=>{const ack=record.acknowledgments?.[t.employeeEmail];return`<div class="coachField"><div class="coachFieldLabel">${esc(t.employeeName)}</div>${ack?`Signed as <b>${esc(ack.signedName)}</b> on ${esc(String(ack.signedAt).slice(0,16).replace('T',' '))}`:'Awaiting signature'}</div>`}).join('');
+  const targets=record.targetEmployees||[],hasQuiz=(record.quiz||[]).length>0;
+  const ackRows=targets.map(t=>{const ack=record.acknowledgments?.[t.employeeEmail];return`<div class="coachField"><div class="coachFieldLabel">${esc(t.employeeName)}</div>${ack?`Signed as <b>${esc(ack.signedName)}</b> on ${esc(String(ack.signedAt).slice(0,16).replace('T',' '))}${hasQuiz?` · ${ack.quizAttempts?`${ack.quizAttempts} wrong attempt${ack.quizAttempts===1?'':'s'} before passing`:'passed on first try'}`:''}`:'Awaiting signature'}</div>`}).join('');
   let html='';
   html+=coachCard('Details',`<div class="coachGrid2"><div class="coachField"><div class="coachFieldLabel">Category</div>${esc(record.category)}</div><div class="coachField"><div class="coachFieldLabel">Effective Date</div>${esc(record.effectiveDate||'—')}</div><div class="coachField"><div class="coachFieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div class="coachField"><div class="coachFieldLabel">Status</div>${alignmentStatusPill(record.status)}</div></div>`);
   if(record.decisionNotes)html+=coachCard('Notes from Approver',esc(record.decisionNotes));
   html+=coachCard('Content',`<div class="richContent">${sanitizeRichHtml(record.body)}</div>`);
+  html+=quizReviewHtml(record.quiz);
   if(targets.length)html+=coachCard('Acknowledgment Status',ackRows);
   return html;
 }
+function shuffleArray(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+function renderAlignmentQuiz(){
+  const{questions,correctByIndex,selectedByIndex}=alignmentQuizState;
+  $('alignmentQuizList').innerHTML=questions.map((q,qi)=>{
+    const answered=correctByIndex[qi],selectedOi=selectedByIndex[qi];
+    const optsHtml=q.options.map((o,oi)=>{
+      const isSelected=selectedOi===oi;
+      const style=isSelected?(o.correct?'background:#e3f7ec;color:var(--green);border-color:var(--green)':'background:#fce8e8;color:#8b1f1f;border-color:#c2313a'):'';
+      return`<button type="button" class="btn compact alignQuizOpt" data-qi="${qi}" data-oi="${oi}" data-correct="${o.correct?'1':'0'}" style="display:block;width:100%;text-align:left;margin-bottom:4px;${style}">${esc(o.text)}</button>`;
+    }).join('');
+    return`<div class="coachCard"><div class="coachCardBody"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(q.text)}</b>${answered===true?'<span class="pill status-ready">✓</span>':answered===false?'<span class="pill status-failed">try again</span>':''}</div><div style="margin-top:8px">${optsHtml}</div></div></div>`;
+  }).join('');
+  updateAlignmentQuizProgress();
+}
+function updateAlignmentQuizProgress(){
+  const total=alignmentQuizState.questions.length;
+  const correct=Object.values(alignmentQuizState.correctByIndex).filter(Boolean).length;
+  $('alignmentQuizProgress').textContent=`${correct} of ${total} answered correctly`;
+  const allCorrect=total>0&&correct===total;
+  $('alignmentSignedNameInput').disabled=!allCorrect;
+  $('alignmentSignSubmit').disabled=!allCorrect;
+}
+$('alignmentQuizList').addEventListener('click',event=>{
+  const btn=event.target.closest('.alignQuizOpt');
+  if(!btn)return;
+  const qi=Number(btn.dataset.qi),oi=Number(btn.dataset.oi),isCorrect=btn.dataset.correct==='1';
+  if(alignmentQuizState.correctByIndex[qi])return;
+  if(!isCorrect)alignmentQuizState.attempts++;
+  alignmentQuizState.correctByIndex[qi]=isCorrect;
+  alignmentQuizState.selectedByIndex[qi]=oi;
+  renderAlignmentQuiz();
+});
+function startAlignmentReadGate(text){
+  clearInterval(alignmentReadGateTimer);
+  const words=text.trim().split(/\s+/).filter(Boolean).length;
+  let remaining=Math.max(5,Math.min(30,Math.round(words/4)));
+  const btn=$('alignmentContinueToQuiz');
+  btn.disabled=true;
+  btn.textContent=`Continue to Quiz (${remaining}s)`;
+  alignmentReadGateTimer=setInterval(()=>{
+    remaining--;
+    if(remaining<=0){clearInterval(alignmentReadGateTimer);btn.disabled=false;btn.textContent='Continue to Quiz'}
+    else btn.textContent=`Continue to Quiz (${remaining}s)`;
+  },1000);
+}
 function openAlignmentViewModal(record,allowSign){
   signingAlignmentRecord=record;
+  clearInterval(alignmentReadGateTimer);
   $('alignmentSignTitle').textContent=record.title;
   $('alignmentSignMeta').textContent=`${record.category} · Effective ${record.effectiveDate||'—'} · From ${record.teamLeadName}`;
   $('alignmentSignBody').innerHTML=allowSign?sanitizeRichHtml(record.body):alignmentDetailHtml(record);
-  const showSignForm=allowSign&&!record.myAcknowledgment;
-  $('alignmentSignForm').hidden=!showSignForm;
-  $('alignmentSignSubmit').hidden=!showSignForm;
+  $('alignmentSignStep1').hidden=false;
+  $('alignmentSignStep2').hidden=true;
+  $('alignmentBackToContent').hidden=true;
+  $('alignmentSignForm').hidden=true;
+  $('alignmentContinueToQuiz').hidden=true;
+  $('alignmentSignSubmit').hidden=true;
   $('alignmentSignedNameInput').value='';
   $('alignmentSignError').hidden=true;
+  const needsSign=allowSign&&!record.myAcknowledgment;
+  const hasQuiz=needsSign&&(record.quiz||[]).length>0;
+  if(hasQuiz){
+    alignmentQuizState={questions:shuffleArray(record.quiz).map(q=>({...q,options:shuffleArray(q.options)})),correctByIndex:{},selectedByIndex:{},attempts:0};
+    $('alignmentContinueToQuiz').hidden=false;
+    startAlignmentReadGate(plainTextFromHtml(record.body));
+  }else if(needsSign){
+    $('alignmentSignForm').hidden=false;
+    $('alignmentSignSubmit').hidden=false;
+    $('alignmentSignSubmit').disabled=false;
+    $('alignmentSignedNameInput').disabled=false;
+  }
   $('alignmentSignModal').hidden=false;
 }
+$('alignmentContinueToQuiz').onclick=()=>{
+  clearInterval(alignmentReadGateTimer);
+  $('alignmentSignStep1').hidden=true;
+  $('alignmentSignStep2').hidden=false;
+  $('alignmentBackToContent').hidden=false;
+  $('alignmentContinueToQuiz').hidden=true;
+  $('alignmentSignForm').hidden=false;
+  $('alignmentSignSubmit').hidden=false;
+  renderAlignmentQuiz();
+};
+$('alignmentBackToContent').onclick=event=>{
+  event.preventDefault();
+  $('alignmentSignStep1').hidden=false;
+  $('alignmentSignStep2').hidden=true;
+  $('alignmentBackToContent').hidden=true;
+  $('alignmentContinueToQuiz').hidden=false;
+  $('alignmentSignForm').hidden=true;
+  $('alignmentSignSubmit').hidden=true;
+};
 $('myAlignmentBody').addEventListener('click',event=>{
   const id=event.target.dataset.viewAlignment;
   if(!id)return;
   const record=myAlignmentRecords.find(r=>r.alignmentId===id);
   if(record)openAlignmentViewModal(record,true);
 });
-$('alignmentSignClose').onclick=()=>{$('alignmentSignModal').hidden=true};
+$('alignmentSignClose').onclick=()=>{clearInterval(alignmentReadGateTimer);$('alignmentSignModal').hidden=true};
 $('alignmentSignSubmit').onclick=async()=>{
   const signedName=$('alignmentSignedNameInput').value.trim();
   if(!signedName){$('alignmentSignError').hidden=false;$('alignmentSignError').textContent='Please type your full name to sign.';return}
   $('alignmentSignSubmit').disabled=true;
   try{
-    await acknowledgeAlignment(signingAlignmentRecord.alignmentId,{signedName});
+    const hasQuiz=(signingAlignmentRecord.quiz||[]).length>0;
+    const payload={signedName};
+    if(hasQuiz){payload.quizPassed=true;payload.quizAttempts=alignmentQuizState.attempts}
+    await acknowledgeAlignment(signingAlignmentRecord.alignmentId,payload);
     $('alignmentSignModal').hidden=true;
     setMessage('Alignment item signed. Thank you.','ok');
     await refreshMyAlignment();
@@ -1245,6 +1408,7 @@ function openAlignmentDecideModal(record){
   decidingAlignmentRecord=record;
   $('alignmentDecideMeta').textContent=`${record.category} · Effective ${record.effectiveDate||'—'} · From ${record.teamLeadName} · ${(record.targetEmployees||[]).length} to acknowledge`;
   $('alignmentDecideBody').innerHTML=sanitizeRichHtml(record.body);
+  $('alignmentDecideQuiz').innerHTML=quizReviewHtml(record.quiz);
   $('alignmentDecideNotesInput').value=record.decisionNotes||'';
   const decided=record.status!=='PENDING_APPROVAL';
   $('alignmentDecideApprove').hidden=decided;
