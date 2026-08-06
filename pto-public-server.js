@@ -48,7 +48,7 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.7.0';
+const PORTAL_VERSION = '1.8.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1761,9 +1761,10 @@ const server = http.createServer(async (req, res) => {
         teamLeadEmail: isQaOnBehalf ? ptoLogic.cleanEmail(employee.teamLeadEmail || '') : identity,
         teamLeadName: isQaOnBehalf ? (employee.teamLeadName || '') : (leaderName || session.employeeName || ''),
         coachingDate, category, currentStanding, observation,
-        discussionSummary: String(body.discussionSummary || '').trim(),
-        actionPlan: String(body.actionPlan || '').trim(),
-        targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : null,
+        // Discussion & Development Plan, Action Plan, and Follow-Up Date are filled in by the
+        // employee at acknowledge time (see the 'acknowledge' action below), not by the team
+        // lead who files this session.
+        discussionSummary: '', actionPlan: '', targetFollowUpDate: null,
         status, createdAt: now, updatedAt: now, sentAt: status === 'SENT' ? now : null,
         acknowledgment: null, createdBy: identity, initiatedByQa: isQaOnBehalf ? (session.employeeName || identity) : null
       };
@@ -1796,9 +1797,6 @@ const server = http.createServer(async (req, res) => {
           ...current,
           category: COACHING_CATEGORIES.includes(body.category) ? body.category : current.category,
           observation: String(body.observation ?? current.observation).trim(),
-          discussionSummary: String(body.discussionSummary ?? current.discussionSummary).trim(),
-          actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
-          targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : (body.targetFollowUpDate === null ? null : current.targetFollowUpDate),
           updatedAt: now
         };
         data.records[index] = next;
@@ -1808,7 +1806,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === 'DELETE' && !action) {
         if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can delete it.' });
-        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft coaching record can be deleted.' });
+        if (current.status === 'ACKNOWLEDGED') return json(res, 409, { ok: false, error: 'An acknowledged coaching record cannot be deleted.' });
         data.records.splice(index, 1);
         data.deletedCoachingIds = [...new Set([...(data.deletedCoachingIds || []), coachingId])];
         await saveCoaching(data);
@@ -1829,7 +1827,13 @@ const server = http.createServer(async (req, res) => {
         if (current.status !== 'SENT') return json(res, 409, { ok: false, error: 'Only a sent coaching record can be acknowledged.' });
         const signedName = String(body.signedName || '').trim();
         if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
-        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, repComments: String(body.repComments || '').trim() } };
+        const next = {
+          ...current, status: 'ACKNOWLEDGED', updatedAt: now,
+          discussionSummary: String(body.discussionSummary ?? current.discussionSummary ?? '').trim(),
+          actionPlan: String(body.actionPlan ?? current.actionPlan ?? '').trim(),
+          targetFollowUpDate: ptoLogic.validDate(body.targetFollowUpDate) ? body.targetFollowUpDate : (body.targetFollowUpDate === null ? null : current.targetFollowUpDate),
+          acknowledgment: { signedName, signedAt: now, repComments: String(body.repComments || '').trim() }
+        };
         data.records[index] = next;
         await saveCoaching(data);
         await appendCoachingAudit(coachingId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
