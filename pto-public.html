@@ -111,7 +111,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="message" class="message" hidden></div>
 <section id="maintenanceView" class="panel noPrint" hidden style="text-align:center;padding:36px 24px"><div style="font-size:40px;margin-bottom:6px">🛠️</div><div class="sectionTitle">We'll be right back</div><div class="sub" style="margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto">The portal is temporarily unavailable for maintenance. This usually clears up on its own within a few minutes — please check back shortly.</div><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn primary" type="button" id="maintenanceRetryBtn">Try Again</button></div><div class="sub" style="margin-top:18px;font-style:italic">Thank you for your patience — Mac</div></section>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
-<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button></div>
+<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button></div>
 <section id="profileCard" class="panel noPrint" hidden></section>
 <section id="kpiView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="kpiPeriod"></select></div></div><div id="teamKpiSection" hidden><div class="sectionTitle">My Team KPI Scores</div><div class="cards" id="teamKpiCards"></div><div class="teamGoalGrid"><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team CSAT Goal</div><div class="teamGoalTarget">Target: at least 90%</div></div><div class="teamGoalStats" id="teamCsatGoalStats"></div></div><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team Long Call Goal</div><div class="teamGoalTarget">Target: below 5%</div></div><div class="teamGoalStats" id="teamLcrGoalStats"></div></div></div><div class="repGoalPanel"><div class="repGoalHead"><div><div class="repGoalTitle">Rep Goal Tracker</div><div class="sub">Individual CSAT and long-call targets</div></div><div class="sub">CSAT ≥ 90% · Long calls &lt; 5%</div></div><div class="repGoalGrid" id="repGoalGrid"></div></div><div class="sub" id="teamKpiMeta"></div><div class="tableWrap" style="margin-top:10px"><table class="teamKpiTable"><thead><tr><th>Team Member</th><th>KPI Type</th><th>Eligible Workdays</th><th>CSAT</th><th>Productivity / Calls</th><th>LCR</th><th>Tickets</th><th>FRT</th><th>Team Metric</th><th>Updated Tickets</th><th>Bonus</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="teamKpiBody"></tbody></table></div></div><div class="sectionTitle" id="myKpiTitle">My KPI Score</div><div class="cards" id="kpiCards"></div><div class="sub" id="kpiMeta"></div><div class="tableWrap" id="kpiBreakdownWrap"><table><thead><tr><th>Metric</th><th>Actual</th><th>Points</th><th>Status</th></tr></thead><tbody id="kpiBreakdownBody"></tbody></table></div><div class="sectionTitle" id="kpiHistoryTitle" hidden>History</div><div class="tableWrap" id="kpiHistoryWrap" hidden><table><thead><tr><th>Period</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="kpiHistoryBody"></tbody></table></div></section>
 <section id="siteMetricsView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="siteMetricsPeriod"></select></div></div><div class="sectionTitle">Company-Wide MTD KPI (8AM–8PM ET)</div><div class="cards" id="siteMetricsCards"></div><div class="sub" id="siteMetricsMeta"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Metric</th><th>Definition</th></tr></thead><tbody><tr><td>Call Completion Rate</td><td>Answered/connected inbound calls ÷ total inbound calls, 8:00 AM–8:00 PM Eastern Time only.</td></tr><tr><td>Long Call Rate</td><td>Calls lasting 30 minutes or more ÷ accepted inbound calls.</td></tr><tr><td>CSAT</td><td>Good survey responses ÷ (good + bad) survey responses.</td></tr></tbody></table></div><div class="sectionTitle" style="margin-top:22px">Daily EOD Report</div><div class="sub">Day-by-day snapshot to track the dip and up. Months before daily capture began show only that month's final snapshot. Onsite/WFH/Present/Out counts let you check whether a dip or improvement lines up with the day's work-setup mix or staffing gaps. Present is always Onsite + WFH; Late is shown separately since a late entry doesn't record which setup that employee was in.</div><div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Date</th><th>Call Completion Rate</th><th>Long Call Rate</th><th>CSAT</th><th>Onsite</th><th>WFH</th><th>Present</th><th>Late</th><th>Planned Out</th><th>Unplanned Out</th></tr></thead><tbody id="siteMetricsHistoryBody"></tbody></table></div></section>
@@ -248,8 +248,94 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button type="button" class="btn primary" id="disciplinaryAckSubmit" hidden>Sign &amp; Acknowledge</button>
 </div>
 </div></div>
+<section id="alignmentView" hidden>
+<div class="sectionTitle">My Alignment</div>
+<div class="sub">SOP, process, and feature updates your team lead has shared with you. Review and e-sign to acknowledge.</div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Title</th><th>Category</th><th>Effective Date</th><th>Team Lead</th><th>Status</th><th>Actions</th></tr></thead><tbody id="myAlignmentBody"></tbody></table></div>
+<div id="teamAlignmentSection" hidden style="margin-top:28px">
+<div class="actions noPrint" style="justify-content:space-between;align-items:center">
+<div class="sectionTitle" style="margin:0">Team Alignment</div>
+<button class="btn primary" id="newAlignmentBtn">New Alignment Item</button>
+</div>
+<div id="teamAlignmentMessage" class="message" hidden></div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Title</th><th>Category</th><th>Effective Date</th><th>Status</th><th>Acknowledged</th><th>Actions</th></tr></thead><tbody id="teamAlignmentBody"></tbody></table></div>
+</div>
+<div id="alignmentReviewSection" hidden style="margin-top:28px">
+<div class="sectionTitle">Pending Approval</div>
+<div class="sub">Alignment items submitted by team leads, company-wide, awaiting your decision.</div>
+<div id="alignmentReviewMessage" class="message" hidden></div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Title</th><th>Category</th><th>Team Lead</th><th>Targets</th><th>Status</th><th>Actions</th></tr></thead><tbody id="alignmentReviewBody"></tbody></table></div>
+</div>
+</section>
+<div class="modal" id="alignmentFormModal" hidden><form class="dialog" id="alignmentForm" role="dialog" aria-modal="true" style="max-width:780px">
+<div class="title" id="alignmentFormTitle">New Alignment Item</div>
+<div class="formGrid" style="margin-top:12px">
+<div class="field" style="grid-column:1/-1"><label>Title *</label><input name="title" required placeholder="e.g. Updated Refund Policy - Effective Aug 15"></div>
+<div class="field"><label>Category *</label><select name="category" required></select></div>
+<div class="field"><label>Effective Date</label><input name="effectiveDate" type="date"></div>
+</div>
+<div class="field" style="margin-top:10px"><label>Content *</label><div id="alignmentBodyFieldContainer"></div><div class="sub" style="margin-top:4px">Paste directly from your Word/PDF SOP - basic formatting (bold, headings, lists) is kept.</div></div>
+<div class="field" style="margin-top:10px"><label>Who needs to acknowledge this? *</label><div id="alignmentTargetChecklist" class="details" style="max-height:180px;overflow:auto"></div></div>
+<div id="alignmentFormError" class="message error" hidden style="margin-top:10px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button class="btn" type="button" id="alignmentFormCancel">Cancel</button>
+<button class="btn" type="submit" data-status="DRAFT">Save Draft</button>
+<button class="btn primary" type="submit" data-status="PENDING_APPROVAL">Submit for Approval</button>
+</div>
+</form></div>
+<div class="modal" id="alignmentSignModal" hidden><div class="dialog" style="max-width:780px" role="dialog" aria-modal="true">
+<div class="title" id="alignmentSignTitle">Alignment Item</div>
+<div class="sub" id="alignmentSignMeta"></div>
+<div class="richContent" id="alignmentSignBody" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:14px"></div>
+<div id="alignmentSignForm" hidden>
+<div class="field" style="margin-top:14px"><label>Type your full name to sign *</label><input type="text" id="alignmentSignedNameInput" placeholder="Full name"></div>
+<div id="alignmentSignError" class="message error" hidden style="margin-top:8px"></div>
+</div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button type="button" class="btn" id="alignmentSignClose">Close</button>
+<button type="button" class="btn primary" id="alignmentSignSubmit" hidden>Sign &amp; Acknowledge</button>
+</div>
+</div></div>
+<div class="modal" id="alignmentDecideModal" hidden><div class="dialog" style="max-width:780px" role="dialog" aria-modal="true">
+<div class="title">Review Alignment Item</div>
+<div class="sub" id="alignmentDecideMeta"></div>
+<div class="richContent" id="alignmentDecideBody" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:14px"></div>
+<div class="field" style="margin-top:14px"><label>Notes (optional)</label><textarea id="alignmentDecideNotesInput" placeholder="Feedback for the team lead, especially if rejecting"></textarea></div>
+<div id="alignmentDecideError" class="message error" hidden style="margin-top:8px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button type="button" class="btn" id="alignmentDecideClose">Close</button>
+<button type="button" class="btn danger" id="alignmentDecideReject">Reject</button>
+<button type="button" class="btn primary" id="alignmentDecideApprove">Approve</button>
+</div>
+</div></div>
+<div class="modal" id="draftAssistModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true">
+<div class="title" id="draftAssistTitle">AI Suggestion</div>
+<div class="sub" id="draftAssistLoading">Thinking...</div>
+<div id="draftAssistError" class="message error" hidden></div>
+<div id="draftAssistResult" hidden>
+<div class="sub" style="font-weight:800;margin-top:10px">Suggested text</div>
+<div class="richContent" id="draftAssistSuggestionBody" style="margin-top:6px;border:1px solid var(--line);border-radius:10px;padding:12px;max-height:300px;overflow:auto"></div>
+</div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button type="button" class="btn" id="draftAssistDiscard">Discard</button>
+<button type="button" class="btn primary" id="draftAssistAccept" hidden>Use This</button>
+</div>
+</div></div>
 <section id="requestsView" hidden><div class="actions noPrint" style="justify-content:flex-end"><button class="btn primary" id="newBtn">Create Request</button></div><div class="sectionTitle">My PTO Requests</div><div class="cards" id="requestCards"></div><div class="sub" id="requestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Date Requested</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Approver</th><th>Approver Notes</th><th>Decision</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="requestBody"></tbody></table></div><div id="teamPtoSection" hidden><div class="sectionTitle">Team PTO Review</div><div class="panel" style="margin-top:0"><div class="sub" id="teamPtoWorkflow">Team leaders provide preliminary approval. Final approval and schedule integration are completed by the admin portal or Charlotte Sanchez.</div></div><div class="cards" id="teamRequestCards"></div><div class="sub" id="teamRequestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Team Member</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Pre-Approval</th><th>Final Approval</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="teamRequestBody"></tbody></table></div></div></section>
-<section id="announcementsView" hidden><div id="announcementList"></div></section>
+<section id="announcementsView" hidden><div class="actions noPrint" style="justify-content:flex-end" id="announcementComposeBar" hidden><button class="btn primary" id="newAnnouncementBtn">New Announcement</button></div><div id="announcementList"></div></section>
+<div class="modal" id="announcementFormModal" hidden><form class="dialog" id="announcementForm" role="dialog" aria-modal="true" style="max-width:780px">
+<div class="title" id="announcementFormTitle">New Announcement</div>
+<div class="formGrid" style="margin-top:12px">
+<div class="field" style="grid-column:1/-1"><label>Title *</label><input name="title" required></div>
+<div class="field"><label>Priority</label><select name="priority"><option value="NORMAL">Normal</option><option value="URGENT">Urgent</option></select></div>
+</div>
+<div class="field" style="margin-top:10px"><label>Content *</label><div id="announcementBodyFieldContainer"></div><div class="sub" style="margin-top:4px">Paste directly from Word/PDF - basic formatting is kept.</div></div>
+<div id="announcementFormError" class="message error" hidden style="margin-top:10px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button class="btn" type="button" id="announcementFormCancel">Cancel</button>
+<button class="btn primary" type="submit">Post Announcement</button>
+</div>
+</form></div>
 <section id="dsatReviewView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="dsatReviewPeriod"></select></div></div><div class="sectionTitle">DSAT Review</div><div class="sub">Every bad CSAT rating for this period, company-wide. Flag one as Not Valid to file and decide a dispute in one step, or Approve/Reject a rep-filed dispute already pending. Once a DSAT stands as valid, you can start a coaching log on behalf of the rep's team lead.</div><div class="cards" id="dsatReviewCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Employee</th><th>Ticket</th><th>Comment</th><th>Survey Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="dsatReviewBody"></tbody></table></div></section>
 <section id="siteCoachingView" hidden>
 <div class="sectionTitle">All Coaching</div>
@@ -285,14 +371,38 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket} from './shared/qa-dsat-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements} from './shared/announcement-service.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.8.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='';
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,aiAssistTargetFieldId=null;
+$('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});
+async function openDraftAssistModal(fieldId,mode){
+  const plainText=plainTextFromHtml(document.getElementById(fieldId)?.innerHTML||'');
+  if(!plainText){setMessage('Type or paste some text first.','error');return}
+  aiAssistTargetFieldId=fieldId;
+  $('draftAssistTitle').textContent=mode==='draft'?'Help Me Draft':'Fix Grammar';
+  $('draftAssistLoading').hidden=false;$('draftAssistResult').hidden=true;$('draftAssistError').hidden=true;$('draftAssistAccept').hidden=true;
+  $('draftAssistModal').hidden=false;
+  try{
+    const result=await draftAssist(plainText,mode);
+    $('draftAssistLoading').hidden=true;
+    $('draftAssistSuggestionBody').innerHTML=sanitizeRichHtml(result.suggestion.split(/\n{2,}/).map(p=>`<p>${esc(p)}</p>`).join(''));
+    $('draftAssistResult').hidden=false;
+    $('draftAssistAccept').hidden=false;
+  }catch(error){
+    $('draftAssistLoading').hidden=true;
+    $('draftAssistError').hidden=false;$('draftAssistError').textContent=error.response?.error||error.message;
+  }
+}
+$('draftAssistDiscard').onclick=()=>{$('draftAssistModal').hidden=true};
+$('draftAssistAccept').onclick=()=>{
+  if(aiAssistTargetFieldId)document.getElementById(aiAssistTargetFieldId).innerHTML=$('draftAssistSuggestionBody').innerHTML;
+  $('draftAssistModal').hidden=true;
+};
 const DISCIPLINE_LADDER={Misdemeanor:['Coaching','Verbal Warning','Written Warning','Final Warning','Termination'],MinorOffense:['Verbal Warning','Written Warning','Final Warning','Termination'],MajorOffense:['Written Warning','Final Warning','Termination'],GraveOffense:['Final Warning','Termination'],Terminable:['Termination']};
 const DISCIPLINE_TIER_LABELS={Misdemeanor:'Misdemeanor',MinorOffense:'Minor Offense',MajorOffense:'Major Offense',GraveOffense:'Grave Offense',Terminable:'Terminable Offense'};
 const lsHeader=document.querySelector('.header>.ls-header');if(lsHeader)$('headerRight').insertBefore(lsHeader,$('signedInActions'));
@@ -564,9 +674,57 @@ $('chatBubbleBtn').addEventListener('pointermove',event=>{if(!chatDragState||cha
 $('chatBubbleBtn').addEventListener('pointerup',event=>{if(!chatDragState||chatDragState.pointerId!==event.pointerId)return;if(chatDragState.moved){chatJustDragged=true;const rect=$('chatWidget').getBoundingClientRect();localStorage.setItem('mtdkpi-chat-widget-pos',JSON.stringify({left:rect.left,top:rect.top}))}chatDragState=null});
 function announcementUnreadCount(){const lastSeen=localStorage.getItem('mtdkpi-lastSeenAnnouncementAt')||'';return announcements.filter(x=>(x.createdAt||'')>lastSeen).length}
 function renderAnnouncementBadge(){const count=announcementUnreadCount();$('announcementsBadge').hidden=!count;$('announcementsBadge').textContent=count>9?'9+':String(count)}
-function renderAnnouncements(){$('announcementList').innerHTML=announcements.map(x=>`<div class="announcementCard${x.priority==='URGENT'?' urgent':''}"><div class="head">${x.priority==='URGENT'?'<span class="pill status-failed">Urgent</span>':''}<b>${esc(x.title)}</b></div><div class="body">${esc(x.body)}</div><div class="meta">Posted by ${esc(x.postedBy||'Administrator')} · ${x.createdAt?new Date(x.createdAt).toLocaleString():''}</div></div>`).join('')||'<div class="muted">No announcements yet.</div>';renderAnnouncementBadge()}
+function renderAnnouncements(){
+  $('announcementComposeBar').hidden=!canManageAnnouncementsFlag;
+  $('announcementList').innerHTML=announcements.map(x=>{
+    const manageable=canManageAnnouncementsFlag&&String(x.id).startsWith('PUB-ANN-');
+    const actions=manageable?`<div class="actions" style="margin-top:8px"><button class="btn compact" data-edit-announcement="${esc(x.id)}">Edit</button> <button class="btn compact danger" data-delete-announcement="${esc(x.id)}">Delete</button></div>`:'';
+    return`<div class="announcementCard${x.priority==='URGENT'?' urgent':''}"><div class="head">${x.priority==='URGENT'?'<span class="pill status-failed">Urgent</span>':''}<b>${esc(x.title)}</b></div><div class="body richContent">${sanitizeRichHtml(x.body)}</div><div class="meta">Posted by ${esc(x.postedBy||'Administrator')} · ${x.createdAt?new Date(x.createdAt).toLocaleString():''}</div>${actions}</div>`;
+  }).join('')||'<div class="muted">No announcements yet.</div>';
+  renderAnnouncementBadge();
+}
+function openAnnouncementForm(announcement){
+  editingAnnouncementId=announcement?announcement.id:null;
+  const form=$('announcementForm');
+  form.reset();
+  $('announcementFormTitle').textContent=announcement?'Edit Announcement':'New Announcement';
+  if(announcement){form.elements.title.value=announcement.title;form.elements.priority.value=announcement.priority||'NORMAL'}
+  setRichTextValue('announcementBodyField',announcement?announcement.body||'':'');
+  $('announcementFormError').hidden=true;
+  $('announcementFormModal').hidden=false;
+}
+$('newAnnouncementBtn').onclick=()=>openAnnouncementForm(null);
+$('announcementFormCancel').onclick=()=>{$('announcementFormModal').hidden=true};
+let announcementFormSubmitting=false;
+$('announcementForm').onsubmit=async event=>{
+  event.preventDefault();
+  if(announcementFormSubmitting)return;announcementFormSubmitting=true;
+  const button=event.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+  const values=Object.fromEntries(new FormData(event.currentTarget));
+  values.body=getRichTextValue('announcementBodyField');
+  $('announcementFormError').hidden=true;
+  try{
+    if(editingAnnouncementId)await updateMyAnnouncement(editingAnnouncementId,values);
+    else await createMyAnnouncement(values);
+    $('announcementFormModal').hidden=true;
+    setMessage('Announcement saved.','ok');
+    const result=await loadMyAnnouncements();announcements=result.announcements||[];canManageAnnouncementsFlag=Boolean(result.canManage);
+    renderAnnouncements();
+  }catch(error){
+    $('announcementFormError').hidden=false;$('announcementFormError').textContent=error.response?.error||error.message;
+  }finally{announcementFormSubmitting=false;button.disabled=false}
+};
+$('announcementList').addEventListener('click',async event=>{
+  const editId=event.target.dataset.editAnnouncement;
+  const deleteId=event.target.dataset.deleteAnnouncement;
+  if(editId){const item=announcements.find(x=>x.id===editId);if(item)openAnnouncementForm(item);return}
+  if(deleteId){
+    if(!confirm('Delete this announcement? This cannot be undone.'))return;
+    try{await deleteMyAnnouncement(deleteId);setMessage('Announcement deleted.','ok');const result=await loadMyAnnouncements();announcements=result.announcements||[];canManageAnnouncementsFlag=Boolean(result.canManage);renderAnnouncements()}catch(error){setMessage(error.response?.error||error.message,'error')}
+  }
+});
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();}
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();}
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.dataset.tab));
 // A step's target may exist in the DOM but be hidden by role (Team Attendance for a
 // non-lead, every rep-facing tab for HR/SOM, etc.) - offsetParent is null for any element
@@ -604,7 +762,7 @@ function startTour(){
   if(sessionUser?.tourSeen)return;
   const firstName=(sessionUser?.employeeName||'').split(' ')[0]||'there';
   activeTourSteps=TOUR_STEPS.filter(s=>s.getEl());
-  const scopeText=portalRole==='HR'?'your portal for reviewing and deciding disciplinary cases':portalRole==='SOM'?'your portal for PTO review, disciplinary pre-review, company-wide coaching oversight, and team announcements':'your KPI scores, schedule, attendance, PTO requests, announcements, and team chat all in one place';
+  const scopeText=portalRole==='HR'?'your portal for reviewing and deciding disciplinary cases and posting company announcements':portalRole==='SOM'?'your portal for PTO review, disciplinary pre-review, company-wide coaching oversight, alignment approvals, and team announcements':'your KPI scores, schedule, attendance, PTO requests, alignment items, announcements, and team chat all in one place';
   $('tourWelcomeTitle').textContent=`Welcome, ${firstName}!`;
   $('tourWelcomeBody').textContent=`This is your Lofty Support Portal — ${scopeText}. Want a quick ${activeTourSteps.length}-step look around?`;
   $('tourWelcomeModal').hidden=false;
@@ -621,7 +779,8 @@ const CHANGELOG=[
   {version:'1.6.0',items:['Added a "Job Title" field, shown on your Profile tab next to Employee ID.']},
   {version:'1.7.0',items:['Added a DSAT Review tool for the QA team to review disputed CSAT ratings and file coaching logs on a team lead\'s behalf once one is validated.']},
   {version:'1.8.0',items:['Team leads can now delete a coaching session that\'s still a Draft or Awaiting Signature (previously only Drafts could be deleted) - fixes cases like an accidental duplicate.','Discussion & Development Plan, Action Plan, and Follow-Up Date are now filled in by the employee when they review and sign a coaching session, instead of the team lead when they create it.','Every coaching session now shows a Coaching Code (e.g. COACH-2026-0001) for easy reference.']},
-  {version:'1.9.0',items:['Added an "All Coaching" tab for company-wide coaching oversight - every session across every team, with summaries by team and by rep.','The Daily EOD Report on the Site KPI tab now shows Onsite, WFH, Present, Planned Out, and Unplanned Out headcounts per day, so you can check whether a dip or improvement lines up with the day\'s work-setup mix or staffing gaps.']}
+  {version:'1.9.0',items:['Added an "All Coaching" tab for company-wide coaching oversight - every session across every team, with summaries by team and by rep.','The Daily EOD Report on the Site KPI tab now shows Onsite, WFH, Present, Planned Out, and Unplanned Out headcounts per day, so you can check whether a dip or improvement lines up with the day\'s work-setup mix or staffing gaps.']},
+  {version:'1.10.0',items:['New "Alignment" tab - team leads can paste in an SOP, process update, or feature update, pick which team members need to acknowledge it, and send it to the SOM for approval. Once approved, each rep reviews and e-signs it right in their portal.','Team Leads, HR, and the SOM can now post, edit, and delete company announcements directly from the portal - no admin dashboard needed.','Alignment content and announcements can now be pasted straight from a Word doc or PDF, keeping basic formatting like bold, headings, and lists.','Added AI-assisted "Fix Grammar" and "Help Me Draft" buttons to the Alignment and Announcement composers.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -635,8 +794,8 @@ window.addEventListener('resize',()=>{if(!$('tourOverlay').hidden)positionTour()
 function applyPortalRoleView(){
   const hideTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=true});
   if(portalRole==='HR'){
-    hideTabs(['kpi','schedule','attendance','pto','announcements']);
-    $('coachingTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;
+    hideTabs(['kpi','schedule','attendance','pto']);
+    $('coachingTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;$('alignmentTabBtn').hidden=true;
     $('statusSelect').closest('.field').hidden=true;$('timeInBtn').hidden=true;$('timeOutBtn').hidden=true;
     activeTab='disciplinary';
   }else if(portalRole==='SOM'){
@@ -645,7 +804,7 @@ function applyPortalRoleView(){
     $('siteCoachingTabBtn').hidden=false;
   }else if(portalRole==='QA'){
     hideTabs(['kpi','schedule','attendance','pto','announcements']);
-    $('coachingTabBtn').hidden=true;$('disciplinaryTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;
+    $('coachingTabBtn').hidden=true;$('disciplinaryTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;$('alignmentTabBtn').hidden=true;
     $('dsatReviewTabBtn').hidden=false;
     $('statusSelect').closest('.field').hidden=true;$('timeInBtn').hidden=true;$('timeOutBtn').hidden=true;
     activeTab='dsatReview';
@@ -883,6 +1042,192 @@ async function loadSiteCoachingTab(){
   }
 }
 $('siteCoachingTeamFilter').addEventListener('change',()=>{siteCoachingTeamFilterValue=$('siteCoachingTeamFilter').value;renderSiteCoaching()});
+function alignmentStatusPill(status){const cls=status==='APPROVED'?'status-ready':status==='PENDING_APPROVAL'?'status-pending':status==='REJECTED'?'status-failed':'status-no-data';return`<span class="pill ${cls}">${esc(ALIGNMENT_STATUS_LABELS[status]||status)}</span>`}
+function renderMyAlignment(){
+  $('myAlignmentBody').innerHTML=myAlignmentRecords.map(r=>{
+    const signed=Boolean(r.myAcknowledgment);
+    return`<tr><td>${esc(r.title)}</td><td>${esc(r.category)}</td><td>${esc(r.effectiveDate||'—')}</td><td>${esc(r.teamLeadName)}</td><td>${signed?'<span class="pill status-ready">Signed</span>':'<span class="pill status-pending">Needs Signature</span>'}</td><td><button class="btn compact" data-view-alignment="${esc(r.alignmentId)}">${signed?'View':'Review & Sign'}</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6">No alignment items yet.</td></tr>';
+}
+async function refreshMyAlignment(){try{myAlignmentRecords=(await loadMyAlignment()).records||[];renderMyAlignment()}catch(error){/* non-critical */}}
+function renderTeamAlignment(){
+  $('teamAlignmentBody').innerHTML=teamAlignmentRecords.map(r=>{
+    const targets=r.targetEmployees||[],signedCount=targets.filter(t=>r.acknowledgments?.[t.employeeEmail]).length;
+    const actions=[`<button class="btn compact" data-view-team-alignment="${esc(r.alignmentId)}">View</button>`];
+    if(['DRAFT','REJECTED'].includes(r.status)){
+      actions.push(`<button class="btn compact" data-edit-alignment="${esc(r.alignmentId)}">Edit</button>`);
+      actions.push(`<button class="btn compact" data-submit-alignment="${esc(r.alignmentId)}">${r.status==='REJECTED'?'Resubmit':'Submit for Approval'}</button>`);
+    }
+    if(r.status!=='APPROVED')actions.push(`<button class="btn compact danger" data-delete-alignment="${esc(r.alignmentId)}">Delete</button>`);
+    return`<tr><td><b>${esc(r.title)}</b></td><td>${esc(r.category)}</td><td>${esc(r.effectiveDate||'—')}</td><td>${alignmentStatusPill(r.status)}</td><td>${r.status==='APPROVED'?`${signedCount} / ${targets.length}`:'—'}</td><td>${actions.join(' ')}</td></tr>`;
+  }).join('')||'<tr><td colspan="6">No alignment items created yet.</td></tr>';
+}
+async function loadAlignmentReviewQueueTab(){
+  try{
+    alignmentReviewRecords=(await loadAlignmentReviewQueue()).records||[];
+    $('alignmentReviewSection').hidden=false;
+    renderAlignmentReview();
+  }catch(error){
+    $('alignmentReviewMessage').hidden=false;$('alignmentReviewMessage').className='message error';$('alignmentReviewMessage').textContent=error.response?.error||error.message;
+  }
+}
+async function loadAlignmentTab(){
+  try{
+    const teamResult=await loadMyTeamAlignment();
+    alignmentIsTeamLeader=Boolean(teamResult.isTeamLeader);
+    teamAlignmentMembers=teamResult.members||[];
+    teamAlignmentCategories=teamResult.categories||[];
+    teamAlignmentRecords=teamResult.records||[];
+    $('teamAlignmentSection').hidden=!alignmentIsTeamLeader;
+    if(alignmentIsTeamLeader)renderTeamAlignment();
+  }catch(error){
+    $('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message;
+  }
+  if(portalRole==='SOM')await loadAlignmentReviewQueueTab();
+  await refreshMyAlignment();
+}
+function openAlignmentForm(record){
+  editingAlignmentId=record?record.alignmentId:null;
+  const form=$('alignmentForm');
+  form.reset();
+  $('alignmentFormTitle').textContent=record?'Edit Alignment Item':'New Alignment Item';
+  form.elements.category.innerHTML=(teamAlignmentCategories.length?teamAlignmentCategories:['SOP','Process Update','Feature Update']).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const checkedEmails=new Set(record?(record.targetEmployees||[]).map(t=>t.employeeEmail):teamAlignmentMembers.map(m=>m.employeeEmail));
+  $('alignmentTargetChecklist').innerHTML=teamAlignmentMembers.map(m=>`<label style="display:block;margin-bottom:4px"><input type="checkbox" data-alignment-target value="${esc(m.employeeEmail)}"${checkedEmails.has(m.employeeEmail)?' checked':''}> ${esc(m.employeeName)}</label>`).join('')||'<div class="sub">No direct reports found.</div>';
+  if(record){
+    form.elements.title.value=record.title||'';
+    form.elements.category.value=record.category||'';
+    form.elements.effectiveDate.value=record.effectiveDate||'';
+  }
+  setRichTextValue('alignmentBodyField',record?record.body||'':'');
+  $('alignmentFormError').hidden=true;
+  $('alignmentFormModal').hidden=false;
+}
+$('newAlignmentBtn').onclick=()=>openAlignmentForm(null);
+$('alignmentFormCancel').onclick=()=>{$('alignmentFormModal').hidden=true};
+let alignmentFormSubmitting=false;
+$('alignmentForm').onsubmit=async event=>{
+  event.preventDefault();
+  if(alignmentFormSubmitting)return;alignmentFormSubmitting=true;
+  const status=event.submitter?.dataset.status||'DRAFT';
+  const buttons=event.currentTarget.querySelectorAll('button[type="submit"]');buttons.forEach(b=>b.disabled=true);
+  const values=Object.fromEntries(new FormData(event.currentTarget));
+  values.status=status;
+  values.body=getRichTextValue('alignmentBodyField');
+  values.targetEmployees=[...document.querySelectorAll('[data-alignment-target]:checked')].map(x=>x.value);
+  $('alignmentFormError').hidden=true;
+  try{
+    if(editingAlignmentId){
+      await updateTeamAlignment(editingAlignmentId,values);
+      if(status==='PENDING_APPROVAL')await submitTeamAlignment(editingAlignmentId);
+    }else{
+      await createTeamAlignment(values);
+    }
+    $('alignmentFormModal').hidden=true;
+    setMessage('Alignment item saved.','ok');
+    await loadAlignmentTab();
+  }catch(error){
+    $('alignmentFormError').hidden=false;$('alignmentFormError').textContent=error.response?.error||error.message;
+  }finally{alignmentFormSubmitting=false;buttons.forEach(b=>b.disabled=false)}
+};
+$('teamAlignmentBody').addEventListener('click',async event=>{
+  const viewId=event.target.dataset.viewTeamAlignment;
+  const editId=event.target.dataset.editAlignment;
+  const submitId=event.target.dataset.submitAlignment;
+  const deleteId=event.target.dataset.deleteAlignment;
+  if(viewId){const record=teamAlignmentRecords.find(r=>r.alignmentId===viewId);if(record)openAlignmentViewModal(record,false);return}
+  if(editId){const record=teamAlignmentRecords.find(r=>r.alignmentId===editId);if(record)openAlignmentForm(record);return}
+  if(submitId){
+    if(!confirm('Submit this alignment item for approval? It will be sent to the SOM for review.'))return;
+    try{await submitTeamAlignment(submitId);setMessage('Submitted for approval.','ok');await loadAlignmentTab()}catch(error){$('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message}
+    return;
+  }
+  if(deleteId){
+    if(!confirm('Delete this alignment item? This cannot be undone.'))return;
+    try{await deleteTeamAlignment(deleteId);setMessage('Alignment item deleted.','ok');await loadAlignmentTab()}catch(error){$('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message}
+  }
+});
+function alignmentDetailHtml(record){
+  const targets=record.targetEmployees||[];
+  const ackRows=targets.map(t=>{const ack=record.acknowledgments?.[t.employeeEmail];return`<div class="coachField"><div class="coachFieldLabel">${esc(t.employeeName)}</div>${ack?`Signed as <b>${esc(ack.signedName)}</b> on ${esc(String(ack.signedAt).slice(0,16).replace('T',' '))}`:'Awaiting signature'}</div>`}).join('');
+  let html='';
+  html+=coachCard('Details',`<div class="coachGrid2"><div class="coachField"><div class="coachFieldLabel">Category</div>${esc(record.category)}</div><div class="coachField"><div class="coachFieldLabel">Effective Date</div>${esc(record.effectiveDate||'—')}</div><div class="coachField"><div class="coachFieldLabel">Team Lead</div>${esc(record.teamLeadName)}</div><div class="coachField"><div class="coachFieldLabel">Status</div>${alignmentStatusPill(record.status)}</div></div>`);
+  if(record.decisionNotes)html+=coachCard('Notes from Approver',esc(record.decisionNotes));
+  html+=coachCard('Content',`<div class="richContent">${sanitizeRichHtml(record.body)}</div>`);
+  if(targets.length)html+=coachCard('Acknowledgment Status',ackRows);
+  return html;
+}
+function openAlignmentViewModal(record,allowSign){
+  signingAlignmentRecord=record;
+  $('alignmentSignTitle').textContent=record.title;
+  $('alignmentSignMeta').textContent=`${record.category} · Effective ${record.effectiveDate||'—'} · From ${record.teamLeadName}`;
+  $('alignmentSignBody').innerHTML=allowSign?sanitizeRichHtml(record.body):alignmentDetailHtml(record);
+  const showSignForm=allowSign&&!record.myAcknowledgment;
+  $('alignmentSignForm').hidden=!showSignForm;
+  $('alignmentSignSubmit').hidden=!showSignForm;
+  $('alignmentSignedNameInput').value='';
+  $('alignmentSignError').hidden=true;
+  $('alignmentSignModal').hidden=false;
+}
+$('myAlignmentBody').addEventListener('click',event=>{
+  const id=event.target.dataset.viewAlignment;
+  if(!id)return;
+  const record=myAlignmentRecords.find(r=>r.alignmentId===id);
+  if(record)openAlignmentViewModal(record,true);
+});
+$('alignmentSignClose').onclick=()=>{$('alignmentSignModal').hidden=true};
+$('alignmentSignSubmit').onclick=async()=>{
+  const signedName=$('alignmentSignedNameInput').value.trim();
+  if(!signedName){$('alignmentSignError').hidden=false;$('alignmentSignError').textContent='Please type your full name to sign.';return}
+  $('alignmentSignSubmit').disabled=true;
+  try{
+    await acknowledgeAlignment(signingAlignmentRecord.alignmentId,{signedName});
+    $('alignmentSignModal').hidden=true;
+    setMessage('Alignment item signed. Thank you.','ok');
+    await refreshMyAlignment();
+  }catch(error){
+    $('alignmentSignError').hidden=false;$('alignmentSignError').textContent=error.response?.error||error.message;
+  }finally{$('alignmentSignSubmit').disabled=false}
+};
+function renderAlignmentReview(){
+  $('alignmentReviewBody').innerHTML=alignmentReviewRecords.map(r=>{
+    const label=r.status==='PENDING_APPROVAL'?'Review':'View';
+    return`<tr><td><b>${esc(r.title)}</b></td><td>${esc(r.category)}</td><td>${esc(r.teamLeadName)}</td><td>${(r.targetEmployees||[]).length}</td><td>${alignmentStatusPill(r.status)}</td><td><button class="btn compact${r.status==='PENDING_APPROVAL'?' primary':''}" data-decide-alignment="${esc(r.alignmentId)}">${label}</button></td></tr>`;
+  }).join('')||'<tr><td colspan="6">Nothing pending.</td></tr>';
+}
+function openAlignmentDecideModal(record){
+  decidingAlignmentRecord=record;
+  $('alignmentDecideMeta').textContent=`${record.category} · Effective ${record.effectiveDate||'—'} · From ${record.teamLeadName} · ${(record.targetEmployees||[]).length} to acknowledge`;
+  $('alignmentDecideBody').innerHTML=sanitizeRichHtml(record.body);
+  $('alignmentDecideNotesInput').value=record.decisionNotes||'';
+  const decided=record.status!=='PENDING_APPROVAL';
+  $('alignmentDecideApprove').hidden=decided;
+  $('alignmentDecideReject').hidden=decided;
+  $('alignmentDecideNotesInput').disabled=decided;
+  $('alignmentDecideError').hidden=true;
+  $('alignmentDecideModal').hidden=false;
+}
+$('alignmentReviewBody').addEventListener('click',event=>{
+  const id=event.target.dataset.decideAlignment;
+  if(!id)return;
+  const record=alignmentReviewRecords.find(r=>r.alignmentId===id);
+  if(record)openAlignmentDecideModal(record);
+});
+$('alignmentDecideClose').onclick=()=>{$('alignmentDecideModal').hidden=true};
+async function decideAlignmentAction(decision){
+  if(!decidingAlignmentRecord)return;
+  const buttons=[$('alignmentDecideApprove'),$('alignmentDecideReject')];buttons.forEach(b=>b.disabled=true);
+  try{
+    await decideAlignment(decidingAlignmentRecord.alignmentId,{decision,notes:$('alignmentDecideNotesInput').value.trim()});
+    $('alignmentDecideModal').hidden=true;
+    setMessage(`Alignment item ${decision.toLowerCase()}.`,'ok');
+    await loadAlignmentReviewQueueTab();
+  }catch(error){
+    $('alignmentDecideError').hidden=false;$('alignmentDecideError').textContent=error.response?.error||error.message;
+  }finally{buttons.forEach(b=>b.disabled=false)}
+}
+$('alignmentDecideApprove').onclick=()=>decideAlignmentAction('APPROVED');
+$('alignmentDecideReject').onclick=()=>decideAlignmentAction('REJECTED');
 function renderDsatReviewPeriodOptions(){const periods=dsatReviewAvailablePeriods.length?dsatReviewAvailablePeriods:(selectedDsatReviewPeriod?[selectedDsatReviewPeriod]:[]);$('dsatReviewPeriod').innerHTML=periods.map(p=>`<option value="${esc(p)}"${p===selectedDsatReviewPeriod?' selected':''}>${esc(p)}</option>`).join('')||'<option value="">No periods available</option>'}
 function renderDsatReviewCards(){
   const total=dsatReviewTickets.length;
@@ -1430,7 +1775,7 @@ $('disciplinaryAckSubmit').onclick=async()=>{
     $('disciplinaryAckError').hidden=false;$('disciplinaryAckError').textContent=error.response?.error||error.message;
   }finally{$('disciplinaryAckSubmit').disabled=false}
 };
-async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;profilePhoto=(await getMyProfilePhoto().catch(()=>({photoBase64:''}))).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();await loadAttendanceMonth($('attendanceMonth').value,$('attendanceEndDate').value);loading.complete(4);loading.begin(step=5);announcements=(await loadMyAnnouncements()).announcements||[];renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();refreshMyDisciplinary();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
+async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;profilePhoto=(await getMyProfilePhoto().catch(()=>({photoBase64:''}))).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();await loadAttendanceMonth($('attendanceMonth').value,$('attendanceEndDate').value);loading.complete(4);loading.begin(step=5);const announcementResult=await loadMyAnnouncements();announcements=announcementResult.announcements||[];canManageAnnouncementsFlag=Boolean(announcementResult.canManage);renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();loading.complete(7);loadNotifications();$('teamAttendanceTabBtn').hidden=!isTeamLeader;$('teamRosterTabBtn').hidden=!isTeamLeader;refreshMyCoaching();refreshMyDisciplinary();loading.finish('Loaded',{state:'success',collapse:true})}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
 $('attendanceMonth').onchange=async()=>{const month=$('attendanceMonth').value;if(!month)return;$('attendanceEndDate').min=`${month}-01`;$('attendanceEndDate').max=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`;if(!$('attendanceEndDate').value.startsWith(month))$('attendanceEndDate').value=$('attendanceEndDate').max;try{await loadAttendanceMonth(month,$('attendanceEndDate').value)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceEndDate').onchange=async()=>{const month=$('attendanceMonth').value,endDate=$('attendanceEndDate').value;if(!month||!endDate)return;try{await loadAttendanceMonth(month,endDate)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceThisMonthBtn').onclick=async()=>{const month=todayET().slice(0,7);$('attendanceMonth').value=month;$('attendanceEndDate').value=todayET();try{await loadAttendanceMonth(month,todayET())}catch(error){setMessage(`Could not load attendance. ${error.response?.error||error.message}`,'error')}};

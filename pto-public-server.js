@@ -35,6 +35,7 @@
 */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -45,10 +46,43 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+// Optional: powers the "Fix Grammar" / "Help Me Draft" buttons on the Alignment and
+// Announcement composers. Get a free key at https://aistudio.google.com/apikey and set
+// GEMINI_API_KEY in this service's environment (Render dashboard, not a committed file) -
+// left blank, those buttons just show "not configured yet" instead of erroring.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+function callGemini(prompt) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+    const req = https.request({
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 20000
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(data); } catch { return reject(new Error('Gemini returned an unreadable response.')); }
+        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `Gemini returned HTTP ${res.statusCode}.`));
+        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) return reject(new Error('Gemini returned no suggestion - try rephrasing or shortening the text.'));
+        resolve(text.trim());
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('Gemini request timed out.')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.8.0';
+const PORTAL_VERSION = '1.10.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -128,7 +162,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png']);
 
 function escapeHtml(value) {
@@ -553,6 +587,18 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
   data.events.push({ auditId: `COACH-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, coachingId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveCoachingAudit(data);
 }
+const ALIGNMENT_KEY = 'mtdkpi:alignment-records';
+const ALIGNMENT_AUDIT_KEY = 'mtdkpi:alignment-audit';
+const ALIGNMENT_CATEGORIES = ['SOP', 'Process Update', 'Feature Update'];
+async function loadAlignment() { return cloudStore.kvGetJson(ALIGNMENT_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
+async function saveAlignment(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(ALIGNMENT_KEY, data); return data; }
+async function loadAlignmentAudit() { return cloudStore.kvGetJson(ALIGNMENT_AUDIT_KEY, { version: 1, events: [] }); }
+async function saveAlignmentAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(ALIGNMENT_AUDIT_KEY, data); return data; }
+async function appendAlignmentAudit(alignmentId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
+  const data = await loadAlignmentAudit();
+  data.events.push({ auditId: `ALIGN-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, alignmentId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
+  await saveAlignmentAudit(data);
+}
 // Snapshot of the employee's standing at the moment a coaching record is created - frozen
 // at creation time (never recomputed later), so the record stays an honest account of what
 // was true when the conversation happened, same principle as a PTO request's approvedDates.
@@ -684,6 +730,16 @@ function portalRoleFor(email) {
   if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
   if (clean === DSAT_REVIEWER_EMAIL) return 'QA';
   return 'REP';
+}
+// HR and SOM always qualify; anyone else needs at least one active direct report (i.e. is
+// actually a team lead) to post/manage announcements or Alignment items from this portal.
+async function canManageAnnouncements(identity, employeeName) {
+  const role = portalRoleFor(identity);
+  if (role === 'HR' || role === 'SOM') return true;
+  const roster = await loadRosterSnapshot();
+  const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+  const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
+  return (roster.records || []).some(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
 }
 
 async function loadDisciplinary() { return cloudStore.kvGetJson(DISCIPLINARY_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
@@ -1324,12 +1380,77 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
     }
 
+    // Admin-posted announcements (MTD_Announcements.html) live in a one-way snapshot key -
+    // zendesk-proxy.js overwrites mtdkpi:snapshot:announcements wholesale from its local file
+    // every sync tick, so anything written there from this server would vanish within ~30s.
+    // Portal-posted ones (Team Leads/HR/SOM, added below) go in their own additive key instead
+    // and get merged in here at read time - no risk of either side clobbering the other.
+    const PUBLIC_ANNOUNCEMENTS_KEY = 'mtdkpi:public-announcements';
     if (parsed.pathname === '/api/my/announcements' && req.method === 'GET') {
-      const snapshot = await loadAnnouncementsSnapshot();
-      const announcements = (snapshot.announcements || [])
+      const [snapshot, publicAnnouncements, canManage] = await Promise.all([
+        loadAnnouncementsSnapshot(),
+        cloudStore.kvGetJson(PUBLIC_ANNOUNCEMENTS_KEY, []),
+        canManageAnnouncements(identity, session.employeeName)
+      ]);
+      const announcements = [...(snapshot.announcements || []), ...publicAnnouncements]
         .filter(x => x.active !== false)
         .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-      return json(res, 200, { ok: true, announcements });
+      return json(res, 200, { ok: true, announcements, canManage });
+    }
+
+    if (parsed.pathname === '/api/my/announcements' && req.method === 'POST') {
+      if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to post announcements.' });
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim();
+      const contentHtml = String(body.body || '').trim();
+      if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and body are required.' });
+      const now = new Date().toISOString();
+      const announcement = { id: `PUB-ANN-${Date.now()}`, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: true, postedBy: session.employeeName || identity, createdAt: now, updatedAt: now };
+      const list = await cloudStore.kvGetJson(PUBLIC_ANNOUNCEMENTS_KEY, []);
+      list.push(announcement);
+      await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
+      return json(res, 201, { ok: true, announcement });
+    }
+
+    const publicAnnouncementMatch = parsed.pathname.match(/^\/api\/my\/announcements\/([^/]+)$/);
+    if (publicAnnouncementMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to manage announcements.' });
+      const id = decodeURIComponent(publicAnnouncementMatch[1]);
+      if (!id.startsWith('PUB-ANN-')) return json(res, 403, { ok: false, error: 'This announcement was posted from the admin dashboard and can only be managed there.' });
+      const list = await cloudStore.kvGetJson(PUBLIC_ANNOUNCEMENTS_KEY, []);
+      const index = list.findIndex(x => x.id === id);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Announcement not found.' });
+      if (req.method === 'DELETE') {
+        list.splice(index, 1);
+        await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
+        return json(res, 200, { ok: true, deleted: id });
+      }
+      const body = await readJsonBody(req);
+      const current = list[index];
+      const title = String(body.title ?? current.title).trim();
+      const contentHtml = String(body.body ?? current.body).trim();
+      if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and body are required.' });
+      list[index] = { ...current, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
+      await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
+      return json(res, 200, { ok: true, announcement: list[index] });
+    }
+
+    if (parsed.pathname === '/api/my/draft-assist' && req.method === 'POST') {
+      if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to use this.' });
+      if (!GEMINI_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GEMINI_API_KEY.' });
+      const body = await readJsonBody(req);
+      const text = String(body.text || '').trim();
+      const mode = body.mode === 'draft' ? 'draft' : 'grammar';
+      if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
+      const prompt = mode === 'draft'
+        ? `Expand the following rough notes into clear, professional prose suitable for an internal company SOP or announcement. Keep it concise - a short paragraph or two. Return ONLY the drafted text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`
+        : `Fix the grammar, spelling, and clarity of the following text. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the corrected text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
+      try {
+        const suggestion = await callGemini(prompt);
+        return json(res, 200, { ok: true, suggestion });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: `AI assist failed: ${error.message}` });
+      }
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
@@ -1923,6 +2044,169 @@ const server = http.createServer(async (req, res) => {
         byRep: [...byRep.values()].sort((a, b) => b.total - a.total),
         records
       });
+    }
+
+    // Alignment: a team lead pastes an SOP/Process Update/Feature Update, picks which of their
+    // own direct reports need to acknowledge it, and submits it to the SOM (Charlotte) for
+    // approval. Only once APPROVED does it appear on each target rep's own portal to e-sign -
+    // unlike Coaching (one session, one employee), one Alignment item can be signed by many
+    // reps independently, so acknowledgments are keyed by employeeEmail on the record itself
+    // rather than being a single status transition.
+    if (parsed.pathname === '/api/my/team-alignment' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const data = await loadAlignment();
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.createdBy) === identity).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, categories: ALIGNMENT_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/team-alignment' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim();
+      const category = String(body.category || '');
+      const contentHtml = String(body.body || '').trim();
+      if (!title) return json(res, 400, { ok: false, error: 'A title is required.' });
+      if (!ALIGNMENT_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid category is required.' });
+      if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
+      const effectiveDate = ptoLogic.validDate(body.effectiveDate) ? body.effectiveDate : null;
+      const roster = await loadRosterSnapshot();
+      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const requestedTargets = Array.isArray(body.targetEmployees) ? body.targetEmployees.map(ptoLogic.cleanEmail) : [];
+      const targetEmployees = assignedMembers.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
+      if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one team member who needs to acknowledge this.' });
+      const data = await loadAlignment();
+      const year = new Date().toISOString().slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const alignmentId = `ALIGN-${year}-${String(sequence).padStart(4, '0')}`;
+      const now = new Date().toISOString();
+      const status = body.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : 'DRAFT';
+      const record = {
+        alignmentId, title, category, body: contentHtml, effectiveDate,
+        createdBy: identity, teamLeadName: leaderName || session.employeeName || '',
+        targetEmployees, status, createdAt: now, updatedAt: now,
+        submittedAt: status === 'PENDING_APPROVAL' ? now : null,
+        decidedAt: null, decidedByName: null, decisionNotes: null,
+        acknowledgments: {}
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveAlignment(data);
+      await appendAlignmentAudit(alignmentId, status === 'PENDING_APPROVAL' ? 'CREATED_AND_SUBMITTED' : 'CREATED_DRAFT', { user: identity, newValue: record });
+      return json(res, 201, { ok: true, record });
+    }
+
+    const alignmentMatch = parsed.pathname.match(/^\/api\/my\/team-alignment\/([^/]+)(?:\/(submit))?$/);
+    if (alignmentMatch) {
+      const alignmentId = decodeURIComponent(alignmentMatch[1]), action = alignmentMatch[2] || '';
+      const data = await loadAlignment();
+      const index = (data.records || []).findIndex(x => x.alignmentId === alignmentId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Alignment record not found.' });
+      const current = data.records[index];
+      if (ptoLogic.cleanEmail(current.createdBy) !== identity) return json(res, 403, { ok: false, error: 'Only the team lead who created this can manage it.' });
+      if (req.method === 'GET' && !action) return json(res, 200, { ok: true, record: current });
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      if (req.method === 'PUT' && !action) {
+        if (!['DRAFT', 'REJECTED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft or rejected item can be edited.' });
+        const title = String(body.title ?? current.title).trim();
+        const category = ALIGNMENT_CATEGORIES.includes(body.category) ? body.category : current.category;
+        const contentHtml = String(body.body ?? current.body).trim();
+        const effectiveDate = body.effectiveDate === undefined ? current.effectiveDate : (ptoLogic.validDate(body.effectiveDate) ? body.effectiveDate : null);
+        let targetEmployees = current.targetEmployees;
+        if (Array.isArray(body.targetEmployees)) {
+          const roster = await loadRosterSnapshot();
+          const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+          const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
+          const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+          const requestedTargets = body.targetEmployees.map(ptoLogic.cleanEmail);
+          targetEmployees = assignedMembers.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
+        }
+        if (!title) return json(res, 400, { ok: false, error: 'A title is required.' });
+        if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
+        if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one team member who needs to acknowledge this.' });
+        const next = { ...current, title, category, body: contentHtml, effectiveDate, targetEmployees, updatedAt: now };
+        data.records[index] = next;
+        await saveAlignment(data);
+        await appendAlignmentAudit(alignmentId, 'EDITED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE' && !action) {
+        if (current.status === 'APPROVED') return json(res, 409, { ok: false, error: 'An approved alignment item cannot be deleted.' });
+        data.records.splice(index, 1);
+        await saveAlignment(data);
+        await appendAlignmentAudit(alignmentId, 'DELETED', { user: identity, previousValue: current });
+        return json(res, 200, { ok: true, deleted: alignmentId });
+      }
+      if (action === 'submit') {
+        if (!['DRAFT', 'REJECTED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft or rejected item can be submitted for approval.' });
+        const next = { ...current, status: 'PENDING_APPROVAL', submittedAt: now, updatedAt: now, decidedAt: null, decidedByName: null, decisionNotes: null };
+        data.records[index] = next;
+        await saveAlignment(data);
+        await appendAlignmentAudit(alignmentId, 'SUBMITTED', { user: identity, previousValue: current.status, newValue: 'PENDING_APPROVAL' });
+        return json(res, 200, { ok: true, record: next });
+      }
+      return json(res, 404, { ok: false, error: 'Unknown alignment action.' });
+    }
+
+    if (parsed.pathname === '/api/som/alignment-review' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadAlignment();
+      const records = (data.records || []).filter(x => x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records });
+    }
+
+    const alignmentDecideMatch = parsed.pathname.match(/^\/api\/som\/alignment-review\/([^/]+)\/decide$/);
+    if (alignmentDecideMatch && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const alignmentId = decodeURIComponent(alignmentDecideMatch[1]);
+      const body = await readJsonBody(req);
+      const decision = String(body.decision || '').toUpperCase();
+      if (!['APPROVED', 'REJECTED'].includes(decision)) return json(res, 400, { ok: false, error: 'A valid decision (APPROVED or REJECTED) is required.' });
+      const data = await loadAlignment();
+      const index = (data.records || []).findIndex(x => x.alignmentId === alignmentId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Alignment record not found.' });
+      const current = data.records[index];
+      if (current.status !== 'PENDING_APPROVAL') return json(res, 409, { ok: false, error: 'Only an item pending approval can be decided.' });
+      const now = new Date().toISOString();
+      const next = { ...current, status: decision, decidedAt: now, decidedByName: session.employeeName, decisionNotes: String(body.notes || '').trim(), updatedAt: now };
+      data.records[index] = next;
+      await saveAlignment(data);
+      await appendAlignmentAudit(alignmentId, decision, { user: identity, previousValue: current.status, newValue: decision, notes: next.decisionNotes });
+      return json(res, 200, { ok: true, record: next });
+    }
+
+    if (parsed.pathname === '/api/my/alignment' && req.method === 'GET') {
+      const data = await loadAlignment();
+      const records = (data.records || [])
+        .filter(x => x.status === 'APPROVED' && (x.targetEmployees || []).some(t => ptoLogic.cleanEmail(t.employeeEmail) === identity))
+        .map(x => ({ ...x, myAcknowledgment: x.acknowledgments?.[identity] || null }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records });
+    }
+
+    const alignmentAckMatch = parsed.pathname.match(/^\/api\/my\/alignment\/([^/]+)\/acknowledge$/);
+    if (alignmentAckMatch && req.method === 'POST') {
+      const alignmentId = decodeURIComponent(alignmentAckMatch[1]);
+      const body = await readJsonBody(req);
+      const signedName = String(body.signedName || '').trim();
+      if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
+      const data = await loadAlignment();
+      const index = (data.records || []).findIndex(x => x.alignmentId === alignmentId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Alignment record not found.' });
+      const current = data.records[index];
+      if (!(current.targetEmployees || []).some(t => ptoLogic.cleanEmail(t.employeeEmail) === identity)) return json(res, 403, { ok: false, error: 'This item was not assigned to you.' });
+      if (current.status !== 'APPROVED') return json(res, 409, { ok: false, error: 'Only an approved item can be acknowledged.' });
+      if (current.acknowledgments?.[identity]) return json(res, 409, { ok: false, error: 'You have already acknowledged this.' });
+      const now = new Date().toISOString();
+      const next = { ...current, acknowledgments: { ...current.acknowledgments, [identity]: { signedName, signedAt: now } }, updatedAt: now };
+      data.records[index] = next;
+      await saveAlignment(data);
+      await appendAlignmentAudit(alignmentId, 'ACKNOWLEDGED', { user: identity, notes: signedName });
+      return json(res, 200, { ok: true, record: next });
     }
 
     if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'GET') {
