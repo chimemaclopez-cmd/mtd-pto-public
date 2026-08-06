@@ -751,6 +751,18 @@ function portalRoleFor(email) {
   if (clean === DSAT_REVIEWER_EMAIL) return 'QA';
   return 'REP';
 }
+// The platform's own creator/admin can't otherwise see the QA/SOM/HR tabs - those are each
+// tied to one specific person's email, and Mac isn't any of them (he already gets real Team
+// Lead access on his own account since other active employees genuinely report to him - no
+// preview needed there). "View As" is READ-ONLY: it only widens what a GET request returns,
+// stored per-session via /api/my/view-as. Every write/decide endpoint below keeps checking
+// portalRoleFor()/disciplinaryReviewAccess() against the REAL identity with no override, so
+// an action taken while previewing can never get misattributed to the person being previewed.
+const ADMIN_EMAILS = new Set(['mac@lofty.com']);
+const VIEW_AS_ROLES = new Set(['QA', 'SOM', 'HR']);
+function effectiveViewAsRole(identity, session) {
+  return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
+}
 // HR and SOM always qualify; anyone else needs at least one active direct report (i.e. is
 // actually a team lead) to post/manage announcements or Alignment items from this portal.
 async function canManageAnnouncements(identity, employeeName) {
@@ -771,7 +783,12 @@ async function appendDisciplinaryAudit(violationId, action, { user = 'Team Lead'
   data.events.push({ auditId: `VIOL-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, violationId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveDisciplinaryAudit(data);
 }
-async function disciplinaryReviewAccess(identity, employeeName = '') {
+// viewAsRole only ever widens canPreDecide/canDecide for a caller reading the list (see the
+// callers below - it's passed only on GET paths, never on a predecide/decide/acknowledge POST)
+// so an admin previewing SOM/HR sees the same records that role would see, without those
+// flags ever enabling an actual write - the POST endpoints below re-derive access from the
+// real identity alone, with no viewAsRole argument at all.
+async function disciplinaryReviewAccess(identity, employeeName = '', viewAsRole = '') {
   const roster = await loadRosterSnapshot();
   const records = roster.records || [];
   const cleanIdentity = ptoLogic.cleanEmail(identity);
@@ -784,9 +801,9 @@ async function disciplinaryReviewAccess(identity, employeeName = '') {
   ).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
   return {
     memberEmails, isTeamLeader: memberEmails.size > 0,
-    canPreDecide: cleanIdentity === PRE_DISCIPLINARY_APPROVER_EMAIL,
-    canDecide: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL,
-    isHrOnly: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL
+    canPreDecide: cleanIdentity === PRE_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'SOM',
+    canDecide: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR',
+    isHrOnly: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR'
   };
 }
 // Counts this employee's still-active (non-cleansed) prior violations at this exact tier
@@ -966,7 +983,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), viewAsRole: '' });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1078,7 +1095,22 @@ const server = http.createServer(async (req, res) => {
     const mustChangePassword = Boolean(credential?.mustChangePassword);
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(session.employeeEmail) });
+      const viewAsRole = effectiveViewAsRole(identity, session);
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), viewAsRole });
+    }
+
+    // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
+    // to one specific person's email otherwise) without signing in as that person. Stored on
+    // the session itself so it persists across page loads until explicitly cleared - every
+    // write/decide endpoint still checks the real identity, never this preference.
+    if (parsed.pathname === '/api/my/view-as' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const role = String(body.role || '').toUpperCase();
+      if (role && !VIEW_AS_ROLES.has(role)) return json(res, 400, { ok: false, error: 'Unknown preview role.' });
+      const remainingSeconds = Math.max(60, Math.round((new Date(session.expiresAt).getTime() - Date.now()) / 1000));
+      await cloudStore.kvSetJson(sessionKey(sessionToken), { ...session, viewAsRole: role }, { exSeconds: remainingSeconds });
+      return json(res, 200, { ok: true, viewAsRole: role, portalRole: role || portalRoleFor(identity) });
     }
 
     if (parsed.pathname === '/api/my/tour-complete' && req.method === 'POST') {
@@ -1325,7 +1357,7 @@ const server = http.createServer(async (req, res) => {
     // to Voice/Non-Voice/Senior TSR for KPI-scoring purposes and would silently hide bad CSAT
     // tickets assigned to a Database Agent, a team lead, or anyone else active.
     if (parsed.pathname === '/api/qa/dsat-review' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'QA' && effectiveViewAsRole(identity, session) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const siteMetricsData = await loadSiteMetricsSnapshot();
       const availablePeriods = Object.keys(siteMetricsData.periods || {}).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
@@ -2065,7 +2097,7 @@ const server = http.createServer(async (req, res) => {
     // are excluded (still private to the team lead who's drafting them, same rule as
     // /api/my/coaching above) since a draft isn't a real coaching action yet.
     if (parsed.pathname === '/api/som/coaching-overview' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'SOM' && effectiveViewAsRole(identity, session) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadCoaching();
       const records = (data.records || []).filter(x => x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const statusKey = s => (s === 'SENT' ? 'sent' : 'acknowledged');
@@ -2220,7 +2252,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/som/alignment-review' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'SOM' && effectiveViewAsRole(identity, session) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadAlignment();
       const records = (data.records || []).filter(x => x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, records });
@@ -2283,7 +2315,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'GET') {
-      const [roster, access] = await Promise.all([loadRosterSnapshot(), disciplinaryReviewAccess(identity, session.employeeName)]);
+      const [roster, access] = await Promise.all([loadRosterSnapshot(), disciplinaryReviewAccess(identity, session.employeeName, effectiveViewAsRole(identity, session))]);
       const data = await loadDisciplinary();
       const allRecords = data.records || [];
       const records = (access.canDecide || access.canPreDecide)
@@ -2345,7 +2377,10 @@ const server = http.createServer(async (req, res) => {
       const index = (data.records || []).findIndex(x => x.violationId === violationId);
       if (index < 0) return json(res, 404, { ok: false, error: 'Disciplinary record not found.' });
       const current = data.records[index];
-      const access = await disciplinaryReviewAccess(identity, session.employeeName);
+      // viewAsRole is only ever passed on a plain GET below - predecide/decide/acknowledge
+      // (action truthy, always POST) always call disciplinaryReviewAccess with no override,
+      // so those branches check the real identity exclusively.
+      const access = await disciplinaryReviewAccess(identity, session.employeeName, req.method === 'GET' && !action ? effectiveViewAsRole(identity, session) : '');
       const isOwner = ptoLogic.cleanEmail(current.teamLeadEmail) === identity;
       if (req.method === 'GET' && !action) {
         const isEmployee = ptoLogic.cleanEmail(current.employeeEmail) === identity;
