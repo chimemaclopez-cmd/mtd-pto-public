@@ -813,6 +813,15 @@ $('tourNext').onclick=tourNext;$('tourBack').onclick=tourBack;$('tourSkip').oncl
 window.addEventListener('resize',()=>{if(!$('tourOverlay').hidden)positionTour()});
 function applyPortalRoleView(){
   const hideTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=true});
+  const showTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=false});
+  // This function re-runs on every login within the same browser tab, without a full page
+  // reload in between (single-page app) - so anything a previous role only ever *hid* and
+  // never explicitly restored here would otherwise stay stuck for whichever role logs in
+  // next. Reset everything to the default (REP) view first, then layer role restrictions on.
+  showTabs(['kpi','schedule','attendance','pto','announcements','coaching','disciplinary','alignment']);
+  $('siteCoachingTabBtn').hidden=true;$('dsatReviewTabBtn').hidden=true;
+  $('statusSelect').closest('.field').hidden=false;$('timeInBtn').hidden=false;$('timeOutBtn').hidden=false;
+  activeTab='profile';
   if(portalRole==='HR'){
     hideTabs(['kpi','schedule','attendance','pto']);
     $('coachingTabBtn').hidden=true;$('teamAttendanceTabBtn').hidden=true;$('teamRosterTabBtn').hidden=true;$('alignmentTabBtn').hidden=true;
