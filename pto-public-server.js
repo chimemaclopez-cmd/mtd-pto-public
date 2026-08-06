@@ -35,6 +35,7 @@
 */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -45,6 +46,38 @@ const emailService = require('./server/email-service.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
+// Optional: powers the "Rephrase" button on Alignment/Announcement composers and the Alignment
+// contradiction review. Set GROQ_API_KEY in this service's environment (Render dashboard, not
+// a committed file) - left blank, those features just show "not configured yet."
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+function callGroq(prompt, { maxTokens = 1024 } = {}) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ model: GROQ_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+    const req = https.request({
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Length': Buffer.byteLength(body) },
+      timeout: 25000
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        let parsed;
+        try { parsed = JSON.parse(data); } catch { return reject(new Error('Groq returned an unreadable response.')); }
+        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `Groq returned HTTP ${res.statusCode}.`));
+        const text = parsed.choices?.[0]?.message?.content;
+        if (!text) return reject(new Error('Groq returned no suggestion - try again with shorter text.'));
+        resolve(text.trim());
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('Groq request timed out.')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
@@ -1419,6 +1452,21 @@ const server = http.createServer(async (req, res) => {
       list[index] = { ...current, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
       return json(res, 200, { ok: true, announcement: list[index] });
+    }
+
+    if (parsed.pathname === '/api/my/draft-assist' && req.method === 'POST') {
+      if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to use this.' });
+      if (!GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GROQ_API_KEY.' });
+      const body = await readJsonBody(req);
+      const text = String(body.text || '').trim();
+      if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
+      const prompt = `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
+      try {
+        const suggestion = await callGroq(prompt);
+        return json(res, 200, { ok: true, suggestion });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: `AI assist failed: ${error.message}` });
+      }
     }
 
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
