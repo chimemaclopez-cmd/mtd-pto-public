@@ -1461,9 +1461,14 @@ const server = http.createServer(async (req, res) => {
       const text = String(body.text || '').trim();
       const instructions = String(body.instructions || '').trim();
       if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
-      const prompt = instructions
-        ? `Rephrase the following text according to these instructions: "${instructions}". Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`
-        : `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
+      // Wrap the content in explicit tags rather than just appending it after the instructions -
+      // small fast models (Groq's llama-3.1-8b-instant) can otherwise get confused about where
+      // the instructions end and the actual content begins, especially on short input, and
+      // respond by asking for "the text" instead of just rephrasing what's already there.
+      const instruction = instructions
+        ? `Rephrase the text below according to these instructions: "${instructions}".`
+        : `Rephrase the text below to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite.`;
+      const prompt = `${instruction} The text to rephrase is everything between the <text> tags, even if it looks short, incomplete, or like a placeholder - always rephrase exactly what's there. Return ONLY the rephrased text with no <text> tags, no preamble, no markdown formatting, and no quotation marks around it.\n\n<text>\n${text}\n</text>`;
       try {
         const suggestion = await callGroq(prompt);
         return json(res, 200, { ok: true, suggestion });
