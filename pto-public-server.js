@@ -1422,28 +1422,39 @@ const server = http.createServer(async (req, res) => {
       // of which "month|endDate" period it was saved under, so flatten every period's per-email
       // per-date codes into a single date->email->code map (later-saved periods win on
       // conflict) rather than requiring an exact period-key match with the site-metrics rows.
+      // A LATE entry is stored as an object ({status:'LATE', minutesLate, location}), every
+      // other code as a plain string - unwrap to {code, location} uniformly so the tally below
+      // never compares a string to an object (which silently drops the entry, matching neither
+      // branch).
       const attendanceData = await loadAttendanceSnapshot();
       const attendanceByDate = new Map();
       for (const key of Object.keys(attendanceData.periods || {}).sort()) {
         const byEmail = attendanceData.periods[key] || {};
         for (const email of Object.keys(byEmail)) {
-          for (const [date, code] of Object.entries(byEmail[email] || {})) {
+          for (const [date, raw] of Object.entries(byEmail[email] || {})) {
+            const code = raw && typeof raw === 'object' ? raw.status : raw;
+            const location = raw && typeof raw === 'object' ? raw.location : null;
             if (!attendanceByDate.has(date)) attendanceByDate.set(date, new Map());
-            attendanceByDate.get(date).set(email, code);
+            attendanceByDate.get(date).set(email, { code, location });
           }
         }
       }
       const historyWithAttendance = history.map(row => {
         const codesForDay = attendanceByDate.get(row.endDate);
         let onsite = 0, wfh = 0, late = 0, plannedOut = 0, unplannedOut = 0;
-        // "Late" is stored as its own attendance code, replacing ONSITE/WFH rather than
-        // tagging one of them - the data has no record of where a late employee was. Keeping
-        // it out of onsite/wfh/present (instead of guessing) is what keeps Present an exact
-        // Onsite + WFH sum rather than a number that silently includes unlocated Lates.
-        if (codesForDay) for (const code of codesForDay.values()) {
+        // A late entry now records where that employee actually worked, so it counts toward
+        // Onsite/WFH like any other present day - Late is a separate tardiness indicator on
+        // top of that, not a third location bucket. Older entries saved before this field
+        // existed (and any future one somehow missing it) have no location on file; default
+        // those to Onsite for now rather than dropping them from the headcount entirely.
+        if (codesForDay) for (const { code, location } of codesForDay.values()) {
           if (code === 'ONSITE') onsite++;
           else if (code === 'WFH') wfh++;
-          else if (code === 'LATE') late++;
+          else if (code === 'LATE') {
+            late++;
+            if (location === 'WFH') wfh++;
+            else onsite++;
+          }
           else if (PLANNED_OUT_CODES.has(code)) plannedOut++;
           else if (UNPLANNED_OUT_CODES.has(code)) unplannedOut++;
         }
