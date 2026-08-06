@@ -2188,9 +2188,15 @@ const server = http.createServer(async (req, res) => {
       const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
       return (roster.records || []).some(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
     }
+    // Leadership (kpiType 'Excluded') used to be excluded outright - now included, tagged with
+    // isLeadership, since leadership sometimes needs to acknowledge the same SOP/process update
+    // as everyone else. The "Include Leaders" checkbox in the target picker is a client-side
+    // display filter over this same full list, not a separate eligibility rule - a team lead
+    // being able to loop in a manager isn't a privilege concern worth gating server-side.
     async function eligibleAlignmentTargets(identity) {
       const roster = await loadRosterSnapshot();
-      return (roster.records || []).filter(x => x.active !== false && x.kpiType !== 'Excluded' && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
+      return (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity)
+        .map(x => ({ ...x, isLeadership: x.kpiType === 'Excluded' }));
     }
     // Shared by /api/my/generate-quiz's AI output and the team-alignment create/edit routes'
     // manually-authored questions - drops anything malformed (no text, fewer than 2 options,
@@ -2209,7 +2215,7 @@ const server = http.createServer(async (req, res) => {
       const [isTeamLeader, eligibleTargets] = await Promise.all([hasDirectReports(identity, session.employeeName), eligibleAlignmentTargets(identity)]);
       const data = await loadAlignment();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.createdBy) === identity).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { ok: true, isTeamLeader, categories: ALIGNMENT_CATEGORY_OPTIONS, members: eligibleTargets.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
+      return json(res, 200, { ok: true, isTeamLeader, categories: ALIGNMENT_CATEGORY_OPTIONS, members: eligibleTargets.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, isLeadership: x.isLeadership })), records, lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/my/team-alignment' && req.method === 'POST') {
@@ -2222,6 +2228,7 @@ const server = http.createServer(async (req, res) => {
       if (!ALIGNMENT_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid category is required.' });
       if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
       const effectiveDate = ptoLogic.validDate(body.effectiveDate) ? body.effectiveDate : null;
+      const dueDate = ptoLogic.validDate(body.dueDate) ? body.dueDate : null;
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
@@ -2236,7 +2243,7 @@ const server = http.createServer(async (req, res) => {
       const now = new Date().toISOString();
       const status = body.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : 'DRAFT';
       const record = {
-        alignmentId, title, category, body: contentHtml, effectiveDate,
+        alignmentId, title, category, body: contentHtml, effectiveDate, dueDate,
         createdBy: identity, teamLeadName: leaderName || session.employeeName || '',
         targetEmployees, status, createdAt: now, updatedAt: now,
         submittedAt: status === 'PENDING_APPROVAL' ? now : null,
@@ -2268,6 +2275,7 @@ const server = http.createServer(async (req, res) => {
         const category = ALIGNMENT_CATEGORIES.includes(body.category) ? body.category : current.category;
         const contentHtml = String(body.body ?? current.body).trim();
         const effectiveDate = body.effectiveDate === undefined ? current.effectiveDate : (ptoLogic.validDate(body.effectiveDate) ? body.effectiveDate : null);
+        const dueDate = body.dueDate === undefined ? current.dueDate : (ptoLogic.validDate(body.dueDate) ? body.dueDate : null);
         let targetEmployees = current.targetEmployees;
         if (Array.isArray(body.targetEmployees)) {
           const eligibleTargets = await eligibleAlignmentTargets(identity);
@@ -2278,7 +2286,7 @@ const server = http.createServer(async (req, res) => {
         if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
         if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one employee who needs to acknowledge this.' });
         const quiz = body.quiz === undefined ? current.quiz : sanitizeQuizQuestions(body.quiz);
-        const next = { ...current, title, category, body: contentHtml, effectiveDate, targetEmployees, quiz, updatedAt: now };
+        const next = { ...current, title, category, body: contentHtml, effectiveDate, dueDate, targetEmployees, quiz, updatedAt: now };
         data.records[index] = next;
         await saveAlignment(data);
         await appendAlignmentAudit(alignmentId, 'EDITED', { user: identity, previousValue: current, newValue: next });
