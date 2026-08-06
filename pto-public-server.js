@@ -1435,15 +1435,19 @@ const server = http.createServer(async (req, res) => {
       }
       const historyWithAttendance = history.map(row => {
         const codesForDay = attendanceByDate.get(row.endDate);
-        let onsite = 0, wfh = 0, present = 0, plannedOut = 0, unplannedOut = 0;
+        let onsite = 0, wfh = 0, late = 0, plannedOut = 0, unplannedOut = 0;
+        // "Late" is stored as its own attendance code, replacing ONSITE/WFH rather than
+        // tagging one of them - the data has no record of where a late employee was. Keeping
+        // it out of onsite/wfh/present (instead of guessing) is what keeps Present an exact
+        // Onsite + WFH sum rather than a number that silently includes unlocated Lates.
         if (codesForDay) for (const code of codesForDay.values()) {
-          if (code === 'ONSITE') { onsite++; present++; }
-          else if (code === 'WFH') { wfh++; present++; }
-          else if (code === 'LATE') present++;
+          if (code === 'ONSITE') onsite++;
+          else if (code === 'WFH') wfh++;
+          else if (code === 'LATE') late++;
           else if (PLANNED_OUT_CODES.has(code)) plannedOut++;
           else if (UNPLANNED_OUT_CODES.has(code)) unplannedOut++;
         }
-        return { ...row, attendance: { onsite, wfh, present, plannedOut, unplannedOut } };
+        return { ...row, attendance: { onsite, wfh, present: onsite + wfh, late, plannedOut, unplannedOut } };
       });
       return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods, history: historyWithAttendance });
     }
