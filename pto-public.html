@@ -275,7 +275,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Effective Date</label><input name="effectiveDate" type="date"></div>
 </div>
 <div class="field" style="margin-top:10px"><label>Content *</label><div id="alignmentBodyFieldContainer"></div><div class="sub" style="margin-top:4px">Paste directly from your Word/PDF SOP - basic formatting (bold, headings, lists) is kept.</div></div>
-<div class="field" style="margin-top:10px"><label>Who needs to acknowledge this? *</label><div id="alignmentTargetChecklist" class="details" style="max-height:180px;overflow:auto"></div></div>
+<div class="field" style="margin-top:10px"><label>Who needs to acknowledge this? *</label><div class="actions noPrint" style="justify-content:space-between;margin-bottom:6px"><input type="text" id="alignmentTargetFilter" placeholder="Filter by name..." style="flex:1;max-width:260px"><span><button type="button" class="btn compact" id="alignmentTargetSelectAll">Select All</button> <button type="button" class="btn compact" id="alignmentTargetSelectNone">Clear All</button></span></div><div id="alignmentTargetChecklist" class="details" style="max-height:240px;overflow:auto"></div><div class="sub" id="alignmentTargetCount" style="margin-top:4px"></div></div>
 <div id="alignmentFormError" class="message error" hidden style="margin-top:10px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
 <button class="btn" type="button" id="alignmentFormCancel">Cancel</button>
@@ -378,7 +378,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,aiAssistTargetFieldId=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,aiAssistTargetFieldId=null,alignmentTargetChecked=new Set();
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});
 async function openDraftAssistModal(fieldId,mode){
   const plainText=plainTextFromHtml(document.getElementById(fieldId)?.innerHTML||'');
@@ -403,6 +403,7 @@ $('draftAssistAccept').onclick=()=>{
   if(aiAssistTargetFieldId)document.getElementById(aiAssistTargetFieldId).innerHTML=$('draftAssistSuggestionBody').innerHTML;
   $('draftAssistModal').hidden=true;
 };
+const ALIGNMENT_CATEGORY_FALLBACK=[['SOP','Standard operating procedure for a task or workflow'],['Process Update','A change to how an existing process works'],['Feature Update','A new or changed feature in a tool/system reps use'],['Attendance & Punctuality Policy','Tardiness thresholds, NCNS consequences, absence rules'],['Schedule & Shift Policy','Shift bidding, RD swaps, overtime rules'],['WFH/Onsite Policy','Who is eligible for WFH vs required onsite'],['Compliance & Data Privacy','Data Privacy Act, call-recording disclosure, regulatory requirements'],['QA Scorecard Update','Changes to how calls/tickets are scored for quality'],['Client Policy / Script Update','A specific client/campaign changed their script or policy'],['KPI & Compensation Policy','Changes to KPI scoring or bonus/incentive structure'],['Code of Conduct / HR Policy','Anti-harassment, dress code, social media, workplace conduct'],['Leave & PTO Policy','Blackout dates, accrual rules, leave request changes'],['Business Continuity / Emergency Procedure','Typhoon suspension, evacuation plan, disaster protocol'],['Security & Systems Access','Password policy, clean-desk, tool/system access rules'],['Tool / System Migration','Switching to a new CRM, dialer, or other work tool']].map(([value,hint])=>({value,hint}));
 const DISCIPLINE_LADDER={Misdemeanor:['Coaching','Verbal Warning','Written Warning','Final Warning','Termination'],MinorOffense:['Verbal Warning','Written Warning','Final Warning','Termination'],MajorOffense:['Written Warning','Final Warning','Termination'],GraveOffense:['Final Warning','Termination'],Terminable:['Termination']};
 const DISCIPLINE_TIER_LABELS={Misdemeanor:'Misdemeanor',MinorOffense:'Minor Offense',MajorOffense:'Major Offense',GraveOffense:'Grave Offense',Terminable:'Terminable Offense'};
 const lsHeader=document.querySelector('.header>.ls-header');if(lsHeader)$('headerRight').insertBefore(lsHeader,$('signedInActions'));
@@ -1086,14 +1087,31 @@ async function loadAlignmentTab(){
   if(portalRole==='SOM')await loadAlignmentReviewQueueTab();
   await refreshMyAlignment();
 }
+function renderAlignmentTargetChecklist(filterText=''){
+  const q=filterText.trim().toLowerCase();
+  const filtered=q?teamAlignmentMembers.filter(m=>m.employeeName.toLowerCase().includes(q)):teamAlignmentMembers;
+  $('alignmentTargetChecklist').innerHTML=filtered.map(m=>`<label style="display:block;margin-bottom:4px"><input type="checkbox" data-alignment-target value="${esc(m.employeeEmail)}"${alignmentTargetChecked.has(m.employeeEmail)?' checked':''}> ${esc(m.employeeName)}</label>`).join('')||'<div class="sub">No matching employees.</div>';
+  $('alignmentTargetCount').textContent=`${alignmentTargetChecked.size} of ${teamAlignmentMembers.length} selected`;
+}
+$('alignmentTargetChecklist').addEventListener('change',event=>{
+  const input=event.target.closest('[data-alignment-target]');
+  if(!input)return;
+  if(input.checked)alignmentTargetChecked.add(input.value);else alignmentTargetChecked.delete(input.value);
+  $('alignmentTargetCount').textContent=`${alignmentTargetChecked.size} of ${teamAlignmentMembers.length} selected`;
+});
+$('alignmentTargetFilter').addEventListener('input',()=>renderAlignmentTargetChecklist($('alignmentTargetFilter').value));
+$('alignmentTargetSelectAll').onclick=()=>{teamAlignmentMembers.forEach(m=>alignmentTargetChecked.add(m.employeeEmail));renderAlignmentTargetChecklist($('alignmentTargetFilter').value)};
+$('alignmentTargetSelectNone').onclick=()=>{alignmentTargetChecked.clear();renderAlignmentTargetChecklist($('alignmentTargetFilter').value)};
 function openAlignmentForm(record){
   editingAlignmentId=record?record.alignmentId:null;
   const form=$('alignmentForm');
   form.reset();
   $('alignmentFormTitle').textContent=record?'Edit Alignment Item':'New Alignment Item';
-  form.elements.category.innerHTML=(teamAlignmentCategories.length?teamAlignmentCategories:['SOP','Process Update','Feature Update']).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  const checkedEmails=new Set(record?(record.targetEmployees||[]).map(t=>t.employeeEmail):teamAlignmentMembers.map(m=>m.employeeEmail));
-  $('alignmentTargetChecklist').innerHTML=teamAlignmentMembers.map(m=>`<label style="display:block;margin-bottom:4px"><input type="checkbox" data-alignment-target value="${esc(m.employeeEmail)}"${checkedEmails.has(m.employeeEmail)?' checked':''}> ${esc(m.employeeName)}</label>`).join('')||'<div class="sub">No direct reports found.</div>';
+  const categoryOptions=teamAlignmentCategories.length?teamAlignmentCategories:ALIGNMENT_CATEGORY_FALLBACK;
+  form.elements.category.innerHTML=categoryOptions.map(c=>`<option value="${esc(c.value)}" title="${esc(c.hint)}">${esc(c.value)}${c.hint?` — ${esc(c.hint)}`:''}</option>`).join('');
+  alignmentTargetChecked=new Set(record?(record.targetEmployees||[]).map(t=>t.employeeEmail):[]);
+  $('alignmentTargetFilter').value='';
+  renderAlignmentTargetChecklist();
   if(record){
     form.elements.title.value=record.title||'';
     form.elements.category.value=record.category||'';
@@ -1114,7 +1132,7 @@ $('alignmentForm').onsubmit=async event=>{
   const values=Object.fromEntries(new FormData(event.currentTarget));
   values.status=status;
   values.body=getRichTextValue('alignmentBodyField');
-  values.targetEmployees=[...document.querySelectorAll('[data-alignment-target]:checked')].map(x=>x.value);
+  values.targetEmployees=[...alignmentTargetChecked];
   $('alignmentFormError').hidden=true;
   try{
     if(editingAlignmentId){

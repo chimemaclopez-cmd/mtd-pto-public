@@ -589,7 +589,27 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
 }
 const ALIGNMENT_KEY = 'mtdkpi:alignment-records';
 const ALIGNMENT_AUDIT_KEY = 'mtdkpi:alignment-audit';
-const ALIGNMENT_CATEGORIES = ['SOP', 'Process Update', 'Feature Update'];
+const ALIGNMENT_CATEGORIES = ['SOP', 'Process Update', 'Feature Update', 'Attendance & Punctuality Policy', 'Schedule & Shift Policy', 'WFH/Onsite Policy', 'Compliance & Data Privacy', 'QA Scorecard Update', 'Client Policy / Script Update', 'KPI & Compensation Policy', 'Code of Conduct / HR Policy', 'Leave & PTO Policy', 'Business Continuity / Emergency Procedure', 'Security & Systems Access', 'Tool / System Migration'];
+// Shown alongside each category in the picker so a team lead can tell them apart at a glance -
+// purely descriptive, not stored on the record (only the plain category string is).
+const ALIGNMENT_CATEGORY_HINTS = {
+  'SOP': 'Standard operating procedure for a task or workflow',
+  'Process Update': 'A change to how an existing process works',
+  'Feature Update': 'A new or changed feature in a tool/system reps use',
+  'Attendance & Punctuality Policy': 'Tardiness thresholds, NCNS consequences, absence rules',
+  'Schedule & Shift Policy': 'Shift bidding, RD swaps, overtime rules',
+  'WFH/Onsite Policy': 'Who is eligible for WFH vs required onsite',
+  'Compliance & Data Privacy': 'Data Privacy Act, call-recording disclosure, regulatory requirements',
+  'QA Scorecard Update': 'Changes to how calls/tickets are scored for quality',
+  'Client Policy / Script Update': 'A specific client/campaign changed their script or policy',
+  'KPI & Compensation Policy': 'Changes to KPI scoring or bonus/incentive structure',
+  'Code of Conduct / HR Policy': 'Anti-harassment, dress code, social media, workplace conduct',
+  'Leave & PTO Policy': 'Blackout dates, accrual rules, leave request changes',
+  'Business Continuity / Emergency Procedure': 'Typhoon suspension, evacuation plan, disaster protocol',
+  'Security & Systems Access': 'Password policy, clean-desk, tool/system access rules',
+  'Tool / System Migration': 'Switching to a new CRM, dialer, or other work tool'
+};
+const ALIGNMENT_CATEGORY_OPTIONS = ALIGNMENT_CATEGORIES.map(value => ({ value, hint: ALIGNMENT_CATEGORY_HINTS[value] || '' }));
 async function loadAlignment() { return cloudStore.kvGetJson(ALIGNMENT_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
 async function saveAlignment(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(ALIGNMENT_KEY, data); return data; }
 async function loadAlignmentAudit() { return cloudStore.kvGetJson(ALIGNMENT_AUDIT_KEY, { version: 1, events: [] }); }
@@ -2046,23 +2066,34 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Alignment: a team lead pastes an SOP/Process Update/Feature Update, picks which of their
-    // own direct reports need to acknowledge it, and submits it to the SOM (Charlotte) for
-    // approval. Only once APPROVED does it appear on each target rep's own portal to e-sign -
-    // unlike Coaching (one session, one employee), one Alignment item can be signed by many
-    // reps independently, so acknowledgments are keyed by employeeEmail on the record itself
-    // rather than being a single status transition.
-    if (parsed.pathname === '/api/my/team-alignment' && req.method === 'GET') {
+    // Alignment: a team lead pastes an SOP/Process Update/Feature Update, picks which employees
+    // need to acknowledge it (any active non-leadership employee company-wide, not just their
+    // own direct reports - a process update often needs to reach reps outside one's own team),
+    // and submits it to the SOM (Charlotte) for approval. Only once APPROVED does it appear on
+    // each target rep's own portal to e-sign - unlike Coaching (one session, one employee), one
+    // Alignment item can be signed by many reps independently, so acknowledgments are keyed by
+    // employeeEmail on the record itself rather than being a single status transition.
+    // "Leadership" = kpiType 'Excluded' (team leads, SOM, HR) - they're left off the target
+    // pool since they don't need to acknowledge rep-level process updates the same way.
+    async function hasDirectReports(identity, employeeName) {
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
+      return (roster.records || []).some(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+    }
+    async function eligibleAlignmentTargets(identity) {
+      const roster = await loadRosterSnapshot();
+      return (roster.records || []).filter(x => x.active !== false && x.kpiType !== 'Excluded' && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
+    }
+    if (parsed.pathname === '/api/my/team-alignment' && req.method === 'GET') {
+      const [isTeamLeader, eligibleTargets] = await Promise.all([hasDirectReports(identity, session.employeeName), eligibleAlignmentTargets(identity)]);
       const data = await loadAlignment();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.createdBy) === identity).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, categories: ALIGNMENT_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
+      return json(res, 200, { ok: true, isTeamLeader, categories: ALIGNMENT_CATEGORY_OPTIONS, members: eligibleTargets.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/my/team-alignment' && req.method === 'POST') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can file an alignment item.' });
       const body = await readJsonBody(req);
       const title = String(body.title || '').trim();
       const category = String(body.category || '');
@@ -2074,10 +2105,10 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const eligibleTargets = await eligibleAlignmentTargets(identity);
       const requestedTargets = Array.isArray(body.targetEmployees) ? body.targetEmployees.map(ptoLogic.cleanEmail) : [];
-      const targetEmployees = assignedMembers.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
-      if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one team member who needs to acknowledge this.' });
+      const targetEmployees = eligibleTargets.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
+      if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one employee who needs to acknowledge this.' });
       const data = await loadAlignment();
       const year = new Date().toISOString().slice(0, 4);
       const sequence = (data.sequenceByYear[year] || 0) + 1;
@@ -2118,16 +2149,13 @@ const server = http.createServer(async (req, res) => {
         const effectiveDate = body.effectiveDate === undefined ? current.effectiveDate : (ptoLogic.validDate(body.effectiveDate) ? body.effectiveDate : null);
         let targetEmployees = current.targetEmployees;
         if (Array.isArray(body.targetEmployees)) {
-          const roster = await loadRosterSnapshot();
-          const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-          const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-          const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+          const eligibleTargets = await eligibleAlignmentTargets(identity);
           const requestedTargets = body.targetEmployees.map(ptoLogic.cleanEmail);
-          targetEmployees = assignedMembers.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
+          targetEmployees = eligibleTargets.filter(x => requestedTargets.includes(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName }));
         }
         if (!title) return json(res, 400, { ok: false, error: 'A title is required.' });
         if (!contentHtml) return json(res, 400, { ok: false, error: 'Content is required.' });
-        if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one team member who needs to acknowledge this.' });
+        if (!targetEmployees.length) return json(res, 400, { ok: false, error: 'Select at least one employee who needs to acknowledge this.' });
         const next = { ...current, title, category, body: contentHtml, effectiveDate, targetEmployees, updatedAt: now };
         data.records[index] = next;
         await saveAlignment(data);
