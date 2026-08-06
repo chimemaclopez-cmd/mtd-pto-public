@@ -1459,8 +1459,11 @@ const server = http.createServer(async (req, res) => {
       if (!GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GROQ_API_KEY.' });
       const body = await readJsonBody(req);
       const text = String(body.text || '').trim();
+      const instructions = String(body.instructions || '').trim();
       if (!text) return json(res, 400, { ok: false, error: 'Type or paste some text first.' });
-      const prompt = `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
+      const prompt = instructions
+        ? `Rephrase the following text according to these instructions: "${instructions}". Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`
+        : `Rephrase the following text to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite. Return ONLY the rephrased text, no preamble, no markdown formatting, no quotation marks around it:\n\n${text}`;
       try {
         const suggestion = await callGroq(prompt);
         return json(res, 200, { ok: true, suggestion });

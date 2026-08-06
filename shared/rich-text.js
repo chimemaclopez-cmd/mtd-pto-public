@@ -1,6 +1,6 @@
 import {api} from './ui-utils.js';
 
-export const draftAssist=(text)=>api('/api/my/draft-assist',{method:'POST',body:JSON.stringify({text})});
+export const draftAssist=(text,instructions='')=>api('/api/my/draft-assist',{method:'POST',body:JSON.stringify({text,instructions})});
 
 // Minimal rich-text support for content pasted from Word/PDF (SOP/process docs, announcements):
 // a contenteditable field keeps whatever basic formatting the browser carries over on paste
@@ -71,6 +71,19 @@ export function wireRichTextToolbar(root = document, { onAiAssist } = {}) {
     toolbar.querySelectorAll('button[data-rt-ai]').forEach(btn => {
       btn.onclick = () => onAiAssist?.(fieldId);
     });
+  });
+}
+
+// A lighter-weight companion to richTextFieldHtml() for plain <textarea> fields (Coaching's
+// observation, Disciplinary's infraction description, etc.) that don't need the full paste-
+// formatting toolbar - just the AI rephrase button, operating on plain text in and out.
+export function rephraseButtonHtml(fieldId) {
+  return `<button type="button" class="btn compact" data-rephrase-target="${fieldId}" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button>`;
+}
+
+export function wireRephraseButtons(root = document, { onRephrase } = {}) {
+  root.querySelectorAll('[data-rephrase-target]').forEach(btn => {
+    btn.onclick = () => onRephrase?.(btn.dataset.rephraseTarget);
   });
 }
 

@@ -159,7 +159,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field" style="grid-column:1/-1"><label>Category *</label><select name="category" required></select></div>
 </div>
 <div id="coachingStandingPreview" class="sub" style="margin:10px 0"></div>
-<div class="field" style="margin-top:10px"><label>Specific Observation *</label><textarea name="observation" required placeholder="What specifically happened? Cite dates, tickets, metrics."></textarea></div>
+<div class="field" style="margin-top:10px"><label>Specific Observation *</label><textarea id="coachingObservationInput" name="observation" required placeholder="What specifically happened? Cite dates, tickets, metrics."></textarea><button type="button" class="btn compact" data-rephrase-target="coachingObservationInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
 <div class="field" style="margin-top:10px"><label>Discussion &amp; Development Plan</label><textarea disabled placeholder="To be filled by employee when they review and sign this session."></textarea></div>
 <div class="field" style="margin-top:10px"><label>Action Plan</label><textarea disabled placeholder="To be filled by employee when they review and sign this session."></textarea></div>
 <div class="field" style="margin-top:10px"><label>Follow-Up Date</label><input type="text" disabled placeholder="To be filled by employee when they review and sign this session."></div>
@@ -174,8 +174,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="title">Coaching Session</div>
 <div id="coachingSignDetail" style="line-height:1.6;margin-top:10px"></div>
 <div id="coachingSignForm" hidden>
-<div class="field" style="margin-top:14px"><label>Discussion &amp; Development Plan</label><textarea id="coachingDiscussionInput" placeholder="What was discussed? What's the plan going forward?"></textarea></div>
-<div class="field" style="margin-top:8px"><label>Action Plan</label><textarea id="coachingActionPlanInput" placeholder="Specific action items and expectations"></textarea></div>
+<div class="field" style="margin-top:14px"><label>Discussion &amp; Development Plan</label><textarea id="coachingDiscussionInput" placeholder="What was discussed? What's the plan going forward?"></textarea><button type="button" class="btn compact" data-rephrase-target="coachingDiscussionInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
+<div class="field" style="margin-top:8px"><label>Action Plan</label><textarea id="coachingActionPlanInput" placeholder="Specific action items and expectations"></textarea><button type="button" class="btn compact" data-rephrase-target="coachingActionPlanInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
 <div class="field" style="margin-top:8px"><label>Follow-Up Date (optional)</label><input type="date" id="coachingFollowUpInput"></div>
 <div class="field" style="margin-top:14px"><label>Comments (optional)</label><textarea id="coachingRepCommentsInput" placeholder="Any comments or feedback on this session"></textarea></div>
 <div class="field" style="margin-top:8px"><label>Type your full name to sign *</label><input type="text" id="coachingSignedNameInput" placeholder="Full name"></div>
@@ -205,7 +205,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field" style="grid-column:1/-1"><label>Category *</label><select name="category" required></select></div>
 <div class="field" style="grid-column:1/-1"><label>Tier *</label><select name="tier" required></select></div>
 </div>
-<div class="field" style="margin-top:10px"><label>Description of Infraction *</label><textarea name="infractionDescription" required placeholder="What specifically happened? Cite dates, times, and any evidence."></textarea></div>
+<div class="field" style="margin-top:10px"><label>Description of Infraction *</label><textarea id="disciplinaryInfractionInput" name="infractionDescription" required placeholder="What specifically happened? Cite dates, times, and any evidence."></textarea><button type="button" class="btn compact" data-rephrase-target="disciplinaryInfractionInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
 <div id="disciplinaryFormError" class="message error" hidden style="margin-top:10px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
 <button class="btn" type="button" id="disciplinaryFormCancel">Cancel</button>
@@ -221,7 +221,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Tier *</label><select id="disciplinaryPreTierInput"></select></div>
 <div class="field"><label>Recommended Sanction</label><select id="disciplinaryPreSanctionInput"></select></div>
 </div>
-<div class="field" style="margin-top:8px"><label>Notes for HR (optional)</label><textarea id="disciplinaryPreNotesInput"></textarea></div>
+<div class="field" style="margin-top:8px"><label>Notes for HR (optional)</label><textarea id="disciplinaryPreNotesInput"></textarea><button type="button" class="btn compact" data-rephrase-target="disciplinaryPreNotesInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
 <div id="disciplinaryPreDecideError" class="message error" hidden style="margin-top:8px"></div>
 </div>
 <div id="disciplinaryDecideForm" hidden>
@@ -231,7 +231,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Final Sanction</label><select id="disciplinaryFinalSanctionInput"></select></div>
 <div class="field"><label>Sanction Date *</label><input type="date" id="disciplinarySanctionDateInput"></div>
 </div>
-<div class="field" style="margin-top:8px"><label>Mitigating / Aggravating Circumstance Notes (required if tier is adjusted)</label><textarea id="disciplinaryCircumstanceNotesInput"></textarea></div>
+<div class="field" style="margin-top:8px"><label>Mitigating / Aggravating Circumstance Notes (required if tier is adjusted)</label><textarea id="disciplinaryCircumstanceNotesInput"></textarea><button type="button" class="btn compact" data-rephrase-target="disciplinaryCircumstanceNotesInput" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
 <div id="disciplinaryDecideError" class="message error" hidden style="margin-top:8px"></div>
 </div>
 <div id="disciplinaryAckForm" hidden>
@@ -315,9 +315,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="draftAssistResult" hidden>
 <div class="sub" style="font-weight:800;margin-top:10px">Suggested text</div>
 <div class="richContent" id="draftAssistSuggestionBody" style="margin-top:6px;border:1px solid var(--line);border-radius:10px;padding:12px;max-height:300px;overflow:auto"></div>
+<div class="field" style="margin-top:10px"><label>Custom instructions (optional)</label><input type="text" id="draftAssistInstructionsInput" placeholder="e.g. make it shorter, more formal, friendlier tone"></div>
 </div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
 <button type="button" class="btn" id="draftAssistDiscard">Discard</button>
+<button type="button" class="btn" id="draftAssistTryAgain" hidden>Try Again</button>
 <button type="button" class="btn primary" id="draftAssistAccept" hidden>Use This</button>
 </div>
 </div></div>
@@ -371,36 +373,53 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket} from './shared/qa-dsat-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null;
-$('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});
-async function openDraftAssistModal(fieldId){
-  const plainText=plainTextFromHtml(document.getElementById(fieldId)?.innerHTML||'');
-  if(!plainText){setMessage('Type or paste some text first.','error');return}
-  aiAssistTargetFieldId=fieldId;
-  $('draftAssistTitle').textContent='Rephrase';
-  $('draftAssistLoading').hidden=false;$('draftAssistResult').hidden=true;$('draftAssistError').hidden=true;$('draftAssistAccept').hidden=true;
-  $('draftAssistModal').hidden=false;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.10.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='';
+$('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
+async function runDraftAssist(){
+  const instructions=$('draftAssistInstructionsInput').value.trim();
+  $('draftAssistLoading').hidden=false;$('draftAssistResult').hidden=true;$('draftAssistError').hidden=true;$('draftAssistAccept').hidden=true;$('draftAssistTryAgain').hidden=true;
   try{
-    const result=await draftAssist(plainText);
+    const result=await draftAssist(aiAssistOriginalText,instructions);
+    aiAssistRawSuggestion=result.suggestion;
     $('draftAssistLoading').hidden=true;
     $('draftAssistSuggestionBody').innerHTML=sanitizeRichHtml(result.suggestion.split(/\n{2,}/).map(p=>`<p>${esc(p)}</p>`).join(''));
     $('draftAssistResult').hidden=false;
     $('draftAssistAccept').hidden=false;
+    $('draftAssistTryAgain').hidden=false;
   }catch(error){
     $('draftAssistLoading').hidden=true;
     $('draftAssistError').hidden=false;$('draftAssistError').textContent=error.response?.error||error.message;
+    $('draftAssistTryAgain').hidden=false;
   }
 }
+async function openDraftAssistModal(fieldId){
+  const el=document.getElementById(fieldId);
+  if(!el)return;
+  aiAssistTargetIsTextarea=el.tagName==='TEXTAREA';
+  const plainText=aiAssistTargetIsTextarea?el.value.trim():plainTextFromHtml(el.innerHTML||'');
+  if(!plainText){setMessage('Type or paste some text first.','error');return}
+  aiAssistTargetFieldId=fieldId;
+  aiAssistOriginalText=plainText;
+  $('draftAssistInstructionsInput').value='';
+  $('draftAssistTitle').textContent='Rephrase';
+  $('draftAssistModal').hidden=false;
+  await runDraftAssist();
+}
 $('draftAssistDiscard').onclick=()=>{$('draftAssistModal').hidden=true};
+$('draftAssistTryAgain').onclick=()=>runDraftAssist();
 $('draftAssistAccept').onclick=()=>{
-  if(aiAssistTargetFieldId)document.getElementById(aiAssistTargetFieldId).innerHTML=$('draftAssistSuggestionBody').innerHTML;
+  const el=document.getElementById(aiAssistTargetFieldId);
+  if(el){
+    if(aiAssistTargetIsTextarea)el.value=aiAssistRawSuggestion;
+    else el.innerHTML=$('draftAssistSuggestionBody').innerHTML;
+  }
   $('draftAssistModal').hidden=true;
 };
 const ALIGNMENT_CATEGORY_FALLBACK=[['SOP','Standard operating procedure for a task or workflow'],['Process Update','A change to how an existing process works'],['Feature Update','A new or changed feature in a tool/system reps use'],['Attendance & Punctuality Policy','Tardiness thresholds, NCNS consequences, absence rules'],['Schedule & Shift Policy','Shift bidding, RD swaps, overtime rules'],['WFH/Onsite Policy','Who is eligible for WFH vs required onsite'],['Compliance & Data Privacy','Data Privacy Act, call-recording disclosure, regulatory requirements'],['QA Scorecard Update','Changes to how calls/tickets are scored for quality'],['Client Policy / Script Update','A specific client/campaign changed their script or policy'],['KPI & Compensation Policy','Changes to KPI scoring or bonus/incentive structure'],['Code of Conduct / HR Policy','Anti-harassment, dress code, social media, workplace conduct'],['Leave & PTO Policy','Blackout dates, accrual rules, leave request changes'],['Business Continuity / Emergency Procedure','Typhoon suspension, evacuation plan, disaster protocol'],['Security & Systems Access','Password policy, clean-desk, tool/system access rules'],['Tool / System Migration','Switching to a new CRM, dialer, or other work tool']].map(([value,hint])=>({value,hint}));
