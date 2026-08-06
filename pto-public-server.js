@@ -488,7 +488,7 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
-async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, generatedAt: '' }); }
+async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, shiftEndThanks: [], dailyThanks: null, generatedAt: '' }); }
 // Adds each highlighted employee's uploaded profile photo (if any) to their Spotlight Wall
 // item - resolved by email for shoutouts/saves/callLeaders, and by name via the roster for
 // birthdays/anniversaries (computeCelebrations() only carries a name, not an email). An
@@ -498,7 +498,7 @@ async function attachProfilePhotos(spotlight) {
   const roster = await loadRosterSnapshot();
   const emailByName = new Map((roster.records || []).map(x => [String(x.employeeName || '').trim(), ptoLogic.cleanEmail(x.employeeEmail || '')]));
   const emails = new Set();
-  for (const item of [...(spotlight.shoutouts || []), ...(spotlight.saves || []), ...(spotlight.callLeaders || [])]) {
+  for (const item of [...(spotlight.shoutouts || []), ...(spotlight.saves || []), ...(spotlight.callLeaders || []), ...(spotlight.shiftEndThanks || [])]) {
     const email = ptoLogic.cleanEmail(item.employeeEmail || '');
     if (email) emails.add(email);
   }
@@ -517,6 +517,7 @@ async function attachProfilePhotos(spotlight) {
     shoutouts: (spotlight.shoutouts || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
     saves: (spotlight.saves || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
     callLeaders: (spotlight.callLeaders || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
+    shiftEndThanks: (spotlight.shiftEndThanks || []).map(x => withPhoto(x, ptoLogic.cleanEmail(x.employeeEmail || ''))),
     celebrations: {
       birthdays: (spotlight.celebrations?.birthdays || []).map(x => withPhoto(x, emailByName.get(String(x.employeeName || '').trim()))),
       anniversaries: (spotlight.celebrations?.anniversaries || []).map(x => withPhoto(x, emailByName.get(String(x.employeeName || '').trim())))

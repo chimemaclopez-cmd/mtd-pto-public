@@ -325,6 +325,8 @@ function slideForItem(item){
     return `<div class="slide"><div class="slideIcon">${icon}</div><div class="slideBadge badge-purple" style="${badgeStyle}">Weather · ${esc(item.city)}</div><div class="slideBody sizeL">${esc(item.advisory)}</div><div class="slideMeta">${tempLine}</div>${outlookLine}</div>`;
   }
   if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div>${l.photoBase64?`<img class="leaderPhoto" src="${esc(l.photoBase64)}" alt="">`:''}<div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
+  if(item.kind==='shift-end-thanks')return `<div class="slide">${heroVisual('🙏',item.photoBase64)}<div class="slideBadge badge-teal">Great Shift!</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${esc(item.message)}</div></div>`;
+  if(item.kind==='daily-thanks')return `<div class="slide"><div class="slideIcon">🙌</div><div class="slideBadge badge-teal">Thank You, Team!</div><div class="slideBody sizeL">${esc(item.message)}</div></div>`;
   if(item.type==='quiz')return `<div class="slide"><div class="slideIcon">🧠</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Quick Trivia</div><div class="slideBody sizeL">${esc(item.question)}</div><div class="quizOptions">${item.options.map((opt,i)=>`<div class="quizOption" data-idx="${i}">${String.fromCharCode(65+i)}. ${esc(opt)}</div>`).join('')}</div><div class="slideMeta quizReveal" style="opacity:0;margin-top:14px">Correct answer highlighted above</div></div>`;
   if(item.type==='phishing')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#fde3e3;color:#a11d1d">Spot the Phishing Attempt</div><div class="fillerSvgWrap">${item.svg}</div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
   if(item.type==='video')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
@@ -347,6 +349,8 @@ let firstLoad=true;
 function keyFor(item){
   if(item.kind==='shoutout'||item.kind==='save')return `${item.kind}:${item.ticketId}`;
   if(item.kind==='birthday'||item.kind==='anniversary')return `${item.kind}:${item.employeeName}:${item.daysUntil}`;
+  if(item.kind==='shift-end-thanks')return `shift-end-thanks:${item.employeeEmail}:${item.firedAt}`;
+  if(item.kind==='daily-thanks')return `daily-thanks:${item.firedAt}`;
   return null;
 }
 // Inserted every 4 slots into whatever the rest of the queue is - often enough (roughly every
@@ -363,10 +367,12 @@ function buildQueue(spotlight){
   const birthdays=(spotlight.celebrations?.birthdays||[]).map(x=>({...x,kind:'birthday'}));
   const anniversaries=(spotlight.celebrations?.anniversaries||[]).map(x=>({...x,kind:'anniversary'}));
   const callLeaders=spotlight.callLeaders||[];
+  const shiftEndThanks=(spotlight.shiftEndThanks||[]).map(x=>({...x,kind:'shift-end-thanks'}));
+  const dailyThanks=spotlight.dailyThanks?[{...spotlight.dailyThanks,kind:'daily-thanks'}]:[];
   // Weather always leads the rotation (not woven in as random filler) since it's daily
   // commute-safety info reps should reliably see, not something that should get crowded out.
   const weatherItem=spotlight.weather?[{...spotlight.weather,kind:'weather'}]:[];
-  const real=[...weatherItem,...shoutouts,...saves,...birthdays,...anniversaries];
+  const real=[...weatherItem,...dailyThanks,...shoutouts,...saves,...shiftEndThanks,...birthdays,...anniversaries];
   if(callLeaders.length)real.splice(Math.min(3,real.length),0,{kind:'leaders',callLeaders});
   for(const item of real){const k=keyFor(item);if(k)item.pendingAnnounce=!announcedKeys.has(k)}
   if(!real.length)return{list:withReminders(todaysFillerList().map(x=>({...x})))};
@@ -416,6 +422,8 @@ function showSlide(index){
       }else{loudChime()}
     }
     else if(item.kind==='save'){chime();burstConfetti()}
+    else if(item.kind==='shift-end-thanks'){chime()}
+    else if(item.kind==='daily-thanks'){loudChime();burstConfetti()}
     if(k)announcedKeys.add(k);
   }
 }
@@ -433,6 +441,8 @@ function realSignature(spotlight){
   (spotlight.celebrations?.birthdays||[]).forEach(x=>parts.push(`b:${x.employeeName}:${x.daysUntil}`));
   (spotlight.celebrations?.anniversaries||[]).forEach(x=>parts.push(`a:${x.employeeName}:${x.daysUntil}`));
   (spotlight.callLeaders||[]).forEach(x=>parts.push(`l:${x.employeeName}:${x.accepted}`));
+  (spotlight.shiftEndThanks||[]).forEach(x=>parts.push(`t:${x.employeeEmail}:${x.firedAt}`));
+  if(spotlight.dailyThanks)parts.push(`d:${spotlight.dailyThanks.firedAt}`);
   if(spotlight.weather)parts.push(`w:${spotlight.weather.condition}:${spotlight.weather.level}`);
   return parts.join('|');
 }
