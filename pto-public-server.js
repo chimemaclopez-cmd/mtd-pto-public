@@ -62,6 +62,10 @@ const TEAM_EDITABLE_PROFILE_FIELDS = ['employeeName','employeeId','jobTitle','pr
 // Mirrors shared/kpi-config.js's ATTENDANCE_CODES - duplicated here (like ROSTER_CONTACT_FIELDS
 // above) since this file is CommonJS and that config lives in an ES module.
 const ATTENDANCE_CODES = ['ONSITE','WFH','LATE','RD','PTO','PARTIAL_PTO','SL','EL','SL-HD','EL-HD','NCNS','A','BL','SUSPENDED'];
+// Used only by the Daily EOD Report's Onsite/WFH/Present/Out breakdown (see /api/my/site-metrics
+// below) - RD/PTO/PARTIAL_PTO are known ahead of time, the rest are same-day or exceptional.
+const PLANNED_OUT_CODES = new Set(['RD', 'PTO', 'PARTIAL_PTO']);
+const UNPLANNED_OUT_CODES = new Set(['SL', 'SL-HD', 'EL', 'EL-HD', 'NCNS', 'A', 'BL', 'SUSPENDED']);
 // Mirrors shared/scoring.js's performanceStatus() tiering (best to worst), duplicated here
 // for the same CommonJS/ES-module reason as ATTENDANCE_CODES above.
 const PERFORMANCE_TIER = { Exceptional: 4, Exceeds: 3, Meets: 2, Watch: 1, Intervention: 0 };
@@ -1413,7 +1417,35 @@ const server = http.createServer(async (req, res) => {
           csat: { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
         };
       });
-      return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods, history });
+      // Onsite/WFH/Present headcount per day, so a dip or improvement in the metrics above can
+      // be checked against the day's work-setup mix. Attendance is entered per-date regardless
+      // of which "month|endDate" period it was saved under, so flatten every period's per-email
+      // per-date codes into a single date->email->code map (later-saved periods win on
+      // conflict) rather than requiring an exact period-key match with the site-metrics rows.
+      const attendanceData = await loadAttendanceSnapshot();
+      const attendanceByDate = new Map();
+      for (const key of Object.keys(attendanceData.periods || {}).sort()) {
+        const byEmail = attendanceData.periods[key] || {};
+        for (const email of Object.keys(byEmail)) {
+          for (const [date, code] of Object.entries(byEmail[email] || {})) {
+            if (!attendanceByDate.has(date)) attendanceByDate.set(date, new Map());
+            attendanceByDate.get(date).set(email, code);
+          }
+        }
+      }
+      const historyWithAttendance = history.map(row => {
+        const codesForDay = attendanceByDate.get(row.endDate);
+        let onsite = 0, wfh = 0, present = 0, plannedOut = 0, unplannedOut = 0;
+        if (codesForDay) for (const code of codesForDay.values()) {
+          if (code === 'ONSITE') { onsite++; present++; }
+          else if (code === 'WFH') { wfh++; present++; }
+          else if (code === 'LATE') present++;
+          else if (PLANNED_OUT_CODES.has(code)) plannedOut++;
+          else if (UNPLANNED_OUT_CODES.has(code)) unplannedOut++;
+        }
+        return { ...row, attendance: { onsite, wfh, present, plannedOut, unplannedOut } };
+      });
+      return json(res, 200, { ok: true, period, siteMetrics: period ? periods[period] : null, availablePeriods, history: historyWithAttendance });
     }
 
     if (parsed.pathname === '/api/my/notifications' && req.method === 'GET') {
@@ -1846,6 +1878,36 @@ const server = http.createServer(async (req, res) => {
       const data = await loadCoaching();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    // SOM coaching oversight: company-wide read-only view of every coaching log across every
+    // team, not scoped to any one team lead's own records like /api/my/team-coaching is. Drafts
+    // are excluded (still private to the team lead who's drafting them, same rule as
+    // /api/my/coaching above) since a draft isn't a real coaching action yet.
+    if (parsed.pathname === '/api/som/coaching-overview' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'SOM') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadCoaching();
+      const records = (data.records || []).filter(x => x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const statusKey = s => (s === 'SENT' ? 'sent' : 'acknowledged');
+      const byTeam = new Map(), byRep = new Map();
+      for (const r of records) {
+        const teamKey = r.teamLeadName || 'Unassigned';
+        if (!byTeam.has(teamKey)) byTeam.set(teamKey, { teamLeadName: teamKey, total: 0, sent: 0, acknowledged: 0 });
+        const team = byTeam.get(teamKey);
+        team.total++; team[statusKey(r.status)]++;
+        const repKey = ptoLogic.cleanEmail(r.employeeEmail);
+        if (!byRep.has(repKey)) byRep.set(repKey, { employeeEmail: repKey, employeeName: r.employeeName, teamLeadName: teamKey, total: 0, sent: 0, acknowledged: 0, lastCoachingDate: '' });
+        const rep = byRep.get(repKey);
+        rep.total++; rep[statusKey(r.status)]++;
+        if (r.coachingDate > rep.lastCoachingDate) rep.lastCoachingDate = r.coachingDate;
+      }
+      const site = { total: records.length, sent: records.filter(r => r.status === 'SENT').length, acknowledged: records.filter(r => r.status === 'ACKNOWLEDGED').length };
+      return json(res, 200, {
+        ok: true, site,
+        byTeam: [...byTeam.values()].sort((a, b) => b.total - a.total),
+        byRep: [...byRep.values()].sort((a, b) => b.total - a.total),
+        records
+      });
     }
 
     if (parsed.pathname === '/api/my/team-disciplinary' && req.method === 'GET') {
