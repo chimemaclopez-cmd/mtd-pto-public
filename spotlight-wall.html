@@ -136,9 +136,19 @@ function celebrationChime(durationMs){
 }
 // "Happy Birthday to You" opening phrase, played on a synthesized tone (public-domain
 // melody, no lyrics) - triggers only when a birthday slide for TODAY comes into view.
+// The real "Happy Birthday to You" melody, all four lines (the first version here only had
+// the first two, looped, with flat equal-spaced timing) - each line's short-short-long
+// rhythm (the "Hap-py birth-day" pickup vs. the held "...to you") comes from real per-note
+// durations feeding cumulative delays, not a uniform spacing between notes.
 function birthdayChime(){
-  const notes=[392.00,392.00,440.00,392.00,523.25,493.88, 392.00,392.00,440.00,392.00,587.33,523.25];
-  playNotes(notes.map((freq,i)=>[freq,i*0.32,0.4]),{gainPeak:0.45,type:'triangle'});
+  const G4=392.00,A4=440.00,B4=493.88,C5=523.25,D5=587.33,E5=659.25,F5=698.46,G5=783.99;
+  let t=0;const notes=[];
+  const line=(freqs,durs)=>{freqs.forEach((f,i)=>{notes.push([f,t,durs[i]]);t+=durs[i]*0.85});t+=0.15};
+  line([G4,G4,A4,G4,C5,B4],[0.28,0.22,0.5,0.5,0.5,0.9]);
+  line([G4,G4,A4,G4,D5,C5],[0.28,0.22,0.5,0.5,0.5,0.9]);
+  line([G4,G4,G5,E5,C5,B4,A4],[0.28,0.22,0.5,0.5,0.5,0.5,0.9]);
+  line([F5,F5,E5,C5,D5,C5],[0.28,0.22,0.5,0.5,0.5,1.1]);
+  playNotes(notes,{gainPeak:0.45,type:'triangle'});
 }
 const CONFETTI_EMOJI=['🎉','🎊','⭐','✨','🥳'];
 function burstConfetti(){
@@ -302,6 +312,13 @@ function sizeFor(text,tier){
   if(tier==='name')return len>22?'sizeL':'sizeXL';
   return len>140?'sizeM':len>70?'sizeL':'sizeXL';
 }
+// A rating with no written comment still gets a witty line instead of the same flat filler
+// every time - picked by a stable hash of the ticket ID (not Math.random) so the same slide
+// shows the same wording every time it re-renders across polls/rotations, instead of the text
+// changing under the viewer's eyes each time this slide comes back around.
+function stablePick(pool,key){let h=0;const s=String(key||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return pool[Math.abs(h)%pool.length]}
+const SHOUTOUT_FALLBACK_LINES=['Left a good rating today - nice work!','Another satisfied customer, no notes needed.','Quietly excellent - a good rating says it all.','No comment needed - the good rating speaks for itself!','Customer approved, no further questions.','Solid work - that good rating didn\'t happen by accident.','Another one in the win column. Nice work!','Good rating, zero drama - just great service.'];
+const SAVE_FALLBACK_LINES=['Turned an unhappy customer into a happy one today.','Flipped a bad day into a good rating - that\'s the save of the day!','Walked in to a five-alarm customer and walked out with a smile. Nice save!','Turned frustration into satisfaction - that\'s the job done right.','Rescued this one from a bad ending. Great save!','Started rough, ended great - thanks for turning it around!','Difficult customer, happy ending - nicely handled.'];
 function slideForItem(item){
   // A real uploaded profile photo replaces the emoji icon on hero slides - an employee who
   // hasn't uploaded one yet just keeps the icon, no placeholder avatar shown in its place.
@@ -311,10 +328,10 @@ function slideForItem(item){
     // naming the rep - get a bigger icon/badge (and, in showSlide, a louder chime + confetti).
     const icon=item.mentionsName?'🏆':item.hasComment?'🌟':'👍';
     const badge=item.mentionsName?'Customer Shoutout · Named by Customer':(item.hasComment?'Customer Shoutout':'Good CSAT Rating');
-    const body=item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Left a good rating today - nice work!</div>';
+    const body=item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:`<div class="slideBody sizeL">${esc(stablePick(SHOUTOUT_FALLBACK_LINES,item.ticketId))}</div>`;
     return `<div class="slide">${heroVisual(icon,item.photoBase64)}<div class="slideBadge badge-gold">${badge}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${body}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   }
-  if(item.kind==='save')return `<div class="slide">${heroVisual('🔄',item.photoBase64)}<div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:'<div class="slideBody sizeL">Turned an unhappy customer into a happy one today.</div>'}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
+  if(item.kind==='save')return `<div class="slide">${heroVisual('🔄',item.photoBase64)}<div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:`<div class="slideBody sizeL">${esc(stablePick(SAVE_FALLBACK_LINES,item.ticketId))}</div>`}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   if(item.kind==='birthday')return `<div class="slide">${heroVisual('🎂',item.photoBase64)}<div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='anniversary')return `<div class="slide">${heroVisual('🏆',item.photoBase64)}<div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='weather'){
