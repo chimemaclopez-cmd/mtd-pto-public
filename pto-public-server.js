@@ -89,7 +89,7 @@ const COPILOT_CLIENT_VERSION = '2.4.0';
 function copilotRequest(path, { method = 'GET', body, token, timeout = 25000 } = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
-    const headers = { Accept: 'application/json', 'X-Client-Version': COPILOT_CLIENT_VERSION };
+    const headers = { Accept: 'application/json', 'Accept-Encoding': 'identity', 'X-Client-Version': COPILOT_CLIENT_VERSION };
     if (payload) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); }
     if (token) headers.Authorization = `Bearer ${token}`;
     const req = https.request(`${COPILOT_BASE}${path}`, { method, headers, timeout }, res => {
@@ -97,7 +97,13 @@ function copilotRequest(path, { method = 'GET', body, token, timeout = 25000 } =
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         let parsed;
-        try { parsed = data ? JSON.parse(data) : {}; } catch { return reject(new Error('Copilot returned an unreadable response.')); }
+        try { parsed = data ? JSON.parse(data) : {}; } catch {
+          // Surface enough of the raw response to tell a real API error apart from hitting
+          // something else entirely (a WAF/Access block page, a proxy, an HTML error page) -
+          // "unreadable response" alone gives no way to diagnose which one happened.
+          const snippet = data.replace(/\s+/g, ' ').trim().slice(0, 180);
+          return reject(new Error(`Copilot returned an unreadable response (HTTP ${res.statusCode}, content-type: ${res.headers['content-type'] || 'unknown'}). Body: ${snippet || '(empty)'}`));
+        }
         if (res.statusCode < 200 || res.statusCode >= 300) {
           const err = new Error(parsed.status?.msg || parsed.message || `Copilot returned HTTP ${res.statusCode}.`);
           err.statusCode = res.statusCode;
