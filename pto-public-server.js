@@ -811,6 +811,23 @@ function eligibleTrainingDestinations(roster) {
 // Only one Training Manager exists today, so "the training identity" for View-As preview and
 // for scoping training-scores reads is unambiguous - revisit this if a second one is added.
 function trainingManagerIdentity() { return [...TRAINING_MANAGER_EMAILS][0] || ''; }
+// Shared by team-coaching/team-disciplinary/team-attendance: a normal team lead's "my team" is
+// anyone whose teamLeadEmail/teamLeadName points to them, any kpiType - but the Training
+// Manager's access is intentionally narrower, restricted to actual trainees (kpiType
+// 'Trainee') only, never a coworker who happens to name-match her for some unrelated reason.
+// allowViewAs=false on write paths - an admin previewing as TRAINING must never get write
+// access to Mae's trainees, only a real TRAINING identity's own real trainees do.
+function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs = true) {
+  const viewingAsTraining = allowViewAs && effectiveViewAsRole(identity, session) === 'TRAINING';
+  const isRealTraining = portalRoleFor(identity) === 'TRAINING';
+  if (viewingAsTraining || isRealTraining) {
+    const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : identity;
+    return (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+  }
+  const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+  const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
+  return (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || (leaderName && String(x.teamLeadName || '').trim() === leaderName)));
+}
 async function appendDisciplinaryAudit(violationId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
   const data = await loadDisciplinaryAudit();
   data.events.push({ auditId: `VIOL-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, violationId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
@@ -825,13 +842,23 @@ async function disciplinaryReviewAccess(identity, employeeName = '', viewAsRole 
   const roster = await loadRosterSnapshot();
   const records = roster.records || [];
   const cleanIdentity = ptoLogic.cleanEmail(identity);
-  const self = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
-  const leaderName = String(self?.employeeName || employeeName || '').trim().toLowerCase();
-  const memberEmails = new Set(records.filter(x =>
-    ptoLogic.cleanEmail(x.employeeEmail) !== cleanIdentity &&
-    (ptoLogic.cleanEmail(x.teamLeadEmail) === cleanIdentity ||
-      (leaderName && String(x.teamLeadName || '').trim().toLowerCase() === leaderName))
-  ).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+  // Same Trainee-only restriction as scopedTeamMembers() - can't reuse it directly here since
+  // this function only receives an already-resolved viewAsRole string, not the session object.
+  const viewingAsTraining = viewAsRole === 'TRAINING';
+  const isRealTraining = portalRoleFor(identity) === 'TRAINING';
+  let memberEmails;
+  if (viewingAsTraining || isRealTraining) {
+    const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : cleanIdentity;
+    memberEmails = new Set(records.filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+  } else {
+    const self = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
+    const leaderName = String(self?.employeeName || employeeName || '').trim().toLowerCase();
+    memberEmails = new Set(records.filter(x =>
+      ptoLogic.cleanEmail(x.employeeEmail) !== cleanIdentity &&
+      (ptoLogic.cleanEmail(x.teamLeadEmail) === cleanIdentity ||
+        (leaderName && String(x.teamLeadName || '').trim().toLowerCase() === leaderName))
+    ).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+  }
   return {
     memberEmails, isTeamLeader: memberEmails.size > 0,
     canPreDecide: cleanIdentity === PRE_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'SOM',
@@ -1627,6 +1654,18 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
     }
 
+    // Company-wide "who's currently in training" - visible to any signed-in user, not just the
+    // Training Manager, since a team lead elsewhere or an admin previewing shouldn't need
+    // Training Manager access (or the local admin dashboard's roster filter) just to see who's
+    // still onboarding. No role gate at all, matching Site KPI's own broad visibility.
+    if (parsed.pathname === '/api/site-trainees' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const trainees = (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee')
+        .map(x => ({ employeeName: x.employeeName, employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), teamLeadName: x.teamLeadName, primaryChannel: x.primaryChannel, effectiveDate: x.effectiveDate || x.hireDate || '' }))
+        .sort((a, b) => (a.effectiveDate || '').localeCompare(b.effectiveDate || ''));
+      return json(res, 200, { ok: true, trainees });
+    }
+
     if (parsed.pathname === '/api/my/site-metrics' && req.method === 'GET') {
       const siteMetricsData = await loadSiteMetricsSnapshot();
       const periods = siteMetricsData.periods || {};
@@ -1917,9 +1956,7 @@ const server = http.createServer(async (req, res) => {
       const month = parsed.searchParams.get('month') || '', endDate = parsed.searchParams.get('endDate') || '';
       if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
       if (!assignedMembers.length) return json(res, 200, { ok: true, isTeamLeader: false, month, endDate, dates: [], members: [] });
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
       const dates = ptoLogic.dateRange(`${month}-01`, endDate);
@@ -1945,9 +1982,7 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
       if (!body.entries || typeof body.entries !== 'object') return json(res, 400, { ok: false, error: 'Attendance entries are required.' });
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, false).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       if (!memberEmails.size) return json(res, 403, { ok: false, error: 'You do not have any direct reports.' });
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
       const accepted = {}, skipped = [];
@@ -2013,15 +2048,35 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/team-coaching' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
       const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       const data = await loadCoaching();
       // The QA reviewer also sees whatever coaching logs she's personally initiated on behalf
       // of a team lead, even for an employee who isn't one of her own direct reports.
       const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) || (portalRoleFor(identity) === 'QA' && x.createdBy === identity)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, categories: COACHING_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records, lastUpdated: data.lastUpdated || '' });
+      const byId = new Map((data.records || []).map(x => [x.coachingId, x]));
+      // A coaching session can explicitly link to an earlier one covering the SAME underlying
+      // problem (not just the same category - a team lead may file two "Performance / KPI"
+      // sessions for entirely unrelated reasons, which shouldn't count as progression). Walking
+      // that chain here (not storing it) means occurrence numbers always reflect the current
+      // chain even if a link is ever corrected later.
+      const occurrenceNumberFor = record => {
+        let count = 1, current = record, guard = 0;
+        while (current.linkedFromCoachingId && guard++ < 50) {
+          const previous = byId.get(current.linkedFromCoachingId);
+          if (!previous) break;
+          count++; current = previous;
+        }
+        return count;
+      };
+      const withProgression = records.map(r => ({
+        ...r,
+        occurrenceNumber: occurrenceNumberFor(r),
+        linkedFromSummary: r.linkedFromCoachingId && byId.has(r.linkedFromCoachingId)
+          ? { coachingId: r.linkedFromCoachingId, coachingDate: byId.get(r.linkedFromCoachingId).coachingDate, category: byId.get(r.linkedFromCoachingId).category }
+          : null
+      }));
+      return json(res, 200, { ok: true, isTeamLeader: memberEmails.size > 0, categories: COACHING_CATEGORIES, members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })), records: withProgression, lastUpdated: data.lastUpdated || '' });
     }
 
     if (parsed.pathname === '/api/my/team-coaching' && req.method === 'POST') {
@@ -2034,10 +2089,8 @@ const server = http.createServer(async (req, res) => {
       if (!COACHING_CATEGORIES.includes(category)) return json(res, 400, { ok: false, error: 'A valid coaching category is required.' });
       if (!observation) return json(res, 400, { ok: false, error: 'A specific observation is required.' });
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
-      const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
+      const isDirectReport = Boolean(employee) && scopedTeamMembers(roster, identity, session, session.employeeName, false).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
       // The QA DSAT reviewer can also file a coaching log for any active employee whose
       // validated DSAT calls for it, on behalf of that employee's actual team lead - not just
       // her own reports. The record still attributes teamLeadEmail/teamLeadName to the real
@@ -2046,6 +2099,16 @@ const server = http.createServer(async (req, res) => {
       if (!isDirectReport && !isQaOnBehalf) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const currentStanding = await buildCoachingStandingSnapshot(email);
       const data = await loadCoaching();
+      // Explicit linkage to an earlier session on the same underlying problem, not an
+      // auto-detected one - the team lead decides whether this is really a continuation.
+      // Restricted to the SAME employee, any category (see the GET route's comment above).
+      let linkedFromCoachingId = null;
+      if (body.linkedFromCoachingId) {
+        const linkTarget = (data.records || []).find(x => x.coachingId === String(body.linkedFromCoachingId));
+        if (!linkTarget) return json(res, 400, { ok: false, error: 'The coaching session to link from could not be found.' });
+        if (ptoLogic.cleanEmail(linkTarget.employeeEmail) !== email) return json(res, 400, { ok: false, error: 'Can only link to a previous session for the same employee.' });
+        linkedFromCoachingId = linkTarget.coachingId;
+      }
       const year = coachingDate.slice(0, 4);
       const sequence = (data.sequenceByYear[year] || 0) + 1;
       const coachingId = `COACH-${year}-${String(sequence).padStart(4, '0')}`;
@@ -2054,8 +2117,8 @@ const server = http.createServer(async (req, res) => {
       const record = {
         coachingId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
         teamLeadEmail: isQaOnBehalf ? ptoLogic.cleanEmail(employee.teamLeadEmail || '') : identity,
-        teamLeadName: isQaOnBehalf ? (employee.teamLeadName || '') : (leaderName || session.employeeName || ''),
-        coachingDate, category, currentStanding, observation,
+        teamLeadName: isQaOnBehalf ? (employee.teamLeadName || '') : (String((roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity)?.employeeName || session.employeeName || '').trim()),
+        coachingDate, category, currentStanding, observation, linkedFromCoachingId,
         // Discussion & Development Plan, Action Plan, and Follow-Up Date are filled in by the
         // employee at acknowledge time (see the 'acknowledge' action below), not by the team
         // lead who files this session.
@@ -2182,8 +2245,12 @@ const server = http.createServer(async (req, res) => {
     // employeeEmail on the record itself rather than being a single status transition.
     // "Leadership" = kpiType 'Excluded' (team leads, SOM, HR) - they're left off the target
     // pool since they don't need to acknowledge rep-level process updates the same way.
-    async function hasDirectReports(identity, employeeName) {
+    async function hasDirectReports(identity, employeeName, viewAsRole = '') {
       const roster = await loadRosterSnapshot();
+      if (viewAsRole === 'TRAINING' || portalRoleFor(identity) === 'TRAINING') {
+        const scopeIdentity = viewAsRole === 'TRAINING' ? trainingManagerIdentity() : ptoLogic.cleanEmail(identity);
+        return (roster.records || []).some(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+      }
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
       return (roster.records || []).some(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
@@ -2212,7 +2279,7 @@ const server = http.createServer(async (req, res) => {
       }).filter(q => q.text && q.options.length >= 2 && q.options.filter(o => o.correct).length === 1);
     }
     if (parsed.pathname === '/api/my/team-alignment' && req.method === 'GET') {
-      const [isTeamLeader, eligibleTargets] = await Promise.all([hasDirectReports(identity, session.employeeName), eligibleAlignmentTargets(identity)]);
+      const [isTeamLeader, eligibleTargets] = await Promise.all([hasDirectReports(identity, session.employeeName, effectiveViewAsRole(identity, session)), eligibleAlignmentTargets(identity)]);
       const data = await loadAlignment();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.createdBy) === identity).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, isTeamLeader, categories: ALIGNMENT_CATEGORY_OPTIONS, members: eligibleTargets.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, isLeadership: x.isLeadership })), records, lastUpdated: data.lastUpdated || '' });
@@ -2562,7 +2629,7 @@ const server = http.createServer(async (req, res) => {
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
-      const isDirectReport = employee && employee.active !== false && (ptoLogic.cleanEmail(employee.teamLeadEmail) === identity || String(employee.teamLeadName || '').trim() === leaderName);
+      const isDirectReport = Boolean(employee) && scopedTeamMembers(roster, identity, session, session.employeeName, false).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
       if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const data = await loadDisciplinary();
       const { instanceNumber, suggestedSanction } = disciplinaryInstanceAndSanction(tier, email, infractionDate, data.records || []);
