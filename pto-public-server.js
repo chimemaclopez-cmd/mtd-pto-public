@@ -78,10 +78,67 @@ function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
     req.end();
   });
 }
+// Internal company AI assistant ("PapagoAI Copilot", service name tsr-bot) - the same one
+// already used company-wide to review Zendesk tickets for sentiment/risk. Auth is per-user
+// (email + emailed verification code -> bearer token), so there's no static API key to set in
+// env; the token is obtained once through /api/admin/copilot/* below and persisted in Upstash,
+// shared by every BQA reviewer that uses DSAT Review's AI triage. See loadCopilotAuth/
+// clearCopilotAuth and the copilot-* routes near /api/qa/dsat-review.
+const COPILOT_BASE = 'https://tsr-bot.d.chime.me/api/v1';
+const COPILOT_CLIENT_VERSION = '2.4.0';
+function copilotRequest(path, { method = 'GET', body, token, timeout = 25000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const headers = { Accept: 'application/json', 'X-Client-Version': COPILOT_CLIENT_VERSION };
+    if (payload) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); }
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const req = https.request(`${COPILOT_BASE}${path}`, { method, headers, timeout }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        let parsed;
+        try { parsed = data ? JSON.parse(data) : {}; } catch { return reject(new Error('Copilot returned an unreadable response.')); }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const err = new Error(parsed.status?.msg || parsed.message || `Copilot returned HTTP ${res.statusCode}.`);
+          err.statusCode = res.statusCode;
+          return reject(err);
+        }
+        resolve(parsed);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('Copilot request timed out.')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+// Mirrors Team_Mac_Daily_Operations_Dashboard.html's responseText() - the /chat/messages
+// response shape isn't formally documented, this is the same unwrapping already proven to work.
+function copilotResponseText(data) {
+  if (typeof data === 'string') return data;
+  if (data?.data?.content) return Array.isArray(data.data.content) ? data.data.content.map(x => x.content || x.text || '').join('\n') : String(data.data.content);
+  return data?.content || data?.answer || data?.message || JSON.stringify(data);
+}
+const COPILOT_AUTH_KEY = 'mtdkpi:copilot-auth';
+async function loadCopilotAuth() { return cloudStore.kvGetJson(COPILOT_AUTH_KEY, null); }
+async function saveCopilotAuth(auth) { return cloudStore.kvSetJson(COPILOT_AUTH_KEY, auth); }
+async function clearCopilotAuth() { return cloudStore.kvSetJson(COPILOT_AUTH_KEY, null); }
+// Same validity check as the dashboard's validateCopilotToken() - fails open on a network
+// hiccup (a timeout doesn't mean the token is bad), only clears on an explicit invalid/expired
+// signal from the API.
+async function copilotAuthIsValid(auth) {
+  try {
+    const result = await copilotRequest('/auth/check-token', { token: auth.token });
+    if (result?.data?.valid === false || [1001, 1007, 1008].includes(result?.status?.code)) return false;
+    return true;
+  } catch { return true; }
+}
+const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
+
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.15.0';
+const PORTAL_VERSION = '1.16.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1508,6 +1565,85 @@ const server = http.createServer(async (req, res) => {
       }
       await cloudStore.kvSetJson(DISPUTES_KEY, disputes);
       return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
+    }
+
+    // Copilot connection status - readable by BQA (so the DSAT Review queue can explain why AI
+    // triage isn't showing up) and by the admin who manages the connection. Re-validates the
+    // stored token rather than trusting its mere presence, clearing it if the API says it's dead.
+    if (parsed.pathname === '/api/admin/copilot/status' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA' && !ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const auth = await loadCopilotAuth();
+      if (!auth) return json(res, 200, { ok: true, connected: false, isAdmin: ADMIN_EMAILS.has(identity) });
+      const valid = await copilotAuthIsValid(auth);
+      if (!valid) { await clearCopilotAuth(); return json(res, 200, { ok: true, connected: false, isAdmin: ADMIN_EMAILS.has(identity) }); }
+      return json(res, 200, { ok: true, connected: true, email: auth.email, connectedAt: auth.connectedAt, isAdmin: ADMIN_EMAILS.has(identity) });
+    }
+
+    // The two-step Copilot sign-in (send a code to the admin's own @lofty.com email, then
+    // exchange it for a bearer token) - admin-only, since this token is then shared by every
+    // BQA reviewer's AI triage calls. See the COPILOT_BASE comment near PORTAL_VERSION.
+    if (parsed.pathname === '/api/admin/copilot/send-code' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!email.endsWith('@lofty.com')) return json(res, 400, { ok: false, error: 'Use your @lofty.com email.' });
+      try {
+        await copilotRequest('/auth/send-code', { method: 'POST', body: { email } });
+        return json(res, 200, { ok: true });
+      } catch (error) { return json(res, 502, { ok: false, error: error.message }); }
+    }
+    if (parsed.pathname === '/api/admin/copilot/verify' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const email = String(body.email || '').trim().toLowerCase();
+      const code = String(body.code || '').trim();
+      if (!code) return json(res, 400, { ok: false, error: 'Enter the verification code.' });
+      try {
+        const result = await copilotRequest(`/auth/login/${encodeURIComponent(code)}`);
+        const token = result?.data;
+        if (!token || typeof token !== 'string') return json(res, 400, { ok: false, error: result?.status?.msg || 'Invalid or expired code.' });
+        await saveCopilotAuth({ token, email, connectedAt: new Date().toISOString(), connectedBy: identity });
+        return json(res, 200, { ok: true });
+      } catch (error) { return json(res, 502, { ok: false, error: error.message }); }
+    }
+    if (parsed.pathname === '/api/admin/copilot/disconnect' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      await clearCopilotAuth();
+      return json(res, 200, { ok: true });
+    }
+
+    // AI-assisted DSAT triage: a short sentiment/risk read on a bad-CSAT ticket, the same kind
+    // of call BQA already makes manually. Cached by a hash of subject+comment so re-opening the
+    // queue doesn't re-spend a Copilot call on tickets that haven't changed since last analyzed.
+    if (parsed.pathname === '/api/qa/dsat-review/analyze' && req.method === 'POST') {
+      if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const ticketId = String(body.ticketId || '').trim();
+      const period = String(body.period || '').trim();
+      if (!ticketId || !period) return json(res, 400, { ok: false, error: 'ticketId and period are required.' });
+      const auth = await loadCopilotAuth();
+      if (!auth) return json(res, 200, { ok: true, unavailable: true });
+      const siteMetricsData = await loadSiteMetricsSnapshot();
+      const badTicketsDetail = (siteMetricsData.periods || {})[period]?.csat?.badTicketsDetail || [];
+      const ticket = badTicketsDetail.find(t => String(t.ticketId) === ticketId);
+      if (!ticket) return json(res, 404, { ok: false, error: 'That ticket was not found among the bad-rated CSAT tickets for this period.' });
+      const commentHash = crypto.createHash('sha1').update(`${ticket.subject || ''}|${ticket.comment || ''}`).digest('hex');
+      const cache = await cloudStore.kvGetJson(DSAT_AI_CACHE_KEY, {});
+      if (cache[ticketId]?.commentHash === commentHash) return json(res, 200, { ok: true, analysis: cache[ticketId] });
+      const prompt = `You are assisting a Quality Assurance reviewer triaging a bad customer-satisfaction survey for a support ticket. Reply with ONLY a JSON object, no other text and no markdown formatting, in exactly this shape: {"sentiment":"Positive|Neutral|Negative","risk":"Low|Medium|High","summary":"one short sentence on why, referencing the specific complaint"}.\n\nTicket subject: ${ticket.subject || '(none)'}\nCustomer comment: ${ticket.comment || '(no comment left)'}`;
+      try {
+        const result = await copilotRequest('/chat/messages', { method: 'POST', token: auth.token, body: { question: prompt, streaming_mode: false } });
+        const raw = copilotResponseText(result);
+        let parsedAnalysis;
+        try { parsedAnalysis = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw); } catch { parsedAnalysis = { sentiment: 'Unknown', risk: 'Unknown', summary: raw.slice(0, 200) }; }
+        const analysis = { sentiment: parsedAnalysis.sentiment || 'Unknown', risk: parsedAnalysis.risk || 'Unknown', summary: parsedAnalysis.summary || '', commentHash, analyzedAt: new Date().toISOString() };
+        cache[ticketId] = analysis;
+        await cloudStore.kvSetJson(DSAT_AI_CACHE_KEY, cache);
+        return json(res, 200, { ok: true, analysis });
+      } catch (error) {
+        if (error.statusCode === 401 || /invalid.*token|expired|unauthor/i.test(error.message)) await clearCopilotAuth();
+        return json(res, 502, { ok: false, error: error.message });
+      }
     }
 
     // Only BQA's own on-behalf sessions for this employee - not the employee's full coaching

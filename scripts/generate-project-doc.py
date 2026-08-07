@@ -207,6 +207,7 @@ features = [
         'BQA reviews every bad CSAT rating company-wide in one place (not scoped to a single team), and can flag a rating Not Valid or decide a rep-filed dispute in the same screen.',
         'Once a DSAT stands as valid, BQA can start a coaching log directly on the rep\'s real team lead\'s behalf, closing the loop between a bad customer experience and an actual coaching conversation.',
         'Ticket numbers in the review queue link straight out to the Zendesk ticket (added v1.15.0).',
+        'AI-assisted triage (v1.16.0): once the company\'s internal Copilot service is connected (a shared, admin-managed sign-in), every open ticket gets an automatic sentiment/risk read (High/Medium/Low) with a one-line reason, so BQA can prioritize the queue at a glance instead of opening each ticket cold.',
     ]),
     ('Team Attendance', [
         'Team leads enter attendance for direct reports, which flows into KPI on the next refresh.',
