@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.18.0';
+const PORTAL_VERSION = '1.19.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1529,12 +1529,16 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
     }
 
-    // Copilot connection status - readable by BQA (so the DSAT Review queue can explain why AI
-    // triage isn't showing up) and by the admin who manages the connection. The token itself is
-    // included for BQA/admin too: every reviewer's own browser needs it to call tsr-bot directly
-    // (see the file-level comment above loadCopilotAuth for why this can't happen server-side).
+    // Copilot connection status - readable by BQA (so DSAT Review can explain why AI triage
+    // isn't showing up), by anyone who could use Rephrase or Alignment quiz generation (those
+    // now try Copilot before falling back to Groq - see rephraseText/generateQuizWithFallback
+    // client-side), and by the admin who manages the connection. The token itself is included
+    // for all of them: each one's own browser needs it to call tsr-bot directly (see the
+    // file-level comment above loadCopilotAuth for why this can't happen server-side).
     if (parsed.pathname === '/api/admin/copilot/status' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA' && !ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const canUseCopilot = ADMIN_EMAILS.has(identity) || portalRoleFor(identity) === 'BQA' || effectiveViewAsRole(identity, session) === 'BQA'
+        || ['SOM', 'HR', 'TRAINING'].includes(portalRoleFor(identity)) || (await hasDirectReports(identity, session.employeeName, effectiveViewAsRole(identity, session)));
+      if (!canUseCopilot) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const auth = await loadCopilotAuth();
       if (!auth) return json(res, 200, { ok: true, connected: false, isAdmin: ADMIN_EMAILS.has(identity) });
       return json(res, 200, { ok: true, connected: true, email: auth.email, connectedAt: auth.connectedAt, token: auth.token, isAdmin: ADMIN_EMAILS.has(identity) });

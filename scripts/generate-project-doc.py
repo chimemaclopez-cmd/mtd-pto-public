@@ -198,6 +198,7 @@ features = [
         'Each targeted employee reads the content, passes the quiz (questions and answer order are shuffled per rep to discourage copying), and e-signs by typing their name.',
         'As of v1.13.0, any Alignment item still awaiting review/quiz/signature opens automatically as an undismissable modal on login (and is re-checked every few minutes while signed in) - the rest of the portal is blocked until it is completed, so a rollout can no longer be missed because a tab never got clicked.',
         'A company-wide Alignment summary (by site, by team, by category) is available to the SOM.',
+        'AI-assisted authoring ("Rephrase" and quiz generation) tries the company\'s internal Copilot service first and automatically falls back to Groq if Copilot is not connected or the call fails (v1.19.0) - same for the Coaching and Disciplinary narrative fields, which also use Rephrase.',
     ]),
     ('Onboarding / New Hires', [
         'The Training Manager adds a new hire directly into the roster and logs a scorecard as they progress (module completion, attendance, assessments).',
