@@ -765,7 +765,7 @@ function portalRoleFor(email) {
   const clean = ptoLogic.cleanEmail(email);
   if (clean === FINAL_DISCIPLINARY_APPROVER_EMAIL) return 'HR';
   if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
-  if (clean === DSAT_REVIEWER_EMAIL) return 'QA';
+  if (clean === DSAT_REVIEWER_EMAIL) return 'BQA';
   if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
 }
@@ -778,7 +778,7 @@ function portalRoleFor(email) {
 // override, so an action taken while previewing can never get misattributed to the person
 // being previewed.
 const ADMIN_EMAILS = new Set(['mac@lofty.com']);
-const VIEW_AS_ROLES = new Set(['QA', 'SOM', 'HR', 'TRAINING']);
+const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING']);
 function effectiveViewAsRole(identity, session) {
   return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
 }
@@ -1417,7 +1417,7 @@ const server = http.createServer(async (req, res) => {
     // to Voice/Non-Voice/Senior TSR for KPI-scoring purposes and would silently hide bad CSAT
     // tickets assigned to a Database Agent, a team lead, or anyone else active.
     if (parsed.pathname === '/api/qa/dsat-review' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'QA' && effectiveViewAsRole(identity, session) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const siteMetricsData = await loadSiteMetricsSnapshot();
       const availablePeriods = Object.keys(siteMetricsData.periods || {}).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
@@ -1444,7 +1444,7 @@ const server = http.createServer(async (req, res) => {
     // (just asks for a data pull, decides nothing), so it's allowed the same way the GET
     // above is - real QA identity or an admin currently previewing as QA.
     if (parsed.pathname === '/api/qa/dsat-review/refresh' && req.method === 'POST') {
-      if (portalRoleFor(identity) !== 'QA' && effectiveViewAsRole(identity, session) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const body = await readJsonBody(req);
       const period = String(body.period || '').trim();
       const [month, endDate] = period.includes('|') ? period.split('|') : ['', ''];
@@ -1457,7 +1457,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/qa/dsat-review/decide' && req.method === 'POST') {
-      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const body = await readJsonBody(req);
       const decision = String(body.decision || '').toUpperCase();
       if (!['APPROVED', 'REJECTED'].includes(decision)) return json(res, 400, { ok: false, error: 'A valid decision (APPROVED or REJECTED) is required.' });
@@ -1510,18 +1510,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
     }
 
-    // QA's normal /api/my/team-coaching view only shows sessions she personally created - not
-    // an employee's full history, since her own direct-report set is empty. When filing a
-    // coaching session on that employee's behalf, she still needs to see that full history to
-    // decide whether it's a genuine continuation of an earlier problem, so this is a narrow,
-    // read-only lookup scoped to one employee rather than widening her main Coaching tab (which
-    // would otherwise start showing every session company-wide).
+    // Only BQA's own on-behalf sessions for this employee - not the employee's full coaching
+    // history from their real team lead, which BQA has no visibility into or authority over.
+    // This lets progression tracking recognize "how many times has BQA had to step in for this
+    // person's DSAT issues" as its own thread, without mixing it with the team lead's separate
+    // coaching track.
     if (parsed.pathname === '/api/qa/coaching-history' && req.method === 'GET') {
-      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (portalRoleFor(identity) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const employeeEmail = ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail') || '');
       if (!employeeEmail) return json(res, 400, { ok: false, error: 'employeeEmail is required.' });
       const data = await loadCoaching();
-      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail).sort((a, b) => b.coachingDate.localeCompare(a.coachingDate));
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail && x.createdBy === identity).sort((a, b) => b.coachingDate.localeCompare(a.coachingDate));
       return json(res, 200, { ok: true, records });
     }
 
@@ -2068,7 +2067,7 @@ const server = http.createServer(async (req, res) => {
       const data = await loadCoaching();
       // The QA reviewer also sees whatever coaching logs she's personally initiated on behalf
       // of a team lead, even for an employee who isn't one of her own direct reports.
-      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) || (portalRoleFor(identity) === 'QA' && x.createdBy === identity)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) || (portalRoleFor(identity) === 'BQA' && x.createdBy === identity)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const byId = new Map((data.records || []).map(x => [x.coachingId, x]));
       // A coaching session can explicitly link to an earlier one covering the SAME underlying
       // problem (not just the same category - a team lead may file two "Performance / KPI"
@@ -2110,7 +2109,7 @@ const server = http.createServer(async (req, res) => {
       // validated DSAT calls for it, on behalf of that employee's actual team lead - not just
       // her own reports. The record still attributes teamLeadEmail/teamLeadName to the real
       // team lead; createdBy (below) is what shows it was actually entered by QA.
-      const isQaOnBehalf = !isDirectReport && portalRoleFor(identity) === 'QA' && employee && employee.active !== false;
+      const isQaOnBehalf = !isDirectReport && portalRoleFor(identity) === 'BQA' && employee && employee.active !== false;
       if (!isDirectReport && !isQaOnBehalf) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const currentStanding = await buildCoachingStandingSnapshot(email);
       const data = await loadCoaching();
