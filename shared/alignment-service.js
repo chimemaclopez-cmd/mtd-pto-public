@@ -11,3 +11,6 @@ export const decideAlignment=(alignmentId,payload)=>api(`/api/som/alignment-revi
 export const loadMyAlignment=()=>api('/api/my/alignment');
 export const acknowledgeAlignment=(alignmentId,payload)=>api(`/api/my/alignment/${encodeURIComponent(alignmentId)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});
 export const generateAlignmentQuiz=text=>api('/api/my/generate-quiz',{method:'POST',body:JSON.stringify({text})});
+// Separate from updateTeamAlignment - works regardless of status (including APPROVED), since
+// the due date is scheduling metadata, not reviewed content.
+export const updateAlignmentDueDate=(alignmentId,dueDate)=>api(`/api/my/team-alignment/${encodeURIComponent(alignmentId)}/due-date`,{method:'PUT',body:JSON.stringify({dueDate})});

@@ -1510,6 +1510,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, dispute: disputes[index], kpiAdjustment });
     }
 
+    // QA's normal /api/my/team-coaching view only shows sessions she personally created - not
+    // an employee's full history, since her own direct-report set is empty. When filing a
+    // coaching session on that employee's behalf, she still needs to see that full history to
+    // decide whether it's a genuine continuation of an earlier problem, so this is a narrow,
+    // read-only lookup scoped to one employee rather than widening her main Coaching tab (which
+    // would otherwise start showing every session company-wide).
+    if (parsed.pathname === '/api/qa/coaching-history' && req.method === 'GET') {
+      if (portalRoleFor(identity) !== 'QA') return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const employeeEmail = ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail') || '');
+      if (!employeeEmail) return json(res, 400, { ok: false, error: 'employeeEmail is required.' });
+      const data = await loadCoaching();
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail).sort((a, b) => b.coachingDate.localeCompare(a.coachingDate));
+      return json(res, 200, { ok: true, records });
+    }
+
     // Admin-posted announcements (MTD_Announcements.html) live in a one-way snapshot key -
     // zendesk-proxy.js overwrites mtdkpi:snapshot:announcements wholesale from its local file
     // every sync tick, so anything written there from this server would vanish within ~30s.
@@ -2323,6 +2338,29 @@ const server = http.createServer(async (req, res) => {
       await saveAlignment(data);
       await appendAlignmentAudit(alignmentId, status === 'PENDING_APPROVAL' ? 'CREATED_AND_SUBMITTED' : 'CREATED_DRAFT', { user: identity, newValue: record });
       return json(res, 201, { ok: true, record });
+    }
+
+    // Due Date is scheduling metadata, not reviewed content - unlike title/category/body/
+    // targets (locked once APPROVED so a change can't quietly diverge from what SOM actually
+    // approved), a team lead should still be able to fix a due-date typo or push a deadline
+    // regardless of status, without needing to unwind an already-approved item.
+    const alignmentDueDateMatch = parsed.pathname.match(/^\/api\/my\/team-alignment\/([^/]+)\/due-date$/);
+    if (alignmentDueDateMatch && req.method === 'PUT') {
+      const alignmentId = decodeURIComponent(alignmentDueDateMatch[1]);
+      const data = await loadAlignment();
+      const index = (data.records || []).findIndex(x => x.alignmentId === alignmentId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Alignment record not found.' });
+      const current = data.records[index];
+      if (ptoLogic.cleanEmail(current.createdBy) !== identity) return json(res, 403, { ok: false, error: 'Only the team lead who created this can manage it.' });
+      const body = await readJsonBody(req);
+      if (body.dueDate && !ptoLogic.validDate(body.dueDate)) return json(res, 400, { ok: false, error: 'Due date must be a valid date.' });
+      const dueDate = body.dueDate ? body.dueDate : null;
+      const now = new Date().toISOString();
+      const next = { ...current, dueDate, updatedAt: now };
+      data.records[index] = next;
+      await saveAlignment(data);
+      await appendAlignmentAudit(alignmentId, 'DUE_DATE_UPDATED', { user: identity, previousValue: { dueDate: current.dueDate || null }, newValue: { dueDate } });
+      return json(res, 200, { ok: true, record: next });
     }
 
     const alignmentMatch = parsed.pathname.match(/^\/api\/my\/team-alignment\/([^/]+)(?:\/(submit))?$/);
