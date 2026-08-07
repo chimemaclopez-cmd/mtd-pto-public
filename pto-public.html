@@ -434,7 +434,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.12.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.14.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 async function runDraftAssist(){
   const instructions=$('draftAssistInstructionsInput').value.trim();
@@ -631,6 +631,10 @@ function applyKpiResult(result){kpiResults=result.results||[];teamKpiResults=res
 async function refreshKpiOnly(){if(!sessionUser||kpiRefreshing||loading.isActive)return;kpiRefreshing=true;try{applyKpiResult(await getMyKpi())}catch(error){if(activeTab==='kpi')setMessage(`KPI scores could not be refreshed. ${error.response?.error||error.message}`,'error')}finally{kpiRefreshing=false}}
 function startKpiAutoRefresh(){if(kpiRefreshTimer)return;kpiRefreshTimer=setInterval(refreshKpiOnly,KPI_AUTO_REFRESH_MS)}
 function stopKpiAutoRefresh(){clearInterval(kpiRefreshTimer);kpiRefreshTimer=null;kpiRefreshing=false}
+const ALIGNMENT_POLL_MS=5*60*1000;
+let alignmentPollTimer=null;
+function startAlignmentPolling(){if(alignmentPollTimer)return;alignmentPollTimer=setInterval(()=>{if(!alignmentBlockActive&&!mustChangePassword&&$('changePasswordModal').hidden&&$('alignmentSignModal').hidden)runAlignmentBlockGate()},ALIGNMENT_POLL_MS)}
+function stopAlignmentPolling(){clearInterval(alignmentPollTimer);alignmentPollTimer=null}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&sessionUser&&Date.now()-teamKpiLastRefreshedAt>=KPI_AUTO_REFRESH_MS)refreshKpiOnly()});
 const ZENDESK_SUBDOMAIN='chimecrm';
 function disputeStatusPill(status){const cls=status==='APPROVED'?'status-ready':status==='REJECTED'?'status-failed':'status-pending';const label=status==='APPROVED'?'Dispute Approved':status==='REJECTED'?'Dispute Rejected':'Dispute Pending Review';return`<span class="pill ${cls}" style="margin-top:6px;display:inline-block">${label}</span>`}
@@ -863,7 +867,9 @@ const CHANGELOG=[
   {version:'1.9.0',items:['Added an "All Coaching" tab for company-wide coaching oversight - every session across every team, with summaries by team and by rep.','The Daily EOD Report on the Site KPI tab now shows Onsite, WFH, Present, Planned Out, and Unplanned Out headcounts per day, so you can check whether a dip or improvement lines up with the day\'s work-setup mix or staffing gaps.']},
   {version:'1.10.0',items:['New "Alignment" tab - team leads can paste in an SOP, process update, or feature update, pick which team members need to acknowledge it, and send it to the SOM for approval. Once approved, each rep reviews and e-signs it right in their portal.','Team Leads, HR, and the SOM can now post, edit, and delete company announcements directly from the portal - no admin dashboard needed.','Alignment content and announcements can now be pasted straight from a Word doc or PDF, keeping basic formatting like bold, headings, and lists.','Added an AI-assisted "Rephrase" button to the Alignment and Announcement composers, to help clean up grammar and awkward wording.']},
   {version:'1.11.0',items:['Team leads can now generate a short comprehension quiz (AI-assisted, or written by hand) for an Alignment item, so reps have to read the material and answer questions correctly before their e-signature is accepted.','Quiz questions and answer choices are shown in random order for each rep to discourage copying, and each rep\'s number of wrong attempts is visible to the team lead as a sign of how well the material landed.','Added a short "read gate" before the quiz unlocks, so reps can\'t skip straight to guessing without reading the content first.','Extended the AI-assisted "Rephrase" button to Coaching and Disciplinary write-ups.']},
-  {version:'1.12.0',items:['New "New Hires" tab for the Training Manager - add a new hire straight into the roster, log their training scorecard (module completion, attendance, assessments), and decide whether to endorse them into a real production role and team.','Endorsing a new hire lets you pick their production role and which team lead they report to going forward - Coaching, Disciplinary, Alignment, Team Attendance, and Team Roster access for your trainees works automatically the same way it does for any team lead.']}
+  {version:'1.12.0',items:['New "New Hires" tab for the Training Manager - add a new hire straight into the roster, log their training scorecard (module completion, attendance, assessments), and decide whether to endorse them into a real production role and team.','Endorsing a new hire lets you pick their production role and which team lead they report to going forward - Coaching, Disciplinary, Alignment, Team Attendance, and Team Roster access for your trainees works automatically the same way it does for any team lead.']},
+  {version:'1.13.0',items:['If you have an Alignment item that\'s still awaiting your review, quiz, or signature, it now opens automatically and blocks the rest of the portal until it\'s completed - no more missing a rollout because a tab never got clicked.']},
+  {version:'1.14.0',items:['Team Attendance now asks whether a "Late" day was Onsite or WFH, so lates get tracked by work setup, not just minutes and reason.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -920,10 +926,10 @@ function applyPortalRoleView(){
   $('viewAsBanner').hidden=!viewAsRole;
   if(viewAsRole)$('viewAsBannerRole').textContent=viewAsRole;
 }
-function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;applyPortalRoleView();restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();setTab(activeTab);loadMyStatus();setTimeout(()=>{if(sessionUser?.tourSeen)showWhatsNewIfNeeded();else startTour()},300)}
+function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;applyPortalRoleView();restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();startAlignmentPolling();setTab(activeTab);loadMyStatus();setTimeout(()=>{if(sessionUser?.tourSeen)showWhatsNewIfNeeded();else startTour()},300)}
 function isMaintenanceError(error){return Boolean(error?.response?.maintenance)||error?.status===503}
 function showMaintenance(){$('maintenanceView').hidden=false;$('loginView').hidden=true;$('signedInActions').hidden=true;$('tabs').hidden=true}
-function showLogin(){stopChatPolling();stopKpiAutoRefresh();chatInitialized=false;chatMessages=[];chatOnline=[];chatUnread=0;profile=null;profilePhoto='';kpiResults=[];teamKpiResults=[];teamRequests=[];ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false};teamPtoDecision=null;isTeamLeader=false;teamKpiPeriod='';teamKpiAverage=null;teamKpiLeadName='';teamKpiSize=0;teamKpiLastRefreshedAt=0;$('maintenanceView').hidden=true;$('loginView').hidden=false;$('signedInActions').hidden=true;$('profileCard').hidden=true;$('tabs').hidden=true;$('kpiView').hidden=true;$('scheduleView').hidden=true;$('attendanceView').hidden=true;$('requestsView').hidden=true;$('announcementsView').hidden=true;$('chatWidget').hidden=true;$('forecastView').hidden=true;$('teamPtoSection').hidden=true;$('coachingView').hidden=true;
+function showLogin(){stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling();chatInitialized=false;chatMessages=[];chatOnline=[];chatUnread=0;profile=null;profilePhoto='';kpiResults=[];teamKpiResults=[];teamRequests=[];ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false};teamPtoDecision=null;isTeamLeader=false;teamKpiPeriod='';teamKpiAverage=null;teamKpiLeadName='';teamKpiSize=0;teamKpiLastRefreshedAt=0;$('maintenanceView').hidden=true;$('loginView').hidden=false;$('signedInActions').hidden=true;$('profileCard').hidden=true;$('tabs').hidden=true;$('kpiView').hidden=true;$('scheduleView').hidden=true;$('attendanceView').hidden=true;$('requestsView').hidden=true;$('announcementsView').hidden=true;$('chatWidget').hidden=true;$('forecastView').hidden=true;$('teamPtoSection').hidden=true;$('coachingView').hidden=true;
   // #tabs only hides the nav BUTTONS - each content <section> below it is a separate sibling
   // with its own `hidden`, toggled independently by setTab(). Logging out only ever cleared a
   // handful of the oldest ones here (a pre-existing gap this list keeps growing into), so
@@ -944,13 +950,15 @@ function renderTeamAttendance(){
       const current=dirty?dirty.code:(day.code||'');
       const minutesLate=dirty?dirty.minutesLate:day.minutesLate;
       const reason=dirty?dirty.reason:day.reason;
+      const location=dirty?dirty.location:day.location;
       if(day.locked)return`<td class="att-PTO" title="Protected by an approved PTO request">${esc(day.displayLabel||'PTO')}</td>`;
       if(!day.eligible)return`<td class="att-RD">RD</td>`;
       const canAttach=!dirty&&['SL','EL','SL-HD','EL-HD'].includes(day.code);
       const attachBtn=canAttach?`<button type="button" class="att-attach-btn" data-attach-email="${esc(m.employeeEmail)}" data-attach-date="${day.date}" title="Attach a supporting document for this ${esc(day.code)} day">📎</button>`:(dirty&&['SL','EL','SL-HD','EL-HD'].includes(current)?'<span class="att-attach-hint" title="Save this change first, then you can attach a document">📎</span>':'');
       const minutesLateInput=current==='LATE'?`<input type="number" min="1" max="600" class="att-minutes-late" data-minutes-email="${esc(m.employeeEmail)}" data-minutes-date="${day.date}" placeholder="mins" value="${minutesLate!=null?minutesLate:''}">`:'';
+      const locationSelect=current==='LATE'?`<select class="att-location" data-location-email="${esc(m.employeeEmail)}" data-location-date="${day.date}" data-current-code="${current}"><option value="ONSITE"${location==='WFH'?'':' selected'}>Onsite</option><option value="WFH"${location==='WFH'?' selected':''}>WFH</option></select>`:'';
       const reasonInput=REASON_CODES.includes(current)?`<input type="text" maxlength="120" class="att-reason" data-reason-email="${esc(m.employeeEmail)}" data-reason-date="${day.date}" data-current-code="${current}" placeholder="reason (optional)" value="${esc(reason||'')}">`:'';
-      return`<td class="${current?`att-${esc(current.split('-')[0])}`:''}"><select data-email="${esc(m.employeeEmail)}" data-date="${day.date}">${teamAttendanceCodeOptions(current)}</select>${minutesLateInput}${reasonInput}${attachBtn}</td>`;
+      return`<td class="${current?`att-${esc(current.split('-')[0])}`:''}"><select data-email="${esc(m.employeeEmail)}" data-date="${day.date}">${teamAttendanceCodeOptions(current)}</select>${minutesLateInput}${locationSelect}${reasonInput}${attachBtn}</td>`;
     }).join('');
     return`<tr><td class="sticky1"><b>${esc(m.employeeName)}</b></td>${cells}</tr>`;
   }).join('');
@@ -978,7 +986,7 @@ $('teamAttendanceBody').addEventListener('change',event=>{
   if(event.target.dataset.email){
     const email=event.target.dataset.email,date=event.target.dataset.date,code=event.target.value;
     const prev=teamAttendanceDirty.get(`${email}|${date}`);
-    teamAttendanceDirty.set(`${email}|${date}`,{email,date,code,minutesLate:code==='LATE'?(prev?.minutesLate??null):null,reason:TEAM_ATTENDANCE_REASON_CODES.includes(code)?(prev?.reason??''):''});
+    teamAttendanceDirty.set(`${email}|${date}`,{email,date,code,minutesLate:code==='LATE'?(prev?.minutesLate??null):null,reason:TEAM_ATTENDANCE_REASON_CODES.includes(code)?(prev?.reason??''):'',location:code==='LATE'?(prev?.location||'ONSITE'):''});
     $('teamAttendanceSaveBtn').disabled=false;
     renderTeamAttendance();
     return;
@@ -994,6 +1002,12 @@ $('teamAttendanceBody').addEventListener('change',event=>{
     const email=event.target.dataset.reasonEmail,date=event.target.dataset.reasonDate;
     const existing=teamAttendanceDirty.get(`${email}|${date}`)||{email,date,code:event.target.dataset.currentCode};
     teamAttendanceDirty.set(`${email}|${date}`,{...existing,reason:event.target.value});
+    $('teamAttendanceSaveBtn').disabled=false;
+  }
+  if(event.target.dataset.locationEmail){
+    const email=event.target.dataset.locationEmail,date=event.target.dataset.locationDate;
+    const existing=teamAttendanceDirty.get(`${email}|${date}`)||{email,date,code:event.target.dataset.currentCode};
+    teamAttendanceDirty.set(`${email}|${date}`,{...existing,location:event.target.value});
     $('teamAttendanceSaveBtn').disabled=false;
   }
 });
@@ -1028,11 +1042,12 @@ $('teamAttendanceAttachInput').addEventListener('change',async event=>{
 $('teamAttendanceSaveBtn').onclick=async()=>{
   const button=$('teamAttendanceSaveBtn');button.disabled=true;
   const entries={};
-  for(const{email,date,code,minutesLate,reason}of teamAttendanceDirty.values()){
+  for(const{email,date,code,minutesLate,reason,location}of teamAttendanceDirty.values()){
     entries[email]??={};
     const extra={};
     if(code==='LATE'&&minutesLate)extra.minutesLate=minutesLate;
     if(reason)extra.reason=reason;
+    if(code==='LATE'&&location)extra.location=location;
     entries[email][date]=Object.keys(extra).length?{code,...extra}:code;
   }
   try{
@@ -1433,9 +1448,11 @@ function startAlignmentReadGate(text){
     else btn.textContent=`Continue to Quiz (${remaining}s)`;
   },1000);
 }
-function openAlignmentViewModal(record,allowSign){
+function openAlignmentViewModal(record,allowSign,forced=false){
   signingAlignmentRecord=record;
   clearInterval(alignmentReadGateTimer);
+  $('alignmentSignModal').dataset.forced=forced?'1':'';
+  $('alignmentSignClose').hidden=forced;
   $('alignmentSignTitle').textContent=record.title;
   $('alignmentSignMeta').textContent=`${record.category} · Effective ${record.effectiveDate||'—'}${record.dueDate?` · Due ${record.dueDate}`:''} · From ${record.teamLeadName}`;
   $('alignmentSignBody').innerHTML=allowSign?sanitizeRichHtml(record.body):alignmentDetailHtml(record);
@@ -1486,7 +1503,7 @@ $('myAlignmentBody').addEventListener('click',event=>{
   const record=myAlignmentRecords.find(r=>r.alignmentId===id);
   if(record)openAlignmentViewModal(record,true);
 });
-$('alignmentSignClose').onclick=()=>{clearInterval(alignmentReadGateTimer);$('alignmentSignModal').hidden=true};
+$('alignmentSignClose').onclick=()=>{if($('alignmentSignModal').dataset.forced==='1')return;clearInterval(alignmentReadGateTimer);$('alignmentSignModal').hidden=true};
 $('alignmentSignSubmit').onclick=async()=>{
   const signedName=$('alignmentSignedNameInput').value.trim();
   if(!signedName){$('alignmentSignError').hidden=false;$('alignmentSignError').textContent='Please type your full name to sign.';return}
@@ -1496,13 +1513,43 @@ $('alignmentSignSubmit').onclick=async()=>{
     const payload={signedName};
     if(hasQuiz){payload.quizPassed=true;payload.quizAttempts=alignmentQuizState.attempts}
     await acknowledgeAlignment(signingAlignmentRecord.alignmentId,payload);
-    $('alignmentSignModal').hidden=true;
-    setMessage('Alignment item signed. Thank you.','ok');
     await refreshMyAlignment();
+    if(alignmentBlockActive){
+      alignmentBlockQueue=pendingAlignmentItems(myAlignmentRecords);
+      if(alignmentBlockQueue.length){
+        openAlignmentViewModal(alignmentBlockQueue[0],true,true);
+      }else{
+        $('alignmentSignModal').hidden=true;
+        alignmentBlockActive=false;
+        setMessage('All pending alignment items signed. Thank you.','ok');
+        const resolve=alignmentBlockResolve;alignmentBlockResolve=null;
+        if(resolve)resolve();
+      }
+    }else{
+      $('alignmentSignModal').hidden=true;
+      setMessage('Alignment item signed. Thank you.','ok');
+    }
   }catch(error){
     $('alignmentSignError').hidden=false;$('alignmentSignError').textContent=error.response?.error||error.message;
   }finally{$('alignmentSignSubmit').disabled=false}
 };
+function pendingAlignmentItems(records){return(records||[]).filter(r=>!r.myAcknowledgment)}
+async function runAlignmentBlockGate(){
+  try{
+    const{records}=await loadMyAlignment();
+    myAlignmentRecords=records;
+  }catch(error){
+    console.error('alignment gate check failed',error);
+    return;
+  }
+  alignmentBlockQueue=pendingAlignmentItems(myAlignmentRecords);
+  if(!alignmentBlockQueue.length)return;
+  alignmentBlockActive=true;
+  return new Promise(resolve=>{
+    alignmentBlockResolve=resolve;
+    openAlignmentViewModal(alignmentBlockQueue[0],true,true);
+  });
+}
 function renderAlignmentReview(){
   $('alignmentReviewBody').innerHTML=alignmentReviewRecords.map(r=>{
     const label=r.status==='PENDING_APPROVAL'?'Review':'View';
@@ -2262,10 +2309,10 @@ async function init(){
     session={authenticated:false};
   }
   if(!session.authenticated){showLogin();return}
-  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);viewAsRole=session.viewAsRole||'';showApp();await load();if(mustChangePassword)openChangePassword(true);
+  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);viewAsRole=session.viewAsRole||'';showApp();await load();if(mustChangePassword)openChangePassword(true);else await runAlignmentBlockGate();
 }
 $('maintenanceRetryBtn').onclick=()=>{$('maintenanceView').hidden=true;init()};
-$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);viewAsRole=result.viewAsRole||'';showApp();if(mustChangePassword){openChangePassword(true)}else{await load()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
+$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);viewAsRole=result.viewAsRole||'';showApp();if(mustChangePassword){openChangePassword(true)}else{await load();await runAlignmentBlockGate()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
 $('forgotPasswordLink').onclick=event=>{event.preventDefault();$('forgotPasswordHint').hidden=!$('forgotPasswordHint').hidden};
 $('logoutBtn').onclick=async()=>{try{await logout()}catch{}showLogin()};
 $('changePasswordBtn').onclick=()=>openChangePassword(false);
@@ -2291,7 +2338,7 @@ let contactSubmitting=false;
 $('contactForm').onsubmit=async event=>{event.preventDefault();if(contactSubmitting)return;contactSubmitting=true;const submitBtn=event.currentTarget.querySelector('button[type="submit"]');if(submitBtn)submitBtn.disabled=true;const values=Object.fromEntries(new FormData(event.currentTarget));values.contactNumber=combinePhoneNumber(values.contactNumberCode,values.contactNumberLocal);values.emergencyContactNumber=combinePhoneNumber(values.emergencyContactNumberCode,values.emergencyContactNumberLocal);if(values.emergencyContactRelationship==='Other'&&values.emergencyContactRelationshipOther.trim())values.emergencyContactRelationship=values.emergencyContactRelationshipOther.trim();delete values.contactNumberCode;delete values.contactNumberLocal;delete values.emergencyContactNumberCode;delete values.emergencyContactNumberLocal;delete values.emergencyContactRelationshipOther;$('contactError').hidden=true;try{const result=await updateMyContact(values);profile={...profile,...result.employee};renderProfile();$('contactModal').hidden=true;setMessage('Contact information updated.','ok')}catch(error){$('contactError').hidden=false;$('contactError').textContent=error.response?.error||error.message}finally{contactSubmitting=false;if(submitBtn)submitBtn.disabled=false}};
 $('changePasswordCancel').onclick=()=>{$('changePasswordModal').hidden=true};
 let changePasswordSubmitting=false;
-$('changePasswordForm').onsubmit=async event=>{event.preventDefault();if(changePasswordSubmitting)return;const values=Object.fromEntries(new FormData(event.currentTarget));$('changePasswordError').hidden=true;if(values.newPassword!==values.confirmPassword){$('changePasswordError').hidden=false;$('changePasswordError').textContent='New password and confirmation do not match.';return}changePasswordSubmitting=true;const submitBtn=event.currentTarget.querySelector('button[type="submit"]');if(submitBtn)submitBtn.disabled=true;try{await changePassword(values.currentPassword,values.newPassword);mustChangePassword=false;$('changePasswordModal').hidden=true;setMessage('Password changed.','ok');await load()}catch(error){$('changePasswordError').hidden=false;$('changePasswordError').textContent=error.response?.error||error.message}finally{changePasswordSubmitting=false;if(submitBtn)submitBtn.disabled=false}};
+$('changePasswordForm').onsubmit=async event=>{event.preventDefault();if(changePasswordSubmitting)return;const values=Object.fromEntries(new FormData(event.currentTarget));$('changePasswordError').hidden=true;if(values.newPassword!==values.confirmPassword){$('changePasswordError').hidden=false;$('changePasswordError').textContent='New password and confirmation do not match.';return}changePasswordSubmitting=true;const submitBtn=event.currentTarget.querySelector('button[type="submit"]');if(submitBtn)submitBtn.disabled=true;try{await changePassword(values.currentPassword,values.newPassword);mustChangePassword=false;$('changePasswordModal').hidden=true;setMessage('Password changed.','ok');await load();await runAlignmentBlockGate()}catch(error){$('changePasswordError').hidden=false;$('changePasswordError').textContent=error.response?.error||error.message}finally{changePasswordSubmitting=false;if(submitBtn)submitBtn.disabled=false}};
 function rosterDetails(){$('rosterDetails').innerHTML=profile?`<b>${esc(profile.employeeName)}</b> · ${esc(profile.employeeEmail)}<br>Reports To: ${esc(profile.teamLeadName)} · KPI: ${esc(profile.kpiType)} · Channel: ${esc(profile.primaryChannel)}`:'Employee record not found.'}function partialFields(){const partial=$('requestForm').elements.requestType.value==='PARTIAL_DAY';document.querySelectorAll('.partialField').forEach(x=>x.hidden=!partial);if(partial)$('requestForm').elements.endDate.value=$('requestForm').elements.startDate.value}
 function openRequest(x=null){editing=x;setTab('pto');$('requestTitle').textContent=x?'Edit PTO Request':'Create PTO Request';const form=$('requestForm'),fields=form.elements;fields.employeeEmail.innerHTML=`<option value="${esc(sessionUser.employeeEmail)}">${esc(sessionUser.employeeName)} · ${esc(sessionUser.employeeEmail)}</option>`;fields.employeeEmail.value=sessionUser.employeeEmail;for(const name of ['dateRequested','requestType','startDate','endDate','partialStartTime','partialEndTime','reason','employeeNotes','supportingDocumentReference'])if(fields[name])fields[name].value=x?.[name]||({dateRequested:todayET(),requestType:'FULL_DAY',startDate:todayET(),endDate:todayET()}[name]||'');fields.requestedWorkdays.value=x?.requestedWorkdays||'';rosterDetails();partialFields();$('requestError').hidden=true;$('requestModal').hidden=false;fields.startDate.focus()}
 $('requestForm').addEventListener('click',event=>{if(event.target.type==='submit')submitIntent=event.target.dataset.intent||'draft'});$('requestForm').onchange=event=>{if(event.target.name==='requestType'||event.target.name==='startDate')partialFields()};$('requestForm').onsubmit=async event=>{event.preventDefault();if(loading.isActive)return;const form=event.currentTarget;const values=Object.fromEntries(new FormData(form));values.employeeEmail=sessionUser.employeeEmail;values.createdBy=sessionUser.employeeEmail;loading.start(submitIntent==='submit'?'Submitting PTO request':'Saving PTO draft',SUBMIT_STEPS,{retry:()=>form.requestSubmit()});let step=0;try{loading.begin(step=0);if(!values.reason.trim())throw new Error('Reason is required.');if(values.startDate>values.endDate)throw new Error('Start date cannot follow end date.');loading.complete(0);loading.begin(step=1);const preview=await loadPtoForecast({...values,kpiType:profile?.kpiType});values.requestedWorkdays=preview.forecastStatus==='SCHEDULE_MISSING'?Math.round((new Date(`${values.endDate}T12:00:00Z`)-new Date(`${values.startDate}T12:00:00Z`))/86400000)+1:preview.dates.length;loading.complete(1,{state:preview.forecastStatus==='SCHEDULE_MISSING'?'warning':'complete',detail:preview.forecastStatus==='SCHEDULE_MISSING'?'Schedule has not yet been created for this employee/date range - continuing anyway.':''});loading.begin(step=2);if(preview.conflicts?.length)throw new Error(`Conflicting active requests: ${preview.conflicts.map(x=>x.requestId).join(', ')}`);loading.complete(2);loading.begin(step=3);form.elements.requestedWorkdays.value=values.requestedWorkdays;loading.complete(3);loading.begin(step=4);let result=editing?await updatePtoRequest(editing.requestId,{...values,...localContext()}):await createPtoRequest(values);if(submitIntent==='submit'&&result.request.status==='DRAFT')result=await ptoAction(result.request.requestId,'submit',localContext());loading.complete(4);loading.begin(step=5);requests=(await loadPtoRequests()).requests||[];renderRequests();loading.complete(5);loading.finish(submitIntent==='submit'?'PTO request submitted':'PTO draft saved',{state:'success',collapse:false});$('requestModal').hidden=true;setMessage(`${result.request.requestId} ${submitIntent==='submit'?'was submitted for approval':'was saved as a draft'}.`,'ok')}catch(error){loading.fail(step,error);$('requestError').hidden=false;$('requestError').textContent=`Request could not be saved. ${error.endpoint?`${error.endpoint} returned HTTP ${error.status||'unknown'}. `:''}${error.response?.error||error.message}`} };
@@ -2312,7 +2359,7 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>{navigator.se
 $('chatForm').onsubmit=async event=>{event.preventDefault();const input=$('chatInput');const text=input.value.trim();if(!text)return;try{const result=await sendChatMessage(text);input.value='';chatMessages=[...chatMessages,result.message];renderChatMessages()}catch(error){setMessage(error.response?.error||error.message,'error')}};
 $('chatBubbleBtn').onclick=()=>{ensureAudioContext();if(chatJustDragged){chatJustDragged=false;return}if(chatPanelOpen)closeChatPanel();else openChatPanel()};
 $('chatCloseBtn').onclick=closeChatPanel;
-document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('tourWelcomeModal').hidden){endTour();return}if(!$('tourOverlay').hidden){endTour();return}if(!$('whatsNewModal').hidden){dismissWhatsNew();return}if(!$('changePasswordModal').hidden){if($('changePasswordModal').dataset.forced==='1')return;$('changePasswordModal').hidden=true;return}const openModal=[...document.querySelectorAll('.modal')].find(m=>!m.hidden);if(openModal){openModal.hidden=true;return}if(chatPanelOpen)closeChatPanel()});
+document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!$('tourWelcomeModal').hidden){endTour();return}if(!$('tourOverlay').hidden){endTour();return}if(!$('whatsNewModal').hidden){dismissWhatsNew();return}if(!$('changePasswordModal').hidden){if($('changePasswordModal').dataset.forced==='1')return;$('changePasswordModal').hidden=true;return}if(!$('alignmentSignModal').hidden){if($('alignmentSignModal').dataset.forced==='1')return;clearInterval(alignmentReadGateTimer);$('alignmentSignModal').hidden=true;return}const openModal=[...document.querySelectorAll('.modal')].find(m=>!m.hidden);if(openModal){openModal.hidden=true;return}if(chatPanelOpen)closeChatPanel()});
 init();
 </script>
 <div class="appCredit">Built by Mac · <span id="appCreditVersion"></span> · &copy; 2026 Lofty. All Rights Reserved.</div>

@@ -81,7 +81,7 @@ function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.12.0';
+const PORTAL_VERSION = '1.14.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1983,7 +1983,8 @@ const server = http.createServer(async (req, res) => {
           const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
           const minutesLate = ptoLogic.attendanceMinutesLateOnDate(attendance, email, date);
           const reason = ptoLogic.attendanceReasonOnDate(attendance, email, date);
-          return { date, eligible, locked: Boolean(auto), code, minutesLate, reason, displayLabel: auto?.displayLabel || '' };
+          const location = ptoLogic.attendanceLocationOnDate(attendance, email, date);
+          return { date, eligible, locked: Boolean(auto), code, minutesLate, reason, location, displayLabel: auto?.displayLabel || '' };
         });
         return { employeeEmail: email, employeeName: emp.employeeName, days };
       });
@@ -2013,10 +2014,13 @@ const server = http.createServer(async (req, res) => {
           if (resolved.missingSchedule || !resolved.template || resolved.template.off) { skipped.push({ employeeEmail: email, date, reason: 'Not a scheduled workday.' }); continue; }
           const minutesLate = isObj && code === 'LATE' && Number.isFinite(Number(rawValue.minutesLate)) && Number(rawValue.minutesLate) > 0 ? Math.round(Number(rawValue.minutesLate)) : null;
           const reason = isObj && typeof rawValue.reason === 'string' ? rawValue.reason.trim().slice(0, 300) : '';
+          const rawLocation = isObj && typeof rawValue.location === 'string' ? rawValue.location.trim().toUpperCase() : '';
+          const location = code === 'LATE' && ['ONSITE', 'WFH'].includes(rawLocation) ? rawLocation : '';
           accepted[email] ??= {};
           const extra = {};
           if (minutesLate != null) extra.minutesLate = minutesLate;
           if (reason) extra.reason = reason;
+          if (location) extra.location = location;
           accepted[email][date] = Object.keys(extra).length ? { status: code, ...extra } : code;
         }
       }
