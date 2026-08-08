@@ -221,6 +221,12 @@ features = [
     ('Spotlight Wall', [
         'A live, rotating recognition display: real customer shoutouts the moment a good rating comes in, plus shift-end "thank you" messages gated on genuine Zendesk/Jira activity so only people who actually worked get thanked.',
         'A daily broadcast thanks the whole team, agents and leaders alike.',
+        'Occasional full-bleed poster slides (e.g. a CSAT/team-culture banner) and embedded Loom videos, sized to fill the display rather than sit in a small box (v2026-08-08).',
+    ]),
+    ('Rewards / Points (v1.20.0)', [
+        'Points are computed on demand from existing data, never a hand-maintained ledger: good CSAT ratings, KPI performance tier, a clean attendance month, and a first-try Alignment quiz pass.',
+        'A "Rewards Shop" lets reps redeem their balance for catalog items an SOM/HR/admin manages; redemptions go through a request -> approve/reject flow mirroring PTO, with only the approval trail tracked (not fulfillment).',
+        'A monthly leaderboard ranks the team by points earned that month.',
     ]),
     ('PTO', [
         'Rep-facing filing and status tracking, team-lead pre-approval workflow, and forecast/threshold logic to flag risky requests before they are approved.',
@@ -262,6 +268,7 @@ fixes = [
     ('Training Manager seeing the wrong roster', 'Team Roster (and by extension Coaching/Disciplinary/Team Attendance) used the same "my direct reports" logic as a normal team lead, so under an admin\'s View-As preview it showed the admin\'s own real reports instead of the Training Manager\'s actual trainees. Fixed with a dedicated scoping helper restricted to kpiType === "Trainee".'),
     ('Alignment due date locked after approval', 'The edit lock meant to protect reviewed content also blocked fixing a due-date typo once an item was approved. Fixed with a narrow endpoint that can edit just the due date regardless of status.'),
     ('Stale hardcoded footer version', 'The footer showed a literal "V1.2.0" string disconnected from the real version variable. Fixed by making the footer render dynamically from the live portal version.'),
+    ('Shift-end "thank you" messages mostly not firing', 'The admin dashboard checks each rep once, in a narrow 3-7-minutes-before-shift-end window, for a live activity signal - but a single miss (e.g. Zendesk status already idle a beat early) permanently disqualified that rep for the rest of the day instead of retrying on the next check. A separate mismatch also meant the "recent activity" fallback signal was only ever populated for the last ~5 minutes, not the intended 15, making it fail far more than expected. Fixed by retrying every tick until the window actually closes, and by fetching activity signals with a lookback that matches the presence check.'),
 ]
 for name, desc in fixes:
     p = doc.add_paragraph()

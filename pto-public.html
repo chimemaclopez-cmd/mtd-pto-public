@@ -119,7 +119,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <section id="maintenanceView" class="panel noPrint" hidden style="text-align:center;padding:36px 24px"><div style="font-size:40px;margin-bottom:6px">🛠️</div><div class="sectionTitle">We'll be right back</div><div class="sub" style="margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto">The portal is temporarily unavailable for maintenance. This usually clears up on its own within a few minutes — please check back shortly.</div><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn primary" type="button" id="maintenanceRetryBtn">Try Again</button></div><div class="sub" style="margin-top:18px;font-style:italic">Thank you for your patience — Mac</div></section>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
 <div class="noPrint" id="viewAsBanner" hidden style="background:#fff2cc;color:#8a5a00;padding:8px 16px;font-weight:700;text-align:center">Previewing as <span id="viewAsBannerRole"></span> (read-only preview — approvals/decisions stay disabled)</div>
-<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="training" id="trainingTabBtn" hidden>New Hires</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button></div>
+<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="training" id="trainingTabBtn" hidden>New Hires</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="rewards">Rewards</button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button></div>
 <section id="profileCard" class="panel noPrint" hidden></section>
 <section id="adminCopilotView" class="panel noPrint" hidden><div class="sectionTitle" style="font-size:14px">Copilot Connection</div><div class="sub">Connects the company's internal Copilot AI service - shared by every BQA reviewer for DSAT Review's AI triage once connected here. Admin-only.</div><div id="adminCopilotBar" class="copilotBar" style="margin-top:10px"><span id="adminCopilotStatusText"></span><span id="adminCopilotControls" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="adminCopilotEmailInput" type="email" placeholder="you@lofty.com" style="max-width:180px"><button class="btn compact" id="adminCopilotSendCodeBtn" type="button">Send Code</button><input id="adminCopilotCodeInput" placeholder="Code" style="max-width:90px"><button class="btn compact primary" id="adminCopilotVerifyBtn" type="button">Verify</button><button class="btn compact danger" id="adminCopilotDisconnectBtn" type="button" hidden>Disconnect</button></span></div></section>
 <section id="kpiView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="kpiPeriod"></select></div></div><div id="teamKpiSection" hidden><div class="sectionTitle">My Team KPI Scores</div><div class="cards" id="teamKpiCards"></div><div class="teamGoalGrid"><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team CSAT Goal</div><div class="teamGoalTarget">Target: at least 90%</div></div><div class="teamGoalStats" id="teamCsatGoalStats"></div></div><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team Long Call Goal</div><div class="teamGoalTarget">Target: below 5%</div></div><div class="teamGoalStats" id="teamLcrGoalStats"></div></div></div><div class="repGoalPanel"><div class="repGoalHead"><div><div class="repGoalTitle">Rep Goal Tracker</div><div class="sub">Individual CSAT and long-call targets</div></div><div class="sub">CSAT ≥ 90% · Long calls &lt; 5%</div></div><div class="repGoalGrid" id="repGoalGrid"></div></div><div class="sub" id="teamKpiMeta"></div><div class="tableWrap" style="margin-top:10px"><table class="teamKpiTable"><thead><tr><th>Team Member</th><th>KPI Type</th><th>Eligible Workdays</th><th>CSAT</th><th>Productivity / Calls</th><th>LCR</th><th>Tickets</th><th>FRT</th><th>Team Metric</th><th>Updated Tickets</th><th>Bonus</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="teamKpiBody"></tbody></table></div></div><div class="sectionTitle" id="myKpiTitle">My KPI Score</div><div class="cards" id="kpiCards"></div><div class="sub" id="kpiMeta"></div><div class="tableWrap" id="kpiBreakdownWrap"><table><thead><tr><th>Metric</th><th>Actual</th><th>Points</th><th>Status</th></tr></thead><tbody id="kpiBreakdownBody"></tbody></table></div><div class="sectionTitle" id="kpiHistoryTitle" hidden>History</div><div class="tableWrap" id="kpiHistoryWrap" hidden><table><thead><tr><th>Period</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="kpiHistoryBody"></tbody></table></div></section>
@@ -362,6 +362,33 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div></div>
 <section id="requestsView" hidden><div class="actions noPrint" style="justify-content:flex-end"><button class="btn primary" id="newBtn">Create Request</button></div><div class="sectionTitle">My PTO Requests</div><div class="cards" id="requestCards"></div><div class="sub" id="requestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Date Requested</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Approver</th><th>Approver Notes</th><th>Decision</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="requestBody"></tbody></table></div><div id="teamPtoSection" hidden><div class="sectionTitle">Team PTO Review</div><div class="panel" style="margin-top:0"><div class="sub" id="teamPtoWorkflow">Team leaders provide preliminary approval. Final approval and schedule integration are completed by the admin portal or Charlotte Sanchez.</div></div><div class="cards" id="teamRequestCards"></div><div class="sub" id="teamRequestMeta"></div><div class="tableWrap"><table><thead><tr><th>Request ID</th><th>Team Member</th><th>PTO Date Range</th><th>Workdays</th><th>Type</th><th>Reason</th><th>Status</th><th>Pre-Approval</th><th>Final Approval</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="teamRequestBody"></tbody></table></div></div></section>
 <section id="announcementsView" hidden><div class="actions noPrint" style="justify-content:flex-end" id="announcementComposeBar" hidden><button class="btn primary" id="newAnnouncementBtn">New Announcement</button></div><div id="announcementList"></div></section>
+<section id="rewardsView" hidden>
+<div class="sectionTitle">🏆 Recognition &amp; Rewards</div>
+<div class="sub">Earn points for the stuff you're already crushing - good ratings, sharp KPIs, showing up, and actually reading the SOPs. Then spend them on something nice.</div>
+<div class="cards" id="myPointsCards" style="margin-top:14px"></div>
+
+<div class="sectionTitle" style="margin-top:26px;font-size:18px">This Month's Leaderboard</div>
+<div class="sub">Bragging rights reset every month. Good luck.</div>
+<div class="filters noPrint" style="margin:10px 0"><div class="field"><label>Month</label><select id="pointsMonthSelect"></select></div></div>
+<div class="tableWrap"><table><thead><tr><th>Rank</th><th>Employee</th><th>Points This Month</th></tr></thead><tbody id="leaderboardBody"></tbody></table></div>
+
+<div class="sectionTitle" style="margin-top:26px;font-size:18px">🎁 Rewards Shop</div>
+<div class="sub">Redeem responsibly. Or don't - hoarding points is a valid strategy too.</div>
+<div class="cards" id="rewardCatalogCards" style="margin-top:10px"></div>
+
+<div class="sectionTitle" style="margin-top:26px;font-size:18px">Your Redemption History</div>
+<div class="tableWrap"><table><thead><tr><th>Reward</th><th>Points</th><th>Status</th><th>Requested</th><th>Notes</th></tr></thead><tbody id="myRedemptionsBody"></tbody></table></div>
+
+<div id="rewardsManageSection" hidden>
+<div class="sectionTitle" style="margin-top:30px;font-size:18px">Manage Catalog</div>
+<div class="sub">What's on offer, and what it costs. Visible to everyone once saved.</div>
+<div class="actions noPrint" style="justify-content:flex-end;margin:10px 0"><button class="btn primary" id="newRewardBtn" type="button">New Reward</button></div>
+<div class="tableWrap"><table><thead><tr><th>Name</th><th>Description</th><th>Cost</th><th>Actions</th></tr></thead><tbody id="rewardCatalogManageBody"></tbody></table></div>
+
+<div class="sectionTitle" style="margin-top:26px;font-size:18px">Pending Redemptions</div>
+<div class="tableWrap"><table><thead><tr><th>Employee</th><th>Reward</th><th>Points</th><th>Requested</th><th>Actions</th></tr></thead><tbody id="pendingRedemptionsBody"></tbody></table></div>
+</div>
+</section>
 <div class="modal" id="announcementFormModal" hidden><form class="dialog" id="announcementForm" role="dialog" aria-modal="true" style="max-width:780px">
 <div class="title" id="announcementFormTitle">New Announcement</div>
 <div class="formGrid" style="margin-top:12px">
@@ -375,6 +402,17 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn primary" type="submit">Post Announcement</button>
 </div>
 </form></div>
+<div class="modal" id="rewardFormModal" hidden><div class="dialog" style="max-width:480px" role="dialog" aria-modal="true">
+<div class="title" id="rewardFormTitle">New Reward</div>
+<div class="field" style="margin-top:12px"><label>Name *</label><input type="text" id="rewardNameInput" placeholder="e.g. $10 Gift Card"></div>
+<div class="field" style="margin-top:10px"><label>Description</label><textarea id="rewardDescriptionInput" placeholder="What do they get, and how does it get to them?"></textarea></div>
+<div class="field" style="margin-top:10px"><label>Point Cost *</label><input type="number" id="rewardCostInput" min="1" placeholder="500"></div>
+<div id="rewardFormError" class="message error" hidden style="margin-top:10px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button class="btn" type="button" id="rewardFormCancel">Cancel</button>
+<button class="btn primary" type="button" id="rewardFormSave">Save</button>
+</div>
+</div></div>
 <section id="trainingView" hidden>
 <div class="sectionTitle">Add New Hire</div>
 <div class="sub">Adds them to the roster in training - you'll automatically see them under Coaching, Disciplinary, Alignment, Team Attendance, and Team Roster too, the same way any team lead sees their own direct reports.</div>
@@ -435,7 +473,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="chatPanel" class="chatPanel" hidden><div class="chatPanelHeader"><div><b>Team Chat</b><div class="sub" id="chatOnlineCount">0 online</div></div><button type="button" id="chatCloseBtn" class="chatCloseBtn" aria-label="Close chat">✕</button></div><div class="chatPanelBody"><div class="chatReconnect" id="chatReconnect" hidden>Reconnecting…</div><div class="chatOnlineStrip" id="chatOnlineList"></div><div id="chatMessages" class="chatMessages"></div><form id="chatForm" class="chatInputRow"><input id="chatInput" autocomplete="off" placeholder="Message the team…" maxlength="2000"><button class="btn primary" type="submit">Send</button></form></div></div>
 </div>
 <script type="module">
-import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChat} from './shared/qa-dsat-service.js';
+import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChat} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';
 import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
@@ -443,7 +481,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.19.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.20.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -903,7 +941,7 @@ $('announcementList').addEventListener('click',async event=>{
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('trainingView').hidden=next!=='training';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='training')loadTrainingTab();}
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('trainingView').hidden=next!=='training';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='training')loadTrainingTab();}
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.dataset.tab));
 // A step's target may exist in the DOM but be hidden by role (Team Attendance for a
 // non-lead, every rep-facing tab for HR/SOM, etc.) - offsetParent is null for any element
@@ -968,7 +1006,8 @@ const CHANGELOG=[
   {version:'1.16.0',items:['DSAT Review now has AI-assisted triage - once Copilot is connected, every open ticket in the queue gets an automatic sentiment/risk read (High/Medium/Low) with a one-line reason, so BQA can prioritize the queue at a glance instead of opening each ticket cold.']},
   {version:'1.17.0',items:['Fixed Copilot connecting: it only answers requests from Lofty\'s own network, so connecting and running AI triage now happens from your own browser instead of the server - the Send Code / Verify flow works the same, it just actually reaches Copilot now.']},
   {version:'1.18.0',items:['Admins now connect Copilot from their own Profile tab instead of needing to preview as BQA - the same one-time sign-in, just reachable on your real login.']},
-  {version:'1.19.0',items:['"Rephrase" and Alignment quiz generation now try Copilot first, and automatically fall back to the existing AI (Groq) if Copilot isn\'t connected or the call fails - no visible difference either way beyond it never just stops working.']}
+  {version:'1.19.0',items:['"Rephrase" and Alignment quiz generation now try Copilot first, and automatically fall back to the existing AI (Groq) if Copilot isn\'t connected or the call fails - no visible difference either way beyond it never just stops working.']},
+  {version:'1.20.0',items:['New "Rewards" tab - earn points automatically for good CSAT ratings, strong KPI performance, a clean attendance month, and passing an Alignment quiz on the first try, then spend them in the Rewards Shop.','A monthly leaderboard shows where you stack up against the team.','SOM, HR, and admins can manage the Rewards Shop catalog and approve or reject redemption requests.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -1034,7 +1073,7 @@ function showLogin(){stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling
   // handful of the oldest ones here (a pre-existing gap this list keeps growing into), so
   // whichever tab happened to be open at logout could stay visible underneath the login form
   // instead of actually being replaced by it - exactly what showed up with the Training tab.
-  $('disciplinaryView').hidden=true;$('alignmentView').hidden=true;$('dsatReviewView').hidden=true;$('siteCoachingView').hidden=true;$('siteMetricsView').hidden=true;$('teamAttendanceView').hidden=true;$('teamRosterView').hidden=true;$('trainingView').hidden=true;$('viewAsBanner').hidden=true;
+  $('disciplinaryView').hidden=true;$('alignmentView').hidden=true;$('dsatReviewView').hidden=true;$('siteCoachingView').hidden=true;$('siteMetricsView').hidden=true;$('teamAttendanceView').hidden=true;$('teamRosterView').hidden=true;$('trainingView').hidden=true;$('rewardsView').hidden=true;$('adminCopilotView').hidden=true;$('viewAsBanner').hidden=true;
   myCoachingRecords=[];teamCoachingRecords=[];$('coachingBadge').hidden=true;sessionUser=null;loading.dismiss();setMessage('')}
 function openChangePassword(forced){$('changePasswordForm').reset();$('changePasswordError').hidden=true;$('changePasswordHint').hidden=!forced;$('changePasswordCancel').hidden=forced;$('changePasswordModal').dataset.forced=forced?'1':'';$('changePasswordModal').hidden=false}
 async function loadAttendanceMonth(month,endDate=''){const attendanceResult=await getMyAttendance(month,endDate);attendanceDays=attendanceResult.days||[];renderAttendance()}
@@ -1866,6 +1905,135 @@ $('adminCopilotDisconnectBtn').onclick=async()=>{
   if(!confirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.'))return;
   try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();renderCopilotBar();renderAdminCopilotBar();setMessage('Copilot disconnected.','ok')}
   catch(error){setMessage(error.response?.error||error.message,'error')}
+};
+function monthLabel(m){
+  if(!m)return'';
+  const[y,mo]=m.split('-');
+  return new Date(Number(y),Number(mo)-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+}
+function renderMyPointsCards(){
+  const b=myPointsBalance;
+  $('myPointsCards').innerHTML=[
+    ['Redeemable Balance',b.balance,'Spend it in the shop below'],
+    ['All-Time Earned',b.earned,"Every point you've ever racked up"],
+    ['Spent So Far',b.spent,'On approved redemptions'],
+  ].map(([label,value,sub])=>`<div class="card"><div class="label">${esc(label)}</div><div class="value">${value}</div><div class="sub">${esc(sub)}</div></div>`).join('');
+}
+function renderPointsMonthOptions(){
+  $('pointsMonthSelect').innerHTML=availablePointsMonths.map(m=>`<option value="${m}"${m===selectedPointsMonth?' selected':''}>${esc(monthLabel(m))}</option>`).join('')||'<option value="">No data yet</option>';
+}
+function renderLeaderboard(){
+  $('leaderboardBody').innerHTML=leaderboardData.map((row,i)=>`<tr><td class="rank">#${i+1}</td><td>${esc(row.employeeName)}</td><td><b>${row.month}</b></td></tr>`).join('')||'<tr><td colspan="3">Nobody\'s earned points yet this month - be the first!</td></tr>';
+}
+function rewardCardHtml(item){
+  const canAfford=myPointsBalance.balance>=item.pointCost;
+  const manageBtns=canManageRewardsFlag?`<div class="actions" style="margin-top:8px"><button class="btn compact" type="button" data-edit-reward="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-reward="${esc(item.id)}">Remove</button></div>`:'';
+  return`<div class="card"><div class="label">${esc(item.name)}</div><div class="sub" style="margin:6px 0;min-height:32px">${esc(item.description||'')}</div><div class="value" style="font-size:22px">${item.pointCost} pts</div><button class="btn ${canAfford?'primary':''}" type="button" data-redeem-reward="${esc(item.id)}" ${canAfford?'':'disabled'}>${canAfford?'Redeem':`Need ${item.pointCost-myPointsBalance.balance} more`}</button>${manageBtns}</div>`;
+}
+function renderRewardCatalog(){
+  $('rewardCatalogCards').innerHTML=rewardCatalogItems.map(rewardCardHtml).join('')||'<div class="muted">Nothing in the shop yet - ask your SOM or HR to stock it.</div>';
+  $('rewardsManageSection').hidden=!canManageRewardsFlag;
+}
+function redemptionStatusPill(status){
+  const cls=status==='APPROVED'?'status-ready':status==='REJECTED'?'status-failed':'status-pending';
+  return `<span class="pill ${cls}">${esc(status)}</span>`;
+}
+function renderMyRedemptions(){
+  $('myRedemptionsBody').innerHTML=myRedemptionsList.map(r=>`<tr><td>${esc(r.rewardName)}</td><td>${r.pointCost}</td><td>${redemptionStatusPill(r.status)}</td><td>${esc(new Date(r.requestedAt).toLocaleDateString())}</td><td>${esc(r.decisionNotes||'—')}</td></tr>`).join('')||'<tr><td colspan="5">No redemptions yet. The shop\'s right there. 👀</td></tr>';
+}
+function renderManageCatalog(){
+  $('rewardCatalogManageBody').innerHTML=rewardCatalogItems.map(item=>`<tr><td><b>${esc(item.name)}</b></td><td>${esc(item.description||'—')}</td><td>${item.pointCost}</td><td><button class="btn compact" type="button" data-edit-reward="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-reward="${esc(item.id)}">Remove</button></td></tr>`).join('')||'<tr><td colspan="4">No rewards yet - add one above.</td></tr>';
+}
+function renderPendingRedemptions(){
+  const pending=allRedemptionsList.filter(r=>r.status==='PENDING');
+  $('pendingRedemptionsBody').innerHTML=pending.map(r=>`<tr><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.employeeEmail)}</span></td><td>${esc(r.rewardName)}</td><td>${r.pointCost}</td><td>${esc(new Date(r.requestedAt).toLocaleDateString())}</td><td><button class="btn compact primary" type="button" data-approve-redemption="${esc(r.id)}">Approve</button> <button class="btn compact danger" type="button" data-reject-redemption="${esc(r.id)}">Reject</button></td></tr>`).join('')||'<tr><td colspan="5">Nothing pending. All caught up.</td></tr>';
+}
+async function loadRewardsTab(){
+  try{
+    const[leaderboardResult,catalogResult,myRedemptionsResult]=await Promise.all([
+      getPointsLeaderboard(selectedPointsMonth),getRewardCatalog(),getMyRedemptions()
+    ]);
+    selectedPointsMonth=leaderboardResult.month||selectedPointsMonth;
+    availablePointsMonths=leaderboardResult.availableMonths||[];
+    leaderboardData=leaderboardResult.leaderboard||[];
+    myPointsBalance=leaderboardResult.myBalance||{earned:0,spent:0,balance:0};
+    rewardCatalogItems=catalogResult.items||[];
+    canManageRewardsFlag=Boolean(catalogResult.canManage);
+    myRedemptionsList=myRedemptionsResult.redemptions||[];
+    renderMyPointsCards();renderPointsMonthOptions();renderLeaderboard();renderRewardCatalog();renderMyRedemptions();
+    if(canManageRewardsFlag){
+      const allResult=await getAllRedemptions();
+      allRedemptionsList=allResult.redemptions||[];
+      renderManageCatalog();renderPendingRedemptions();
+    }
+  }catch(error){
+    setMessage(`Rewards could not be loaded. ${error.response?.error||error.message}`,'error');
+  }
+}
+$('pointsMonthSelect').onchange=()=>{selectedPointsMonth=$('pointsMonthSelect').value;loadRewardsTab()};
+$('rewardCatalogCards').addEventListener('click',async event=>{
+  const redeemId=event.target.dataset.redeemReward,editId=event.target.dataset.editReward,deleteId=event.target.dataset.deleteReward;
+  if(redeemId){
+    const item=rewardCatalogItems.find(x=>x.id===redeemId);
+    if(!item)return;
+    if(!confirm(`Redeem "${item.name}" for ${item.pointCost} points?`))return;
+    try{await redeemReward(redeemId);setMessage('Redemption requested - awaiting approval.','ok');await loadRewardsTab()}
+    catch(error){setMessage(error.response?.error||error.message,'error')}
+    return;
+  }
+  if(editId){openRewardForm(rewardCatalogItems.find(x=>x.id===editId));return}
+  if(deleteId){
+    if(!confirm('Remove this reward from the catalog?'))return;
+    try{await deleteReward(deleteId);setMessage('Reward removed.','ok');await loadRewardsTab()}
+    catch(error){setMessage(error.response?.error||error.message,'error')}
+  }
+});
+$('rewardCatalogManageBody').addEventListener('click',async event=>{
+  const editId=event.target.dataset.editReward,deleteId=event.target.dataset.deleteReward;
+  if(editId){openRewardForm(rewardCatalogItems.find(x=>x.id===editId));return}
+  if(deleteId){
+    if(!confirm('Remove this reward from the catalog?'))return;
+    try{await deleteReward(deleteId);setMessage('Reward removed.','ok');await loadRewardsTab()}
+    catch(error){setMessage(error.response?.error||error.message,'error')}
+  }
+});
+$('pendingRedemptionsBody').addEventListener('click',async event=>{
+  const approveId=event.target.dataset.approveRedemption,rejectId=event.target.dataset.rejectRedemption;
+  if(!approveId&&!rejectId)return;
+  const notes=prompt('Notes for this decision (optional):')||'';
+  try{
+    await decideRedemption(approveId||rejectId,{decision:approveId?'APPROVED':'REJECTED',notes});
+    setMessage(approveId?'Redemption approved.':'Redemption rejected.','ok');
+    await loadRewardsTab();
+  }catch(error){setMessage(error.response?.error||error.message,'error')}
+});
+function openRewardForm(item){
+  editingRewardId=item?item.id:null;
+  $('rewardFormTitle').textContent=item?'Edit Reward':'New Reward';
+  $('rewardNameInput').value=item?.name||'';
+  $('rewardDescriptionInput').value=item?.description||'';
+  $('rewardCostInput').value=item?.pointCost||'';
+  $('rewardFormError').hidden=true;
+  $('rewardFormModal').hidden=false;
+}
+$('newRewardBtn').onclick=()=>openRewardForm(null);
+$('rewardFormCancel').onclick=()=>{$('rewardFormModal').hidden=true};
+$('rewardFormSave').onclick=async()=>{
+  const name=$('rewardNameInput').value.trim();
+  const description=$('rewardDescriptionInput').value.trim();
+  const pointCost=Number($('rewardCostInput').value);
+  if(!name){$('rewardFormError').hidden=false;$('rewardFormError').textContent='A reward name is required.';return}
+  if(!Number.isFinite(pointCost)||pointCost<=0){$('rewardFormError').hidden=false;$('rewardFormError').textContent='Point cost must be a positive number.';return}
+  $('rewardFormSave').disabled=true;
+  try{
+    if(editingRewardId)await updateReward(editingRewardId,{name,description,pointCost});
+    else await createReward({name,description,pointCost});
+    $('rewardFormModal').hidden=true;
+    setMessage('Reward saved.','ok');
+    await loadRewardsTab();
+  }catch(error){
+    $('rewardFormError').hidden=false;$('rewardFormError').textContent=error.response?.error||error.message;
+  }finally{$('rewardFormSave').disabled=false}
 };
 async function loadDsatReviewTab(period=''){
   try{

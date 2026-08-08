@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.19.0';
+const PORTAL_VERSION = '1.20.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -177,7 +177,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png']);
 
 function escapeHtml(value) {
@@ -807,6 +807,106 @@ async function canManageAnnouncements(identity, employeeName) {
   const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
   const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
   return (roster.records || []).some(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+}
+
+// Reward catalog management is a leadership call (what something costs, what's on offer), not
+// something every team lead should be able to change unilaterally - same trio as who can
+// decide a disciplinary case, minus the "or has direct reports" branch canManageAnnouncements
+// has, since publishing a company-wide reward isn't the same bar as posting to your own team.
+function canManageRewards(identity) {
+  const role = portalRoleFor(identity);
+  return role === 'HR' || role === 'SOM' || ADMIN_EMAILS.has(identity);
+}
+const REWARD_CATALOG_KEY = 'mtdkpi:reward-catalog';
+const REWARD_REDEMPTIONS_KEY = 'mtdkpi:reward-redemptions';
+// Points are earned from four things this app already tracks - never entered by hand, so
+// there's nothing for a team lead to remember to log and no separate ledger that could drift
+// from the data it's supposed to reflect (see computeAllPoints below for how "earned" is
+// derived fresh every time; only "spent" - an actual redemption event - is a real ledger).
+const POINTS_PER_GOOD_CSAT = 5;
+const POINTS_PER_GOOD_CSAT_WITH_COMMENT = 10;
+const POINTS_BY_PERFORMANCE_TIER = { Exceptional: 60, Exceeds: 50, Meets: 20, Watch: 0, Intervention: 0, 'Not Rated': 0 };
+const POINTS_PER_CLEAN_ATTENDANCE_MONTH = 40;
+const MIN_WORKDAYS_FOR_CLEAN_MONTH_BONUS = 10;
+const POINTS_PER_FIRST_TRY_QUIZ_PASS = 10;
+const ATTENDANCE_INFRACTION_CODES = new Set(['LATE', 'NCNS', 'A', 'SUSPENDED']);
+// Computes every employee's points, broken down by month and rolled up all-time, in one pass
+// over the KPI/attendance/Alignment snapshots this app already maintains. Recomputed fresh on
+// every call (the dataset is small - a few dozen employees, a handful of months) rather than
+// cached, so it can never silently drift from the source data as that data gets corrected.
+async function computeAllPoints() {
+  const [kpiResultsData, attendanceData, alignmentData, roster] = await Promise.all([
+    loadKpiResultsSnapshot(), loadAttendanceSnapshot(), loadAlignment(), loadRosterSnapshot()
+  ]);
+  const nameByEmail = {};
+  for (const r of roster.records || []) nameByEmail[ptoLogic.cleanEmail(r.employeeEmail)] = r.employeeName;
+  const byEmployee = {};
+  const months = new Set();
+  function ensure(email) {
+    const clean = ptoLogic.cleanEmail(email);
+    byEmployee[clean] ??= { employeeName: nameByEmail[clean] || clean, byMonth: {}, allTime: { total: 0, csat: 0, kpi: 0, attendance: 0, quiz: 0 } };
+    return byEmployee[clean];
+  }
+  function add(email, month, amount, category) {
+    if (!amount) return;
+    months.add(month);
+    const emp = ensure(email);
+    emp.byMonth[month] ??= { total: 0, csat: 0, kpi: 0, attendance: 0, quiz: 0 };
+    emp.byMonth[month].total += amount;
+    emp.byMonth[month][category] += amount;
+    emp.allTime.total += amount;
+    emp.allTime[category] += amount;
+  }
+
+  // 1 & 2: CSAT good ratings and KPI performance tier, from the latest snapshot of each month.
+  const kpiMonthKeys = {};
+  for (const key of Object.keys(kpiResultsData.periods || {})) {
+    const month = key.split('|')[0];
+    if (!kpiMonthKeys[month] || key > kpiMonthKeys[month]) kpiMonthKeys[month] = key;
+  }
+  for (const [month, latestKey] of Object.entries(kpiMonthKeys)) {
+    for (const row of kpiResultsData.periods[latestKey] || []) {
+      const email = ptoLogic.cleanEmail(row.employeeEmail);
+      for (const t of row.csat?.goodTickets || []) {
+        add(email, month, (t.comment && t.comment.trim()) ? POINTS_PER_GOOD_CSAT_WITH_COMMENT : POINTS_PER_GOOD_CSAT, 'csat');
+      }
+      add(email, month, POINTS_BY_PERFORMANCE_TIER[row.performanceStatus] || 0, 'kpi');
+    }
+  }
+
+  // 3: a clean attendance month - no Late/NCNS/Absent/Suspended among that employee's recorded
+  // days that month, and enough recorded workdays to mean something (so a month with only 2
+  // recorded days doesn't cheaply qualify as "clean").
+  const attendanceMonthKeys = {};
+  for (const key of Object.keys(attendanceData.periods || {})) {
+    const month = key.split('|')[0];
+    if (!attendanceMonthKeys[month] || key > attendanceMonthKeys[month]) attendanceMonthKeys[month] = key;
+  }
+  for (const [month, latestKey] of Object.entries(attendanceMonthKeys)) {
+    const period = attendanceData.periods[latestKey] || {};
+    for (const [rawEmail, byDate] of Object.entries(period)) {
+      const email = ptoLogic.cleanEmail(rawEmail);
+      const codes = Object.values(byDate || {}).map(v => (v && typeof v === 'object') ? v.status : v);
+      const recordedWorkdays = codes.filter(c => c && c !== 'RD').length;
+      const hasInfraction = codes.some(c => ATTENDANCE_INFRACTION_CODES.has(c));
+      if (!hasInfraction && recordedWorkdays >= MIN_WORKDAYS_FOR_CLEAN_MONTH_BONUS) {
+        add(email, month, POINTS_PER_CLEAN_ATTENDANCE_MONTH, 'attendance');
+      }
+    }
+  }
+
+  // 4: signing an Alignment item on the first try (zero wrong quiz attempts), credited to the
+  // month they actually signed it in, not the month the item was published.
+  for (const record of alignmentData.records || []) {
+    if (!(record.quiz || []).length) continue;
+    for (const [rawEmail, ack] of Object.entries(record.acknowledgments || {})) {
+      if (ack && ack.quizAttempts === 0 && ack.signedAt) {
+        add(rawEmail, String(ack.signedAt).slice(0, 7), POINTS_PER_FIRST_TRY_QUIZ_PASS, 'quiz');
+      }
+    }
+  }
+
+  return { byEmployee, months: [...months].sort() };
 }
 
 async function loadDisciplinary() { return cloudStore.kvGetJson(DISCIPLINARY_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
@@ -3203,6 +3303,110 @@ const server = http.createServer(async (req, res) => {
         await appendScheduleRequestAudit(requestId, 'WITHDRAWN', { user, previousValue: current.status, newValue: 'WITHDRAWN', notes: body.reason });
         return json(res, 200, { ok: true, request: data.requests[index], lastUpdated: data.lastUpdated });
       }
+    }
+
+    // ---------- Points & Rewards ----------
+    // Points are always computed fresh from data this app already owns (CSAT good ratings, KPI
+    // tier, attendance, Alignment quiz results) rather than kept as a running counter - a
+    // separate ledger for "earned" would eventually drift from the source data it's supposed to
+    // reflect. Only "spent" (redemptions) is a real ledger, since a redemption is an actual
+    // event with no other record of it. Redeemable balance = all-time earned minus approved
+    // spend; the leaderboard ranks by a single month's earnings so it stays fresh.
+    if (parsed.pathname === '/api/points/leaderboard' && req.method === 'GET') {
+      const requestedMonth = String(parsed.searchParams.get('month') || '');
+      const points = await computeAllPoints();
+      const month = points.months.includes(requestedMonth) ? requestedMonth : (points.months[points.months.length - 1] || '');
+      const leaderboard = Object.entries(points.byEmployee)
+        .map(([email, p]) => ({ employeeEmail: email, employeeName: p.employeeName, month: p.byMonth[month]?.total || 0, breakdown: p.byMonth[month] || null, allTime: p.allTime.total }))
+        .filter(x => x.month > 0 || x.allTime > 0)
+        .sort((a, b) => b.month - a.month);
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      const spent = redemptions.filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status === 'APPROVED').reduce((sum, r) => sum + r.pointCost, 0);
+      const myEarned = points.byEmployee[identity]?.allTime.total || 0;
+      return json(res, 200, { ok: true, month, availableMonths: points.months, leaderboard, myBalance: { earned: myEarned, spent, balance: myEarned - spent } });
+    }
+
+    if (parsed.pathname === '/api/rewards/catalog' && req.method === 'GET') {
+      const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
+      return json(res, 200, { ok: true, items: catalog.filter(x => x.active !== false), canManage: canManageRewards(identity) });
+    }
+    if (parsed.pathname === '/api/rewards/catalog' && req.method === 'POST') {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage the rewards catalog.' });
+      const body = await readJsonBody(req);
+      const name = String(body.name || '').trim();
+      const description = String(body.description || '').trim();
+      const pointCost = Math.round(Number(body.pointCost));
+      if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
+      if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
+      const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
+      const item = { id: `REWARD-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, name, description, pointCost, active: true, createdBy: identity, createdAt: new Date().toISOString() };
+      catalog.push(item);
+      await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
+      return json(res, 201, { ok: true, item });
+    }
+    const catalogItemMatch = parsed.pathname.match(/^\/api\/rewards\/catalog\/([^/]+)$/);
+    if (catalogItemMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage the rewards catalog.' });
+      const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
+      const index = catalog.findIndex(x => x.id === catalogItemMatch[1]);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Reward not found.' });
+      if (req.method === 'DELETE') {
+        // Soft-delete: a past redemption may still reference this item by id, and its history
+        // should keep showing what was actually redeemed rather than a broken lookup.
+        catalog[index] = { ...catalog[index], active: false };
+        await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
+        return json(res, 200, { ok: true });
+      }
+      const body = await readJsonBody(req);
+      const name = String(body.name || '').trim();
+      const description = String(body.description || '').trim();
+      const pointCost = Math.round(Number(body.pointCost));
+      if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
+      if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
+      catalog[index] = { ...catalog[index], name, description, pointCost };
+      await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
+      return json(res, 200, { ok: true, item: catalog[index] });
+    }
+
+    if (parsed.pathname === '/api/rewards/redeem' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const rewardId = String(body.rewardId || '').trim();
+      const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
+      const reward = catalog.find(x => x.id === rewardId && x.active !== false);
+      if (!reward) return json(res, 404, { ok: false, error: 'That reward is no longer available.' });
+      const points = await computeAllPoints();
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      const spent = redemptions.filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status === 'APPROVED').reduce((sum, r) => sum + r.pointCost, 0);
+      const balance = (points.byEmployee[identity]?.allTime.total || 0) - spent;
+      if (balance < reward.pointCost) return json(res, 400, { ok: false, error: `Not enough points - you have ${balance}, this costs ${reward.pointCost}.` });
+      const redemption = { id: `REDEEM-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, employeeEmail: identity, employeeName: session.employeeName, rewardId: reward.id, rewardName: reward.name, pointCost: reward.pointCost, status: 'PENDING', requestedAt: new Date().toISOString(), decidedAt: null, decidedBy: '', decisionNotes: '' };
+      redemptions.push(redemption);
+      await cloudStore.kvSetJson(REWARD_REDEMPTIONS_KEY, redemptions);
+      return json(res, 201, { ok: true, redemption });
+    }
+    if (parsed.pathname === '/api/rewards/my-redemptions' && req.method === 'GET') {
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      const mine = redemptions.filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity).sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+      return json(res, 200, { ok: true, redemptions: mine });
+    }
+    if (parsed.pathname === '/api/rewards/redemptions' && req.method === 'GET') {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      return json(res, 200, { ok: true, redemptions: [...redemptions].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)) });
+    }
+    const redemptionDecideMatch = parsed.pathname.match(/^\/api\/rewards\/redemptions\/([^/]+)\/decide$/);
+    if (redemptionDecideMatch && req.method === 'POST') {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const decision = String(body.decision || '').toUpperCase();
+      if (!['APPROVED', 'REJECTED'].includes(decision)) return json(res, 400, { ok: false, error: 'A valid decision (APPROVED or REJECTED) is required.' });
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      const index = redemptions.findIndex(x => x.id === redemptionDecideMatch[1]);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Redemption not found.' });
+      if (redemptions[index].status !== 'PENDING') return json(res, 409, { ok: false, error: `This redemption has already been ${redemptions[index].status.toLowerCase()}.` });
+      redemptions[index] = { ...redemptions[index], status: decision, decidedAt: new Date().toISOString(), decidedBy: session.employeeName, decisionNotes: String(body.notes || '').trim() };
+      await cloudStore.kvSetJson(REWARD_REDEMPTIONS_KEY, redemptions);
+      return json(res, 200, { ok: true, redemption: redemptions[index] });
     }
 
     return json(res, 404, { ok: false, error: 'Not found' });
