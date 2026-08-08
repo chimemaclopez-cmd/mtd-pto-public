@@ -823,12 +823,15 @@ const REWARD_REDEMPTIONS_KEY = 'mtdkpi:reward-redemptions';
 // there's nothing for a team lead to remember to log and no separate ledger that could drift
 // from the data it's supposed to reflect (see computeAllPoints below for how "earned" is
 // derived fresh every time; only "spent" - an actual redemption event - is a real ledger).
-const POINTS_PER_GOOD_CSAT = 5;
-const POINTS_PER_GOOD_CSAT_WITH_COMMENT = 10;
-const POINTS_BY_PERFORMANCE_TIER = { Exceptional: 60, Exceeds: 50, Meets: 20, Watch: 0, Intervention: 0, 'Not Rated': 0 };
-const POINTS_PER_CLEAN_ATTENDANCE_MONTH = 40;
+// Zeroed out - final point values per category haven't been decided yet. The categories and
+// the computation below are otherwise complete; once real numbers are picked, just fill these
+// back in and points start flowing without touching anything else.
+const POINTS_PER_GOOD_CSAT = 0;
+const POINTS_PER_GOOD_CSAT_WITH_COMMENT = 0;
+const POINTS_BY_PERFORMANCE_TIER = { Exceptional: 0, Exceeds: 0, Meets: 0, Watch: 0, Intervention: 0, 'Not Rated': 0 };
+const POINTS_PER_CLEAN_ATTENDANCE_MONTH = 0;
 const MIN_WORKDAYS_FOR_CLEAN_MONTH_BONUS = 10;
-const POINTS_PER_FIRST_TRY_QUIZ_PASS = 10;
+const POINTS_PER_FIRST_TRY_QUIZ_PASS = 0;
 const ATTENDANCE_INFRACTION_CODES = new Set(['LATE', 'NCNS', 'A', 'SUSPENDED']);
 // Computes every employee's points, broken down by month and rolled up all-time, in one pass
 // over the KPI/attendance/Alignment snapshots this app already maintains. Recomputed fresh on
