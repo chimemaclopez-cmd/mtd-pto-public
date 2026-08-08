@@ -217,6 +217,7 @@ features = [
     ('Announcements', [
         'Team Leads, HR, and the SOM can post, edit, and delete company announcements from the portal.',
         'New announcements pop up automatically on login (and periodically while signed in) in a dismissible "Got it" modal; long announcements collapse behind a "Show more" toggle so one long post does not dominate the page (v1.15.0).',
+        'Announcements can include an optional photo shown at the top of the post (v1.21.0).',
     ]),
     ('Spotlight Wall', [
         'A live, rotating recognition display: real customer shoutouts the moment a good rating comes in, plus shift-end "thank you" messages gated on genuine Zendesk/Jira activity so only people who actually worked get thanked.',

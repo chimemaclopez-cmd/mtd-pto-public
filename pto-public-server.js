@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.20.1';
+const PORTAL_VERSION = '1.21.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1727,9 +1727,12 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const title = String(body.title || '').trim();
       const contentHtml = String(body.body || '').trim();
+      const imageBase64 = String(body.imageBase64 || '');
       if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and body are required.' });
+      if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
+      if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
       const now = new Date().toISOString();
-      const announcement = { id: `PUB-ANN-${Date.now()}`, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: true, postedBy: session.employeeName || identity, createdAt: now, updatedAt: now };
+      const announcement = { id: `PUB-ANN-${Date.now()}`, title, body: contentHtml, imageBase64, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: true, postedBy: session.employeeName || identity, createdAt: now, updatedAt: now };
       const list = await cloudStore.kvGetJson(PUBLIC_ANNOUNCEMENTS_KEY, []);
       list.push(announcement);
       await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
@@ -1753,8 +1756,11 @@ const server = http.createServer(async (req, res) => {
       const current = list[index];
       const title = String(body.title ?? current.title).trim();
       const contentHtml = String(body.body ?? current.body).trim();
+      const imageBase64 = body.imageBase64 === undefined ? current.imageBase64 || '' : String(body.imageBase64 || '');
       if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and body are required.' });
-      list[index] = { ...current, title, body: contentHtml, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
+      if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
+      if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
+      list[index] = { ...current, title, body: contentHtml, imageBase64, priority: body.priority === 'URGENT' ? 'URGENT' : 'NORMAL', active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
       await cloudStore.kvSetJson(PUBLIC_ANNOUNCEMENTS_KEY, list);
       return json(res, 200, { ok: true, announcement: list[index] });
     }
