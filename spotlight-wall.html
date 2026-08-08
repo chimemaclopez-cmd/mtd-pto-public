@@ -43,7 +43,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;co
 .fillerImg{max-width:min(560px,70vw);max-height:32vh;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);margin:6px 0 18px;display:block;margin-left:auto;margin-right:auto}
 .posterImg{max-width:min(880px,90vw);max-height:70vh;border-radius:16px;box-shadow:0 14px 36px rgba(0,0,0,.4);display:block;margin:0 auto}
 .fillerSvgWrap{max-width:min(560px,74vw);margin:6px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.fillerVideoWrap{max-width:min(720px,80vw);aspect-ratio:16/9;margin:10px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);background:#000}
+.slide.slide-video{width:min(1600px,94vw)}
+.fillerVideoWrap{width:min(92vw,142vh);max-width:100%;aspect-ratio:16/9;margin:10px auto 0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);background:#000}
 .fillerVideoWrap iframe{width:100%;height:100%;border:0}
 .quizOptions{display:flex;flex-direction:column;gap:12px;max-width:560px;margin:20px auto 0}
 .quizOption{background:rgba(255,255,255,.12);border:2px solid transparent;border-radius:14px;padding:14px 22px;font-size:24px;font-weight:800;text-align:left;transition:background .5s,border-color .5s,transform .5s}
@@ -83,7 +84,7 @@ const ROTATE_MS=30000;
 // (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
 // reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
 // file compares it against whatever is currently live and force-reloads when they differ.
-const SW_VERSION='2026-08-08.2';
+const SW_VERSION='2026-08-08.3';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
@@ -350,7 +351,7 @@ function slideForItem(item){
   if(item.kind==='daily-thanks')return `<div class="slide"><div class="slideIcon">🙌</div><div class="slideBadge badge-teal">Thank You, Team!</div><div class="slideBody sizeL">${esc(item.message)}</div></div>`;
   if(item.type==='quiz')return `<div class="slide"><div class="slideIcon">🧠</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Quick Trivia</div><div class="slideBody sizeL">${esc(item.question)}</div><div class="quizOptions">${item.options.map((opt,i)=>`<div class="quizOption" data-idx="${i}">${String.fromCharCode(65+i)}. ${esc(opt)}</div>`).join('')}</div><div class="slideMeta quizReveal" style="opacity:0;margin-top:14px">Correct answer highlighted above</div></div>`;
   if(item.type==='phishing')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#fde3e3;color:#a11d1d">Spot the Phishing Attempt</div><div class="fillerSvgWrap">${item.svg}</div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
-  if(item.type==='video')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
+  if(item.type==='video')return `<div class="slide slide-video"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
   if(item.type==='reminder')return `<div class="slide"><div class="slideIcon">📌</div><div class="slideBadge" style="background:#fde3e3;color:#a11d1d">Reminder</div><div class="slideBody sizeXL" style="font-weight:900">${esc(item.text)}</div></div>`;
   if(item.type==='lofty')return `<div class="slide"><div class="slideIcon">📣</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">What's New in Lofty · ${esc(item.attr)}</div>${item.image?`<img class="fillerImg" src="${esc(item.image)}" alt="">`:''}<div class="slideBody ${sizeFor(item.text,'body')}">${esc(item.text)}</div></div>`;
   const icon=item.type==='quote'?'💬':item.type==='security'?'🛡️':'💡';
