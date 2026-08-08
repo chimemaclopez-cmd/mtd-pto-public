@@ -407,6 +407,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field" style="margin-top:12px"><label>Name *</label><input type="text" id="rewardNameInput" placeholder="e.g. $10 Gift Card"></div>
 <div class="field" style="margin-top:10px"><label>Description</label><textarea id="rewardDescriptionInput" placeholder="What do they get, and how does it get to them?"></textarea></div>
 <div class="field" style="margin-top:10px"><label>Point Cost *</label><input type="number" id="rewardCostInput" min="1" placeholder="500"></div>
+<div class="field" style="margin-top:10px"><label>Photo</label>
+<input type="file" id="rewardImageInput" accept="image/*" hidden>
+<img id="rewardImagePreview" alt="" style="display:none;max-width:200px;max-height:140px;border-radius:10px;object-fit:cover;margin-bottom:8px">
+<div class="actions" style="justify-content:flex-start"><button class="btn compact" type="button" id="rewardImageBtn">Choose Photo</button><button class="btn compact danger" type="button" id="rewardImageRemoveBtn" style="display:none">Remove Photo</button></div>
+</div>
 <div id="rewardFormError" class="message error" hidden style="margin-top:10px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
 <button class="btn" type="button" id="rewardFormCancel">Cancel</button>
@@ -481,7 +486,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.20.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.20.1',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='';
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -1007,7 +1012,8 @@ const CHANGELOG=[
   {version:'1.17.0',items:['Fixed Copilot connecting: it only answers requests from Lofty\'s own network, so connecting and running AI triage now happens from your own browser instead of the server - the Send Code / Verify flow works the same, it just actually reaches Copilot now.']},
   {version:'1.18.0',items:['Admins now connect Copilot from their own Profile tab instead of needing to preview as BQA - the same one-time sign-in, just reachable on your real login.']},
   {version:'1.19.0',items:['"Rephrase" and Alignment quiz generation now try Copilot first, and automatically fall back to the existing AI (Groq) if Copilot isn\'t connected or the call fails - no visible difference either way beyond it never just stops working.']},
-  {version:'1.20.0',items:['New "Rewards" tab - earn points automatically for good CSAT ratings, strong KPI performance, a clean attendance month, and passing an Alignment quiz on the first try, then spend them in the Rewards Shop.','A monthly leaderboard shows where you stack up against the team.','SOM, HR, and admins can manage the Rewards Shop catalog and approve or reject redemption requests.']}
+  {version:'1.20.0',items:['New "Rewards" tab - earn points automatically for good CSAT ratings, strong KPI performance, a clean attendance month, and passing an Alignment quiz on the first try, then spend them in the Rewards Shop.','A monthly leaderboard shows where you stack up against the team.','SOM, HR, and admins can manage the Rewards Shop catalog and approve or reject redemption requests.']},
+  {version:'1.20.1',items:['Rewards catalog items can now have a photo.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -1928,7 +1934,8 @@ function renderLeaderboard(){
 function rewardCardHtml(item){
   const canAfford=myPointsBalance.balance>=item.pointCost;
   const manageBtns=canManageRewardsFlag?`<div class="actions" style="margin-top:8px"><button class="btn compact" type="button" data-edit-reward="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-reward="${esc(item.id)}">Remove</button></div>`:'';
-  return`<div class="card"><div class="label">${esc(item.name)}</div><div class="sub" style="margin:6px 0;min-height:32px">${esc(item.description||'')}</div><div class="value" style="font-size:22px">${item.pointCost} pts</div><button class="btn ${canAfford?'primary':''}" type="button" data-redeem-reward="${esc(item.id)}" ${canAfford?'':'disabled'}>${canAfford?'Redeem':`Need ${item.pointCost-myPointsBalance.balance} more`}</button>${manageBtns}</div>`;
+  const photo=item.imageBase64?`<img src="${esc(item.imageBase64)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px">`:'';
+  return`<div class="card">${photo}<div class="label">${esc(item.name)}</div><div class="sub" style="margin:6px 0;min-height:32px">${esc(item.description||'')}</div><div class="value" style="font-size:22px">${item.pointCost} pts</div><button class="btn ${canAfford?'primary':''}" type="button" data-redeem-reward="${esc(item.id)}" ${canAfford?'':'disabled'}>${canAfford?'Redeem':`Need ${item.pointCost-myPointsBalance.balance} more`}</button>${manageBtns}</div>`;
 }
 function renderRewardCatalog(){
   $('rewardCatalogCards').innerHTML=rewardCatalogItems.map(rewardCardHtml).join('')||'<div class="muted">Nothing in the shop yet - ask your SOM or HR to stock it.</div>';
@@ -1942,7 +1949,7 @@ function renderMyRedemptions(){
   $('myRedemptionsBody').innerHTML=myRedemptionsList.map(r=>`<tr><td>${esc(r.rewardName)}</td><td>${r.pointCost}</td><td>${redemptionStatusPill(r.status)}</td><td>${esc(new Date(r.requestedAt).toLocaleDateString())}</td><td>${esc(r.decisionNotes||'—')}</td></tr>`).join('')||'<tr><td colspan="5">No redemptions yet. The shop\'s right there. 👀</td></tr>';
 }
 function renderManageCatalog(){
-  $('rewardCatalogManageBody').innerHTML=rewardCatalogItems.map(item=>`<tr><td><b>${esc(item.name)}</b></td><td>${esc(item.description||'—')}</td><td>${item.pointCost}</td><td><button class="btn compact" type="button" data-edit-reward="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-reward="${esc(item.id)}">Remove</button></td></tr>`).join('')||'<tr><td colspan="4">No rewards yet - add one above.</td></tr>';
+  $('rewardCatalogManageBody').innerHTML=rewardCatalogItems.map(item=>`<tr><td>${item.imageBase64?`<img src="${esc(item.imageBase64)}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px">`:''}<b>${esc(item.name)}</b></td><td>${esc(item.description||'—')}</td><td>${item.pointCost}</td><td><button class="btn compact" type="button" data-edit-reward="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-reward="${esc(item.id)}">Remove</button></td></tr>`).join('')||'<tr><td colspan="4">No rewards yet - add one above.</td></tr>';
 }
 function renderPendingRedemptions(){
   const pending=allRedemptionsList.filter(r=>r.status==='PENDING');
@@ -2007,17 +2014,52 @@ $('pendingRedemptionsBody').addEventListener('click',async event=>{
     await loadRewardsTab();
   }catch(error){setMessage(error.response?.error||error.message,'error')}
 });
+function renderRewardImagePreview(){
+  $('rewardImagePreview').src=rewardFormImageBase64||'';
+  $('rewardImagePreview').style.display=rewardFormImageBase64?'':'none';
+  $('rewardImageRemoveBtn').style.display=rewardFormImageBase64?'':'none';
+}
+function readResizedImageDataUrl(file,maxDim=640,quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+        const w=Math.round(img.naturalWidth*scale),h=Math.round(img.naturalHeight*scale);
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',quality));
+      };
+      img.onerror=()=>reject(new Error('Could not read that image.'));
+      img.src=reader.result;
+    };
+    reader.onerror=()=>reject(new Error('Could not read that file.'));
+    reader.readAsDataURL(file);
+  });
+}
 function openRewardForm(item){
   editingRewardId=item?item.id:null;
   $('rewardFormTitle').textContent=item?'Edit Reward':'New Reward';
   $('rewardNameInput').value=item?.name||'';
   $('rewardDescriptionInput').value=item?.description||'';
   $('rewardCostInput').value=item?.pointCost||'';
+  rewardFormImageBase64=item?.imageBase64||'';
+  renderRewardImagePreview();
   $('rewardFormError').hidden=true;
   $('rewardFormModal').hidden=false;
 }
 $('newRewardBtn').onclick=()=>openRewardForm(null);
 $('rewardFormCancel').onclick=()=>{$('rewardFormModal').hidden=true};
+$('rewardImageBtn').onclick=()=>$('rewardImageInput').click();
+$('rewardImageInput').onchange=async event=>{
+  const file=event.target.files[0];event.target.value='';
+  if(!file)return;
+  try{rewardFormImageBase64=await readResizedImageDataUrl(file);renderRewardImagePreview()}
+  catch(error){$('rewardFormError').hidden=false;$('rewardFormError').textContent=error.message}
+};
+$('rewardImageRemoveBtn').onclick=()=>{rewardFormImageBase64='';renderRewardImagePreview()};
 $('rewardFormSave').onclick=async()=>{
   const name=$('rewardNameInput').value.trim();
   const description=$('rewardDescriptionInput').value.trim();
@@ -2026,8 +2068,8 @@ $('rewardFormSave').onclick=async()=>{
   if(!Number.isFinite(pointCost)||pointCost<=0){$('rewardFormError').hidden=false;$('rewardFormError').textContent='Point cost must be a positive number.';return}
   $('rewardFormSave').disabled=true;
   try{
-    if(editingRewardId)await updateReward(editingRewardId,{name,description,pointCost});
-    else await createReward({name,description,pointCost});
+    if(editingRewardId)await updateReward(editingRewardId,{name,description,pointCost,imageBase64:rewardFormImageBase64});
+    else await createReward({name,description,pointCost,imageBase64:rewardFormImageBase64});
     $('rewardFormModal').hidden=true;
     setMessage('Reward saved.','ok');
     await loadRewardsTab();

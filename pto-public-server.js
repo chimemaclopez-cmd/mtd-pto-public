@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.20.0';
+const PORTAL_VERSION = '1.20.1';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -160,6 +160,7 @@ const PROFILE_PHOTO_KEY_PREFIX = 'mtdkpi:profile-photo:';
 // The client resizes/compresses to a small square JPEG before ever uploading, so a generous
 // cap here is just a backstop against something slipping past that, not the primary control.
 const MAX_PROFILE_PHOTO_BASE64_LENGTH = 700 * 1024;
+const MAX_REWARD_IMAGE_BASE64_LENGTH = 700 * 1024;
 const SESSION_COOKIE_NAME = 'pto_session';
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 const MTD_ROOT = __dirname;
@@ -3339,10 +3340,13 @@ const server = http.createServer(async (req, res) => {
       const name = String(body.name || '').trim();
       const description = String(body.description || '').trim();
       const pointCost = Math.round(Number(body.pointCost));
+      const imageBase64 = String(body.imageBase64 || '');
       if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
       if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
+      if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
+      if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
       const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
-      const item = { id: `REWARD-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, name, description, pointCost, active: true, createdBy: identity, createdAt: new Date().toISOString() };
+      const item = { id: `REWARD-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, name, description, pointCost, imageBase64, active: true, createdBy: identity, createdAt: new Date().toISOString() };
       catalog.push(item);
       await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
       return json(res, 201, { ok: true, item });
@@ -3364,9 +3368,14 @@ const server = http.createServer(async (req, res) => {
       const name = String(body.name || '').trim();
       const description = String(body.description || '').trim();
       const pointCost = Math.round(Number(body.pointCost));
+      // Present-but-empty means "remove the photo"; absent entirely means "leave it as is" -
+      // the client always sends one or the other, never omits the key.
+      const imageBase64 = body.imageBase64 === undefined ? catalog[index].imageBase64 || '' : String(body.imageBase64 || '');
       if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
       if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
-      catalog[index] = { ...catalog[index], name, description, pointCost };
+      if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
+      if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
+      catalog[index] = { ...catalog[index], name, description, pointCost, imageBase64 };
       await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
       return json(res, 200, { ok: true, item: catalog[index] });
     }
