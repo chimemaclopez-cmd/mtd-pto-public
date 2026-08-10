@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.21.1';
+const PORTAL_VERSION = '1.22.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -3338,7 +3338,20 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/rewards/catalog' && req.method === 'GET') {
       const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
-      return json(res, 200, { ok: true, items: catalog.filter(x => x.active !== false), canManage: canManageRewards(identity) });
+      // A PENDING or APPROVED redemption both hold a unit of stock - only REJECTED gives it
+      // back, since that's the only outcome where the reward was never actually granted.
+      const redemptions = await cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []);
+      const claimedByReward = new Map();
+      for (const r of redemptions) {
+        if (r.status === 'REJECTED') continue;
+        claimedByReward.set(r.rewardId, (claimedByReward.get(r.rewardId) || 0) + 1);
+      }
+      const items = catalog.filter(x => x.active !== false).map(x => {
+        const claimed = claimedByReward.get(x.id) || 0;
+        const remaining = x.stockLimit == null ? null : Math.max(0, x.stockLimit - claimed);
+        return { ...x, claimed, remaining };
+      });
+      return json(res, 200, { ok: true, items, canManage: canManageRewards(identity) });
     }
     if (parsed.pathname === '/api/rewards/catalog' && req.method === 'POST') {
       if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage the rewards catalog.' });
@@ -3347,12 +3360,15 @@ const server = http.createServer(async (req, res) => {
       const description = String(body.description || '').trim();
       const pointCost = Math.round(Number(body.pointCost));
       const imageBase64 = String(body.imageBase64 || '');
+      // Blank/null means unlimited stock - only coerce to a number when the field was actually filled in.
+      const stockLimit = body.stockLimit === '' || body.stockLimit == null ? null : Math.round(Number(body.stockLimit));
       if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
       if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
+      if (stockLimit != null && (!Number.isFinite(stockLimit) || stockLimit < 0)) return json(res, 400, { ok: false, error: 'Stock limit must be a non-negative number, or left blank for unlimited.' });
       if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
       if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
       const catalog = await cloudStore.kvGetJson(REWARD_CATALOG_KEY, []);
-      const item = { id: `REWARD-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, name, description, pointCost, imageBase64, active: true, createdBy: identity, createdAt: new Date().toISOString() };
+      const item = { id: `REWARD-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, name, description, pointCost, stockLimit, imageBase64, active: true, createdBy: identity, createdAt: new Date().toISOString() };
       catalog.push(item);
       await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
       return json(res, 201, { ok: true, item });
@@ -3374,14 +3390,16 @@ const server = http.createServer(async (req, res) => {
       const name = String(body.name || '').trim();
       const description = String(body.description || '').trim();
       const pointCost = Math.round(Number(body.pointCost));
+      const stockLimit = body.stockLimit === '' || body.stockLimit == null ? null : Math.round(Number(body.stockLimit));
       // Present-but-empty means "remove the photo"; absent entirely means "leave it as is" -
       // the client always sends one or the other, never omits the key.
       const imageBase64 = body.imageBase64 === undefined ? catalog[index].imageBase64 || '' : String(body.imageBase64 || '');
       if (!name) return json(res, 400, { ok: false, error: 'A reward name is required.' });
       if (!Number.isFinite(pointCost) || pointCost <= 0) return json(res, 400, { ok: false, error: 'Point cost must be a positive number.' });
+      if (stockLimit != null && (!Number.isFinite(stockLimit) || stockLimit < 0)) return json(res, 400, { ok: false, error: 'Stock limit must be a non-negative number, or left blank for unlimited.' });
       if (imageBase64 && !/^data:image\/(jpeg|png|webp);base64,/.test(imageBase64)) return json(res, 400, { ok: false, error: 'A valid image is required.' });
       if (imageBase64.length > MAX_REWARD_IMAGE_BASE64_LENGTH) return json(res, 400, { ok: false, error: 'Photo is too large.' });
-      catalog[index] = { ...catalog[index], name, description, pointCost, imageBase64 };
+      catalog[index] = { ...catalog[index], name, description, pointCost, stockLimit, imageBase64 };
       await cloudStore.kvSetJson(REWARD_CATALOG_KEY, catalog);
       return json(res, 200, { ok: true, item: catalog[index] });
     }
@@ -3397,6 +3415,10 @@ const server = http.createServer(async (req, res) => {
       const spent = redemptions.filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status === 'APPROVED').reduce((sum, r) => sum + r.pointCost, 0);
       const balance = (points.byEmployee[identity]?.allTime.total || 0) - spent;
       if (balance < reward.pointCost) return json(res, 400, { ok: false, error: `Not enough points - you have ${balance}, this costs ${reward.pointCost}.` });
+      if (reward.stockLimit != null) {
+        const claimed = redemptions.filter(r => r.rewardId === reward.id && r.status !== 'REJECTED').length;
+        if (claimed >= reward.stockLimit) return json(res, 400, { ok: false, error: 'This reward is out of stock.' });
+      }
       const redemption = { id: `REDEEM-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, employeeEmail: identity, employeeName: session.employeeName, rewardId: reward.id, rewardName: reward.name, pointCost: reward.pointCost, status: 'PENDING', requestedAt: new Date().toISOString(), decidedAt: null, decidedBy: '', decisionNotes: '' };
       redemptions.push(redemption);
       await cloudStore.kvSetJson(REWARD_REDEMPTIONS_KEY, redemptions);
