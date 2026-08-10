@@ -48,40 +48,68 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
     ['KPI Type','Count','Avg Final KPI (Before Dispute)']];
   for(const type of ['Voice Jr TSR','Non-Voice Jr TSR','Senior TSR','Database Agent']){const rows=v.filter(r=>r.kpiType===type),vals=rows.map(r=>r.finalKpi).filter(x=>x!=null&&Number.isFinite(+x));summaryRows.push([type,rows.length,vals.length?Math.round(vals.reduce((s,x)=>s+ +x,0)/vals.length*100)/100:''])}
 
-  const methodologyRows=[['KPI Methodology & Definitions'],['This tab explains exactly how each metric elsewhere in this workbook is pulled and scored.'],[],
-    ['Section','Metric','Formula','Scoring / Points'],
-    ['General','Eligible Workdays',"Scheduled workdays in the period (per Schedule Management), excluding Rest Days and any day with no schedule on file, minus full-day PTO days.",'Denominator for every daily-average metric below. If it cannot be determined, the metric returns "Missing Attendance".'],
-    ['General','Base KPI','Sum of the REQUIRED metric points for the employee’s KPI Type (see sections below). Every required metric must resolve to a value or Base KPI is blank.','—'],
-    ['General','Bonus Points','An extra volume-based bonus on top of Base KPI (Email/Chat for Voice, Accepted Calls for Non-Voice & Senior). Never reduces the score; 0 if there is no qualifying activity.','—'],
-    ['General','Final KPI','Base KPI + Bonus Points.','—'],
-    ['General','Performance Status','Derived from Final KPI.','≥95% Exceptional · ≥90% Exceeds · ≥85% Meets · ≥80% Watch · <80% Intervention · blank Final KPI → Not Rated'],
-    ['General','Data Status','Reflects whether every required metric resolved cleanly for the period.','Ready = all required metrics valid · No Data = a metric had zero underlying activity · Missing Attendance = eligible workdays unavailable · Partial/Failed = one or more required metrics errored'],
-    ['Voice Jr TSR','CSAT Rate (required)','Good Surveys / (Good + Bad Surveys) × 100','≥95%→40 pts · ≥90%→36 · ≥85%→32 · ≥80%→28 · else→24'],
-    ['Voice Jr TSR','Productivity / Accepted Calls (required)','Accepted Calls / Eligible Workdays','≥17 calls/day→40 pts · ≥15→36 · ≥13→32 · ≥11→28 · else→24'],
-    ['Voice Jr TSR','Long Call Rate (required, lower is better)','Long Calls / Accepted Calls × 100','<5%→20 pts · ≤6%→18 · ≤8%→16 · ≤10%→14 · else→12'],
-    ['Voice Jr TSR','Email/Chat Bonus','(Email Count + Chat Count) / Eligible Workdays, max 5 bonus pts','≥4/day→100% of 5 · ≥3→90% · ≥2→80% · ≥1→70% · >0→60% · 0 or less→0'],
-    ['Non-Voice Jr TSR','CSAT Rate (required)','Same formula/bands as Voice Jr TSR CSAT Rate above.','Same as Voice Jr TSR'],
-    ['Non-Voice Jr TSR','Tickets Solved (required)','Count of unique tickets solved in the period.','≥250→40 pts · ≥200→36 · ≥150→32 · ≥100→28 · else→24'],
-    ['Non-Voice Jr TSR','Average First Reply Time (required)','Average minutes to first reply (converted to hours) across qualifying tickets.','≤1h→20 pts · ≤4h→18 · ≤8h→16 · ≤12h→14 · else→12 (validly-unavailable reps get 12 pts automatically)'],
-    ['Non-Voice Jr TSR','Accepted Calls Bonus','Accepted Calls / Eligible Workdays, max 5 bonus pts','Same multiplier bands as Voice Jr TSR Email/Chat Bonus'],
-    ['Senior TSR','Team Average (required)','Average Base KPI across all assigned Jr TSRs with a valid Base KPI.','≥95%→50 pts · ≥90%→45 · ≥85%→40 · ≥80%→35 · else→30'],
-    ['Senior TSR','Updated Tickets (required)','Count of unique tickets the Senior TSR updated (public + internal notes) in the period.','≥250→50 pts · ≥200→45 · ≥150→40 · ≥100→35 · else→30'],
-    ['Senior TSR','Accepted Calls Bonus','Accepted Calls / Eligible Workdays, max 10 bonus pts','Same multiplier bands as above, scaled to a 10-pt max'],
-    ['Senior TSR','CSAT Rate / Long Call Rate','Same formulas as Voice Jr TSR, shown for reference only.','Informational only — does NOT factor into the Senior TSR score.'],
-    ['Database Agent','Lead Import Tickets (required, 50% weight)','Count of Jira tickets resolved in project AM, issue type "AM-Onboarding" (the Lead Import queue), resolved within the period.','≥100→50 pts · 80–99→45 · 60–79→40 · 40–59→35 · <40→30'],
-    ['Database Agent','CSAT Rate (required, 40% weight)','Good Surveys / (Good + Bad Surveys) × 100. With 0 surveys this period, a neutral score is applied instead of penalizing.','≥95%→40 pts · ≥90%→36 · ≥85%→32 · ≥80%→28 · <80%→24 · 0 surveys→32 (neutral)'],
-    ['Database Agent','Accepted Calls — Daily Avg (required, 10% weight)','Accepted Calls / Eligible Workdays.','≥4/day→10 pts · ≥3→9 · ≥2→8 · ≥1→7 · <1→6'],
-    ['Database Agent','Other Jira Tickets Bonus (flat)','Any Jira ticket in project AM that is NOT "AM-Onboarding", resolved within the period.','Any other ticket handled→+10 pts flat · none→0 (Final KPI max 110)'],
-    ['Attendance','Scheduled Workdays','Count of days in the period the employee had an active schedule that was not a Rest Day and not missing a schedule record.','—'],
-    ['Attendance','Present Days / Present Day Equivalent','Days coded ONSITE, WFH, or LATE count as 1.0 present-equivalent; SL-HD/EL-HD half-day codes count as 0.5.','—'],
-    ['Attendance','Attendance %','Total Present (full-day equivalents only) / Total Scheduled Workdays × 100','—'],
-    ['Attendance','Eligible Workdays','Scheduled Workdays minus full-day PTO days. This is the figure fed into every KPI daily-average calculation above.','—'],
-    ['Attendance','Late Days / Late Minutes Total','Count of days coded LATE, and the sum of minutes-tardy entered for those days.','—'],
-    ['Attendance','Absence Days','Days with an unexcused or half-day code (e.g. NCNS, A, SL-HD, EL-HD) that reduce present-day-equivalent.','—'],
-    ['Attendance','Missing Entries','Scheduled, non-PTO workdays with no attendance code entered yet.','Drives the "Missing Attendance" data status on affected KPI records.'],
-    ['Attendance','Missing Schedule Days','Days with no schedule on file at all — excluded from every other attendance count until resolved.','—'],
-    ['CSAT Disputes','Dispute Adjustment','A rep can dispute a bad CSAT rating; if HR approves, the ticket is marked Not Valid DSAT and KPI is recalculated excluding it. The original rating is never hidden.','See the Before/After columns on the KPI Summary tabs and the Dispute Log tab.']
+  // One title band + header row per KPI type (General/Voice/Non-Voice/Senior/Database Agent/
+  // Attendance/CSAT Disputes) instead of a single flat table with a repeated "Section" column -
+  // each block reads as its own mini scoring-rubric table.
+  const methodologySectionList=[
+    {title:'General',rows:[
+      ['Eligible Workdays',"Scheduled workdays in the period (per Schedule Management), excluding Rest Days and any day with no schedule on file, minus full-day PTO days.",'Denominator for every daily-average metric below. If it cannot be determined, the metric returns "Missing Attendance".'],
+      ['Base KPI','Sum of the REQUIRED metric points for the employee’s KPI Type (see sections below). Every required metric must resolve to a value or Base KPI is blank.','—'],
+      ['Bonus Points','An extra volume-based bonus on top of Base KPI (Email/Chat for Voice, Accepted Calls for Non-Voice & Senior). Never reduces the score; 0 if there is no qualifying activity.','—'],
+      ['Final KPI','Base KPI + Bonus Points.','—'],
+      ['Performance Status','Derived from Final KPI.','≥95% Exceptional · ≥90% Exceeds · ≥85% Meets · ≥80% Watch · <80% Intervention · blank Final KPI → Not Rated'],
+      ['Data Status','Reflects whether every required metric resolved cleanly for the period.','Ready = all required metrics valid · No Data = a metric had zero underlying activity · Missing Attendance = eligible workdays unavailable · Partial/Failed = one or more required metrics errored'],
+    ]},
+    {title:'Voice Jr TSR',rows:[
+      ['CSAT Rate (required)','Good Surveys / (Good + Bad Surveys) × 100','≥95%→40 pts · ≥90%→36 · ≥85%→32 · ≥80%→28 · else→24'],
+      ['Productivity / Accepted Calls (required)','Accepted Calls / Eligible Workdays','≥17 calls/day→40 pts · ≥15→36 · ≥13→32 · ≥11→28 · else→24'],
+      ['Long Call Rate (required, lower is better)','Long Calls / Accepted Calls × 100','<5%→20 pts · ≤6%→18 · ≤8%→16 · ≤10%→14 · else→12'],
+      ['Email/Chat Bonus','(Email Count + Chat Count) / Eligible Workdays, max 5 bonus pts','≥4/day→100% of 5 · ≥3→90% · ≥2→80% · ≥1→70% · >0→60% · 0 or less→0'],
+    ]},
+    {title:'Non-Voice Jr TSR',rows:[
+      ['CSAT Rate (required)','Same formula/bands as Voice Jr TSR CSAT Rate above.','Same as Voice Jr TSR'],
+      ['Tickets Solved (required)','Count of unique tickets solved in the period.','≥250→40 pts · ≥200→36 · ≥150→32 · ≥100→28 · else→24'],
+      ['Average First Reply Time (required)','Average minutes to first reply (converted to hours) across qualifying tickets.','≤1h→20 pts · ≤4h→18 · ≤8h→16 · ≤12h→14 · else→12 (validly-unavailable reps get 12 pts automatically)'],
+      ['Accepted Calls Bonus','Accepted Calls / Eligible Workdays, max 5 bonus pts','Same multiplier bands as Voice Jr TSR Email/Chat Bonus'],
+    ]},
+    {title:'Senior TSR',rows:[
+      ['Team Average (required)','Average Base KPI across all assigned Jr TSRs with a valid Base KPI.','≥95%→50 pts · ≥90%→45 · ≥85%→40 · ≥80%→35 · else→30'],
+      ['Updated Tickets (required)','Count of unique tickets the Senior TSR updated (public + internal notes) in the period.','≥250→50 pts · ≥200→45 · ≥150→40 · ≥100→35 · else→30'],
+      ['Accepted Calls Bonus','Accepted Calls / Eligible Workdays, max 10 bonus pts','Same multiplier bands as above, scaled to a 10-pt max'],
+      ['CSAT Rate / Long Call Rate','Same formulas as Voice Jr TSR, shown for reference only.','Informational only — does NOT factor into the Senior TSR score.'],
+    ]},
+    {title:'Database Agent',rows:[
+      ['Lead Import Tickets (required, 50% weight)','Count of Jira tickets resolved in project AM, issue type "AM-Onboarding" (the Lead Import queue), resolved within the period.','≥100→50 pts · 80–99→45 · 60–79→40 · 40–59→35 · <40→30'],
+      ['CSAT Rate (required, 40% weight)','Good Surveys / (Good + Bad Surveys) × 100. With 0 surveys this period, a neutral score is applied instead of penalizing.','≥95%→40 pts · ≥90%→36 · ≥85%→32 · ≥80%→28 · <80%→24 · 0 surveys→32 (neutral)'],
+      ['Accepted Calls — Daily Avg (required, 10% weight)','Accepted Calls / Eligible Workdays.','≥4/day→10 pts · ≥3→9 · ≥2→8 · ≥1→7 · <1→6'],
+      ['Other Jira Tickets Bonus (flat)','Any Jira ticket in project AM that is NOT "AM-Onboarding", resolved within the period.','Any other ticket handled→+10 pts flat · none→0 (Final KPI max 110)'],
+    ]},
+    {title:'Attendance',rows:[
+      ['Scheduled Workdays','Count of days in the period the employee had an active schedule that was not a Rest Day and not missing a schedule record.','—'],
+      ['Present Days / Present Day Equivalent','Days coded ONSITE, WFH, or LATE count as 1.0 present-equivalent; SL-HD/EL-HD half-day codes count as 0.5.','—'],
+      ['Attendance %','Total Present (full-day equivalents only) / Total Scheduled Workdays × 100','—'],
+      ['Eligible Workdays','Scheduled Workdays minus full-day PTO days. This is the figure fed into every KPI daily-average calculation above.','—'],
+      ['Late Days / Late Minutes Total','Count of days coded LATE, and the sum of minutes-tardy entered for those days.','—'],
+      ['Absence Days','Days with an unexcused or half-day code (e.g. NCNS, A, SL-HD, EL-HD) that reduce present-day-equivalent.','—'],
+      ['Missing Entries','Scheduled, non-PTO workdays with no attendance code entered yet.','Drives the "Missing Attendance" data status on affected KPI records.'],
+      ['Missing Schedule Days','Days with no schedule on file at all — excluded from every other attendance count until resolved.','—'],
+    ]},
+    {title:'CSAT Disputes',rows:[
+      ['Dispute Adjustment','A rep can dispute a bad CSAT rating; if HR approves, the ticket is marked Not Valid DSAT and KPI is recalculated excluding it. The original rating is never hidden.','See the Before/After columns on the KPI Summary tabs and the Dispute Log tab.'],
+    ]},
   ];
+  const methodologyHead=['Metric','Formula','Scoring / Points'];
+  const methodologyBlocks=(()=>{
+    const rows=[['KPI Methodology & Definitions'],['This tab explains exactly how each metric elsewhere in this workbook is pulled and scored.'],[]];
+    const titleRowIndex=[0],headerRowIndex=[];
+    methodologySectionList.forEach((section,i)=>{
+      if(i>0)rows.push([]);
+      titleRowIndex.push(rows.length);rows.push([section.title]);
+      headerRowIndex.push(rows.length);rows.push(methodologyHead);
+      for(const r of section.rows)rows.push(r);
+    });
+    return{rows,titleRowIndex,headerRowIndex};
+  })();
 
   const attendanceHead=['Employee','Email','Reports To','KPI Type','Scheduled Workdays','Present Days','Present Day Equivalent','Late Days','Late Minutes Total','Attendance %','Eligible Workdays','Absence Days','PTO Days','Partial PTO Days','Partial PTO Minutes','RD Days','Missing Entries','Missing Schedule Days','Status'];
   const attendanceRows=[attendanceHead,...v.map(r=>{const a=attendance[r.employeeEmail]||{};return[r.employeeName,r.employeeEmail,r.teamLeadName,r.kpiType,a.totalScheduledWorkdays,a.totalPresent,a.presentDayEquivalent,a.lateDays,a.lateMinutesTotal,a.attendancePercentage,a.eligibleWorkdays,a.absenceDays,a.ptoDays,a.partialPtoDays,a.partialPtoMinutes,a.rdDays,a.missingEntries,a.missingScheduleDays,a.status]})];
@@ -145,7 +173,7 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
   const overallRank=r=>overallRankByEmail.get(r.employeeEmail)||'';
 
   const finalKpiHead=[...finalKpiCoreHead,'Base KPI','Final KPI','Performance','Overall Rank'];
-  const finalKpiDisputeHead=[...finalKpiCoreHead,'Base KPI (Before)','Final KPI (Before)','Performance (Before)','Not Valid DSAT (Approved)','Base KPI (After)','Final KPI (After)','Performance (After)','Overall Rank'];
+  const finalKpiDisputeHead=[...finalKpiCoreHead,'Base KPI (Before)','Final KPI (Before)','Not Valid DSAT (Approved)','Base KPI (After)','Final KPI (After)','Performance (After)','Overall Rank'];
 
   // One tab per report, but broken into a stacked block per KPI type (own title band +
   // header + rows sorted by Final KPI) so every type still reads as its own mini-table.
@@ -174,7 +202,7 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
   const allIndicesOf=(arr,name)=>arr.map((h,i)=>h===name?i:-1).filter(i=>i>=0);
 
   const finalKpiSheet=typedBlockSheet('Final KPI',finalKpiHead,r=>[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,overallRank(r)],allIndicesOf(finalKpiHead,'Final KPI'),kpiComponentCols);
-  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]},[...allIndicesOf(finalKpiDisputeHead,'Final KPI'),finalKpiDisputeHead.indexOf('Final KPI (Before)'),finalKpiDisputeHead.indexOf('Final KPI (After)')],kpiComponentCols);
+  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]},[...allIndicesOf(finalKpiDisputeHead,'Final KPI'),finalKpiDisputeHead.indexOf('Final KPI (Before)'),finalKpiDisputeHead.indexOf('Final KPI (After)')],kpiComponentCols);
 
   // Team KPI: one block per team lead (own title band + header + members sorted by Final
   // KPI, capped with a bolded Team Average row) - mirrors the on-screen Team Leader KPI
@@ -207,7 +235,7 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
     finalKpiSheet,
     finalKpiDisputeSheet,
     teamKpiSheet,
-    {name:'KPI Methodology',rows:methodologyRows,headerRowIndex:3,titleRowIndex:0},
+    {name:'KPI Methodology',rows:methodologyBlocks.rows,headerRowIndex:methodologyBlocks.headerRowIndex,titleRowIndex:methodologyBlocks.titleRowIndex},
     sheetFrom('Attendance',attendanceRows),
     sheetFrom('CSAT',csatRows),
     sheetFrom('Calls (Voice)',callsRows),
