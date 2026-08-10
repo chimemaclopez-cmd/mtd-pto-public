@@ -92,33 +92,49 @@ function colLetter(index) {
 // Fixed style palette (cellXfs indices below match this order exactly):
 //   0 default · 1 title band (navy fill, bold white, merged across the header width)
 //   2 header row (light-blue fill, bold) · 3 banded data row (very light blue fill) · 4 plain data row
+//   5 highlighted header (green fill, bold white) · 6 highlighted data (light-green fill, bold dark green)
+//   7 component header (gold fill, bold white) · 8 component data (light-gold fill, bold brown)
+// 5/6 call out THE final number (e.g. Final KPI); 7/8 call out the individual weighted scores
+// that sum into it (e.g. CSAT Points, Calls Points) - two tiers so the sheet reads at a glance
+// as "these feed into that", not just one flat "important columns" treatment.
 const STYLES_XML =
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-  `<fonts count="3">` +
+  `<fonts count="6">` +
   `<font><sz val="11"/><name val="Arial"/></font>` +
   `<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>` +
   `<font><b/><sz val="13"/><color rgb="FF1F3864"/><name val="Arial"/></font>` +
+  `<font><b/><sz val="11"/><color rgb="FF375623"/><name val="Arial"/></font>` +
+  `<font><b/><sz val="13"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>` +
+  `<font><b/><sz val="11"/><color rgb="FF7F6000"/><name val="Arial"/></font>` +
   `</fonts>` +
-  `<fills count="5">` +
+  `<fills count="9">` +
   `<fill><patternFill patternType="none"/></fill>` +
   `<fill><patternFill patternType="gray125"/></fill>` +
   `<fill><patternFill patternType="solid"><fgColor rgb="FF1F3864"/><bgColor indexed="64"/></patternFill></fill>` +
   `<fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill>` +
   `<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FFC6E0B4"/><bgColor indexed="64"/></patternFill></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FF548235"/><bgColor indexed="64"/></patternFill></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FFBF8F00"/><bgColor indexed="64"/></patternFill></fill>` +
   `</fills>` +
   `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
   `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-  `<cellXfs count="5">` +
+  `<cellXfs count="9">` +
   `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
   `<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
   `<xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
   `<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
   `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+  `<xf numFmtId="0" fontId="3" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>` +
+  `<xf numFmtId="0" fontId="4" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
+  `<xf numFmtId="0" fontId="5" fillId="7" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>` +
+  `<xf numFmtId="0" fontId="4" fillId="8" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
   `</cellXfs>` +
   `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
   `</styleSheet>`;
 
-const STYLE_TITLE = 1, STYLE_HEADER = 2, STYLE_BANDED = 3, STYLE_PLAIN = 4;
+const STYLE_TITLE = 1, STYLE_HEADER = 2, STYLE_BANDED = 3, STYLE_PLAIN = 4, STYLE_HIGHLIGHT_DATA = 5, STYLE_HIGHLIGHT_HEADER = 6, STYLE_COMPONENT_DATA = 7, STYLE_COMPONENT_HEADER = 8;
 
 // sheet: {name, rows, headerRowIndex=0, titleRowIndex=null}
 // headerRowIndex/titleRowIndex each accept either a single row number or an array of row
@@ -139,44 +155,60 @@ function styleForRow(r, { headerRows, titleRows }) {
 // Column widths are sized from the actual content (title/merge rows excluded, since those
 // overflow across the merge rather than needing column A itself to be wide) - this is what
 // makes a hand-built sheet read as deliberately formatted instead of one flat 20-wide grid.
-function computeColWidths(rows, colCount, skipRows) {
+// Header text renders bold at 13pt, noticeably wider per character than the 11pt regular data
+// font a plain character count assumes - without the 1.25x cushion below, a header sized to
+// "just fit" its own text at the data font's metrics wraps in Excel anyway, and at the fixed
+// header row height that wrap clips instead of just wrapping cleanly.
+function computeColWidths(rows, colCount, skipRows, headerRows = []) {
   const widths = new Array(colCount).fill(8);
   rows.forEach((row, r) => {
     if (skipRows.includes(r)) return;
+    const isHeader = headerRows.includes(r);
     for (let c = 0; c < colCount; c++) {
       const value = row[c];
       if (value == null || value === '') continue;
       const text = typeof value === 'number' ? String(Math.round(value * 100) / 100) : String(value);
-      if (text.length > widths[c]) widths[c] = text.length;
+      const effectiveLength = isHeader ? text.length * 1.25 : text.length;
+      if (effectiveLength > widths[c]) widths[c] = effectiveLength;
     }
   });
-  return widths.map(w => Math.min(46, Math.max(9, w + 2)));
+  return widths.map(w => Math.min(46, Math.max(9, Math.ceil(w) + 2)));
 }
 
 function sheetXml(sheet) {
   const rows = sheet.rows;
   const headerRows = Array.isArray(sheet.headerRowIndex) ? sheet.headerRowIndex : [sheet.headerRowIndex ?? 0];
   const titleRows = sheet.titleRowIndex == null ? [] : (Array.isArray(sheet.titleRowIndex) ? sheet.titleRowIndex : [sheet.titleRowIndex]);
+  const highlightCols = new Set(sheet.highlightCols || []);
+  const componentCols = new Set(sheet.componentCols || []);
   const colCount = Math.max(1, ...rows.map(row => row.length));
   const rowXml = rows.map((row, r) => {
-    const style = styleForRow(r, { headerRows, titleRows });
-    const cellCount = titleRows.includes(r) ? colCount : row.length;
+    const baseStyle = styleForRow(r, { headerRows, titleRows });
+    const isTitleRow = titleRows.includes(r), isHeaderRow = headerRows.includes(r);
+    const cellCount = isTitleRow ? colCount : row.length;
     const cells = [];
     for (let c = 0; c < cellCount; c++) {
       const value = row[c];
       const ref = `${colLetter(c)}${r + 1}`;
+      // highlightCols (e.g. Final KPI) and componentCols (the individual weighted scores that
+      // sum into it, e.g. CSAT Points) each override the row's own header/banded/plain style
+      // so they read consistently down their whole column - highlight wins if a column were
+      // ever in both, since the final number is the stronger call-out of the two.
+      const style = !isTitleRow && highlightCols.has(c) ? (isHeaderRow ? STYLE_HIGHLIGHT_HEADER : STYLE_HIGHLIGHT_DATA)
+        : !isTitleRow && componentCols.has(c) ? (isHeaderRow ? STYLE_COMPONENT_HEADER : STYLE_COMPONENT_DATA)
+        : baseStyle;
       const styleAttr = style ? ` s="${style}"` : '';
       if (value == null || value === '') cells.push(`<c r="${ref}"${styleAttr}/>`);
       else if (typeof value === 'number' && Number.isFinite(value)) cells.push(`<c r="${ref}"${styleAttr}><v>${Math.round(value * 100) / 100}</v></c>`);
       else cells.push(`<c r="${ref}"${styleAttr} t="inlineStr"><is><t xml:space="preserve">${escXml(value)}</t></is></c>`);
     }
-    const heightAttr = style === STYLE_HEADER ? ' ht="20" customHeight="1"' : '';
+    const heightAttr = (baseStyle === STYLE_HEADER || isHeaderRow) ? ' ht="32" customHeight="1"' : '';
     return `<row r="${r + 1}"${heightAttr}>${cells.join('')}</row>`;
   }).join('');
   const merges = titleRows.length && colCount > 1
     ? `<mergeCells count="${titleRows.length}">${titleRows.map(tr => `<mergeCell ref="A${tr + 1}:${colLetter(colCount - 1)}${tr + 1}"/>`).join('')}</mergeCells>`
     : '';
-  const colWidths = computeColWidths(rows, colCount, titleRows);
+  const colWidths = computeColWidths(rows, colCount, titleRows, headerRows);
   const cols = `<cols>${colWidths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
   const freezeAt = headerRows.length ? Math.min(...headerRows) : null;
   const sheetViews = freezeAt != null

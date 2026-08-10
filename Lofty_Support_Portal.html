@@ -146,20 +146,28 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
 
   // One tab per report, but broken into a stacked block per KPI type (own title band +
   // header + rows sorted by Final KPI) so every type still reads as its own mini-table.
-  const typedBlockSheet=(name,head,mapRow)=>{
+  const typedBlockSheet=(name,head,mapRow,highlightCols=[],componentCols=[])=>{
     const rows=[[`${name} — ${periodLabel}`]],titleRows=[0],headerRows=[];
+    let firstBlock=true;
     for(const type of ['Voice Jr TSR','Non-Voice Jr TSR','Senior TSR','Database Agent']){
       const typeRows=v.filter(r=>r.kpiType===type).sort((a,b)=>(Number(b.finalKpi)??-Infinity)-(Number(a.finalKpi)??-Infinity));
       if(!typeRows.length)continue;
+      if(!firstBlock)rows.push([]); // blank row so one KPI type's block never runs straight into the next
+      firstBlock=false;
       titleRows.push(rows.length);rows.push([type]);
       headerRows.push(rows.length);rows.push(head);
       for(const r of typeRows)rows.push(mapRow(r));
     }
-    return{name,rows,headerRowIndex:headerRows,titleRowIndex:titleRows};
+    return{name,rows,headerRowIndex:headerRows,titleRowIndex:titleRows,highlightCols,componentCols};
   };
 
-  const finalKpiSheet=typedBlockSheet('Final KPI',finalKpiHead,r=>[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,overallRank(r)]);
-  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]});
+  // Gold-highlighted in the export: the individual weighted scores that sum into Base KPI
+  // (each KPI type only fills in the ones that apply to it - e.g. a Voice row has CSAT/Calls/
+  // LCR Points, a Senior row has Team/Ticket Points - the rest are blank on that row).
+  const kpiComponentCols=finalKpiCoreHead.map((h,i)=>h.endsWith(' Points')?i:-1).filter(i=>i>=0);
+
+  const finalKpiSheet=typedBlockSheet('Final KPI',finalKpiHead,r=>[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,overallRank(r)],[finalKpiHead.indexOf('Final KPI')],kpiComponentCols);
+  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]},[finalKpiDisputeHead.indexOf('Final KPI (Before)'),finalKpiDisputeHead.indexOf('Final KPI (After)')],kpiComponentCols);
 
   // Team KPI: one block per team lead (own title band + header + members sorted by Final
   // KPI, capped with a bolded Team Average row) - mirrors the on-screen Team Leader KPI
@@ -169,16 +177,19 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
     const byLead=new Map();
     for(const r of v){const lead=r.teamLeadName||'—';if(!byLead.has(lead))byLead.set(lead,[]);byLead.get(lead).push(r)}
     const rows=[[`Team KPI — ${periodLabel}`]],titleRows=[0],headerRows=[];
+    let firstLead=true;
     for(const lead of[...byLead.keys()].sort()){
       const members=byLead.get(lead).slice().sort((a,b)=>(Number(b.finalKpi)??-Infinity)-(Number(a.finalKpi)??-Infinity));
       const valid=members.filter(x=>x.finalKpi!=null&&Number.isFinite(+x.finalKpi));
       const teamAvg=valid.length?valid.reduce((s,x)=>s+Number(x.finalKpi),0)/valid.length:null;
+      if(!firstLead)rows.push([]); // blank row so one team lead's block never runs straight into the next
+      firstLead=false;
       titleRows.push(rows.length);rows.push([lead]);
       headerRows.push(rows.length);rows.push(teamKpiHead);
       for(const m of members)rows.push([m.employeeName,m.employeeEmail,m.kpiType,m.primaryChannel,m.baseKpi,m.finalKpi,m.performanceStatus]);
       headerRows.push(rows.length);rows.push(['Team Average','','','','',teamAvg==null?'':teamAvg,'']);
     }
-    return{name:'Team KPI',rows,headerRowIndex:headerRows,titleRowIndex:titleRows};
+    return{name:'Team KPI',rows,headerRowIndex:headerRows,titleRowIndex:titleRows,highlightCols:[teamKpiHead.indexOf('Final KPI')],componentCols:[teamKpiHead.indexOf('Base KPI')]};
   })();
 
   const disputeHead=['Employee','Email','Ticket ID','Period','Reason','Status','Submitted','Decided By','Decision Notes','Base KPI Before','Base KPI After','Final KPI Before','Final KPI After','Performance Before','Performance After'];
