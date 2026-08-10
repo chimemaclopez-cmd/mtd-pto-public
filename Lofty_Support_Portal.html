@@ -113,7 +113,10 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
   const bonusHead=['Employee','Email','KPI Type','Bonus Email Count','Bonus Chat Count','Bonus Accepted Calls','Bonus Daily Avg','Bonus Points'];
   const bonusRows=[bonusHead,...v.map(r=>[r.employeeName,r.employeeEmail,r.kpiType,r.bonus?.email,r.bonus?.chat,r.bonus?.accepted,r.bonus?.dailyAverage,r.bonus?.bonus])];
 
-  const finalKpiCoreHead=['Employee','Email','Reports To','KPI Type','Channel','Employment Status','Eligible Workdays',
+  // 'Final KPI' appears here as a quick-glance preview right next to who/what the row is, AND
+  // again at the very end of the row alongside Base KPI/Performance/Rank (unchanged) - the
+  // detailed version isn't removed, this just avoids scrolling all the way right to see it.
+  const finalKpiCoreHead=['Employee','Email','Reports To','KPI Type','Channel','Employment Status','Final KPI','Eligible Workdays',
     'CSAT Good','CSAT Bad','CSAT Recovered','CSAT Survey Count','CSAT Rate %','CSAT Points',
     'Accepted Calls','Daily Avg Calls','Calls Points',
     'Long Calls','LCR %','LCR Points',
@@ -123,7 +126,7 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
     'Updated Tickets (Unique)',
     'Lead Import Tickets','Lead Import Points',
     'Bonus Email Count','Bonus Chat Count','Bonus Accepted Calls','Bonus Daily Avg','Other Jira Tickets','Bonus Points'];
-  const finalKpiCoreRow=r=>[r.employeeName,r.employeeEmail,r.teamLeadName,r.kpiType,r.primaryChannel,r.employmentStatus,r.eligibleWorkdays,
+  const finalKpiCoreRow=r=>[r.employeeName,r.employeeEmail,r.teamLeadName,r.kpiType,r.primaryChannel,r.employmentStatus,r.finalKpi,r.eligibleWorkdays,
     r.csat?.good,r.csat?.bad,r.csat?.recovered,r.csat?.validSurveyCount,r.csat?.rate,r.csat?.points,
     r.calls?.accepted,r.calls?.dailyAverage,r.calls?.points,
     r.lcr?.longCalls,r.lcr?.rate,r.lcr?.points,
@@ -165,9 +168,13 @@ $('loadBtn').onclick=()=>{rememberPeriod();return load().finally(syncAutoRefresh
   // (each KPI type only fills in the ones that apply to it - e.g. a Voice row has CSAT/Calls/
   // LCR Points, a Senior row has Team/Ticket Points - the rest are blank on that row).
   const kpiComponentCols=finalKpiCoreHead.map((h,i)=>h.endsWith(' Points')?i:-1).filter(i=>i>=0);
+  // finalKpiCoreHead now has a "Final KPI" preview column near the front AND the original,
+  // fuller "Final KPI"/"Final KPI (Before)"/"Final KPI (After)" columns still sit at the very
+  // end of each sheet - find every occurrence by name so both get the same highlight.
+  const allIndicesOf=(arr,name)=>arr.map((h,i)=>h===name?i:-1).filter(i=>i>=0);
 
-  const finalKpiSheet=typedBlockSheet('Final KPI',finalKpiHead,r=>[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,overallRank(r)],[finalKpiHead.indexOf('Final KPI')],kpiComponentCols);
-  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]},[finalKpiDisputeHead.indexOf('Final KPI (Before)'),finalKpiDisputeHead.indexOf('Final KPI (After)')],kpiComponentCols);
+  const finalKpiSheet=typedBlockSheet('Final KPI',finalKpiHead,r=>[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,overallRank(r)],allIndicesOf(finalKpiHead,'Final KPI'),kpiComponentCols);
+  const finalKpiDisputeSheet=typedBlockSheet('Final KPI (with CSAT Disputes)',finalKpiDisputeHead,r=>{const adj=r.disputeAdjustment||null;return[...finalKpiCoreRow(r),r.baseKpi,r.finalKpi,r.performanceStatus,adj?.notValidDsatCount||'',adj?adj.adjustedBaseKpi:'',adj?adj.adjustedFinalKpi:'',adj?adj.adjustedPerformanceStatus:'',overallRank(r)]},[...allIndicesOf(finalKpiDisputeHead,'Final KPI'),finalKpiDisputeHead.indexOf('Final KPI (Before)'),finalKpiDisputeHead.indexOf('Final KPI (After)')],kpiComponentCols);
 
   // Team KPI: one block per team lead (own title band + header + members sorted by Final
   // KPI, capped with a bolded Team Average row) - mirrors the on-screen Team Leader KPI
