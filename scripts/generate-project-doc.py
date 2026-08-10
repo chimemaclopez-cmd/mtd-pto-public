@@ -183,6 +183,8 @@ features = [
     ('Performance / KPI', [
         'Every rep sees their own Final KPI, category breakdown, and current period live, with company-wide Site KPI (call completion, long-call rate, CSAT) visible to anyone signed in.',
         'A Daily EOD Report breaks the same metrics down day by day, and the Site KPI tab shows who is currently in training and how long they have been onboarding.',
+        'The internal admin dashboard exports a formatted "KPI Bonus Review Workbook" (.xlsx) - Final KPI is highlighted green and shown both as a quick-glance column up front and in full detail at the end of the row, the individual weighted scores that sum into it (CSAT/Calls/LCR/Ticket/FRT/Team/Lead Import/Bonus Points) are highlighted gold, and each KPI type/team lead block is visually separated so nothing runs together.',
+        'Refreshing metrics for one period (e.g. this month) runs independently of whatever period is currently on screen, so a team lead can keep browsing last period\'s cached numbers while a refresh completes in the background, then switch over once it\'s ready.',
     ]),
     ('Coaching', [
         'A new coaching session can be explicitly linked to an earlier one covering the same underlying issue, and the UI shows an "Occurrence #N" badge computed from that chain - so a repeat issue is visibly a repeat, not a fresh first offense.',
