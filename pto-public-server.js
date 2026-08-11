@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.23.0';
+const PORTAL_VERSION = '1.24.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -554,7 +554,7 @@ async function attachProfilePhotos(spotlight) {
 }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
-async function loadSeniorJiraActivitySnapshot() { return getSnapshot('senior-jira-activity', 'mtdkpi:snapshot:senior-jira-activity', { generatedAt: '', month: '', sourceAvailable: false, byEmail: {} }); }
+async function loadSeniorJiraActivitySnapshot() { return getSnapshot('senior-jira-activity', 'mtdkpi:snapshot:senior-jira-activity', { generatedAt: '', periods: {} }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
@@ -796,7 +796,7 @@ function portalRoleFor(email) {
 // override, so an action taken while previewing can never get misattributed to the person
 // being previewed.
 const ADMIN_EMAILS = new Set(['mac@lofty.com']);
-const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING']);
+const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR']);
 function effectiveViewAsRole(identity, session) {
   return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
 }
@@ -1862,18 +1862,25 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/senior-jira-activity' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
       const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      if (!me || me.kpiType !== 'Senior TSR') return json(res, 403, { ok: false, error: 'This view is only available to Senior TSRs.' });
+      const previewingSeniorTsr = effectiveViewAsRole(identity, session) === 'SENIOR TSR';
+      if ((!me || me.kpiType !== 'Senior TSR') && !previewingSeniorTsr) return json(res, 403, { ok: false, error: 'This view is only available to Senior TSRs.' });
       const snapshot = await loadSeniorJiraActivitySnapshot();
-      const days = snapshot.byEmail?.[identity] || {};
+      const periods = snapshot.periods || {};
+      const availableMonths = Object.keys(periods).sort((a, b) => b.localeCompare(a));
+      const requestedMonth = String(parsed.searchParams.get('month') || '');
+      const month = (requestedMonth && periods[requestedMonth]) ? requestedMonth : (availableMonths[0] || '');
+      const period = periods[month] || { sourceAvailable: false, byEmail: {} };
+      const days = period.byEmail?.[identity] || {};
       const dayKeys = Object.keys(days).sort((a, b) => b.localeCompare(a));
       const totals = { touched: 0, commented: 0, reassignedPhToCrm: 0 };
       for (const day of dayKeys) { totals.touched += days[day].touched.length; totals.commented += days[day].commented.length; totals.reassignedPhToCrm += days[day].reassignedPhToCrm.length; }
       return json(res, 200, {
         ok: true,
-        month: snapshot.month || '',
-        generatedAt: snapshot.generatedAt || '',
-        sourceAvailable: Boolean(snapshot.sourceAvailable),
-        sourceError: snapshot.sourceError || '',
+        month,
+        availableMonths,
+        generatedAt: period.generatedAt || '',
+        sourceAvailable: Boolean(period.sourceAvailable),
+        sourceError: period.sourceError || '',
         totals,
         days: dayKeys.map(day => ({ day, ...days[day] }))
       });
@@ -2042,7 +2049,9 @@ const server = http.createServer(async (req, res) => {
         return { employeeEmail: email, employeeName: m.employeeName, lateCount, missingCount };
       }).filter(Boolean);
 
-      const pendingApprovals = (pto.requests || []).filter(request => request.status !== 'DRAFT' && canReviewPtoRequest(ptoAccess, request) && ['SUBMITTED', 'PENDING'].includes(request.status)).length;
+      const pendingApprovalRequests = (pto.requests || []).filter(request => request.status !== 'DRAFT' && canReviewPtoRequest(ptoAccess, request) && ['SUBMITTED', 'PENDING'].includes(request.status));
+      const pendingApprovals = pendingApprovalRequests.length;
+      const pendingApprovalIds = pendingApprovalRequests.map(r => r.requestId);
 
       // Coaching follow-ups due: reminds BOTH sides of a coaching session - the employee
       // (their own upcoming/overdue follow-up) and the team lead who created it - so
@@ -2088,7 +2097,7 @@ const server = http.createServer(async (req, res) => {
           .sort((a, b) => a.infractionDate.localeCompare(b.infractionDate))
         : [];
 
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, myCoachingFollowUps, teamCoachingFollowUps, myDisciplinaryPending, disciplinaryPreReviewPending, disciplinaryDecisionPending });
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, pendingApprovalIds, myCoachingFollowUps, teamCoachingFollowUps, myDisciplinaryPending, disciplinaryPreReviewPending, disciplinaryDecisionPending });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
