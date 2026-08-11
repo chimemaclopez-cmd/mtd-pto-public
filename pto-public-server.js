@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.22.1';
+const PORTAL_VERSION = '1.23.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -554,6 +554,7 @@ async function attachProfilePhotos(spotlight) {
 }
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
+async function loadSeniorJiraActivitySnapshot() { return getSnapshot('senior-jira-activity', 'mtdkpi:snapshot:senior-jira-activity', { generatedAt: '', month: '', sourceAvailable: false, byEmail: {} }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
@@ -1852,6 +1853,30 @@ const server = http.createServer(async (req, res) => {
         if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
       return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
+    }
+
+    // Senior TSR EOD Jira activity: read-only visibility into AM tickets touched, commented on,
+    // or handed off from PH JIRA Support to CRM/Website Request Team, day-by-day for the current
+    // month. Informational only - never feeds KPI scoring. zendesk-proxy.js computes this (it's
+    // the only server with Jira credentials) and syncs it here like every other cached snapshot.
+    if (parsed.pathname === '/api/my/senior-jira-activity' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      if (!me || me.kpiType !== 'Senior TSR') return json(res, 403, { ok: false, error: 'This view is only available to Senior TSRs.' });
+      const snapshot = await loadSeniorJiraActivitySnapshot();
+      const days = snapshot.byEmail?.[identity] || {};
+      const dayKeys = Object.keys(days).sort((a, b) => b.localeCompare(a));
+      const totals = { touched: 0, commented: 0, reassignedPhToCrm: 0 };
+      for (const day of dayKeys) { totals.touched += days[day].touched.length; totals.commented += days[day].commented.length; totals.reassignedPhToCrm += days[day].reassignedPhToCrm.length; }
+      return json(res, 200, {
+        ok: true,
+        month: snapshot.month || '',
+        generatedAt: snapshot.generatedAt || '',
+        sourceAvailable: Boolean(snapshot.sourceAvailable),
+        sourceError: snapshot.sourceError || '',
+        totals,
+        days: dayKeys.map(day => ({ day, ...days[day] }))
+      });
     }
 
     // Company-wide "who's currently in training" - visible to any signed-in user, not just the
