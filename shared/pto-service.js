@@ -5,6 +5,7 @@ export const PTO_STATUS_LABELS={DRAFT:'Draft',SUBMITTED:'Submitted',PENDING:'Pen
 export const loadPtoRequests=(filters={})=>{const query=new URLSearchParams(Object.entries(filters).filter(([,value])=>value));return api(`/api/pto/requests${query.size?`?${query}`:''}`)};
 export const loadTeamPtoRequests=()=>api('/api/pto/team-requests');
 export const loadPtoTeamCalendar=(month='')=>api(`/api/pto/team-calendar${month?`?month=${encodeURIComponent(month)}`:''}`);
+export const loadPtoLeadershipCalendar=(month='')=>api(`/api/pto/leadership-calendar${month?`?month=${encodeURIComponent(month)}`:''}`);
 export const createPtoRequest=request=>api('/api/pto/requests',{method:'POST',body:JSON.stringify(request)});
 export const loadPtoRequest=requestId=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`);
 export const updatePtoRequest=(requestId,request)=>api(`/api/pto/requests/${encodeURIComponent(requestId)}`,{method:'PUT',body:JSON.stringify(request)});
