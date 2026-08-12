@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.26.1';
+const PORTAL_VERSION = '1.26.2';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -3103,13 +3103,15 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/pto/team-calendar' && req.method === 'GET') {
       const month = /^\d{4}-\d{2}$/.test(parsed.searchParams.get('month') || '') ? parsed.searchParams.get('month') : todayEasternDate().slice(0, 7);
-      const data = await loadPto();
+      const [data, leaders] = await Promise.all([loadPto(), leadershipRequesterEmails()]);
       const monthStart = `${month}-01`, monthEnd = `${month}-31`;
       // Company-wide, not team-scoped: PTO capacity limits are checked by KPI type and by team
       // lead across the whole roster (see applyPtoCapacityLimits), so a rep needs visibility into
       // every pending/approved request to judge date availability, not just their own team's.
+      // Leadership's own PTO (team leads/BQA/SOM) is excluded here - that lives on the separate,
+      // leadership-only Leadership PTO Calendar instead.
       const requests = (data.requests || [])
-        .filter(r => r.status !== 'DRAFT' && r.startDate <= monthEnd && r.endDate >= monthStart)
+        .filter(r => r.status !== 'DRAFT' && !leaders.has(ptoLogic.cleanEmail(r.employeeEmail)) && r.startDate <= monthEnd && r.endDate >= monthStart)
         .map(r => ({
           requestId: r.requestId,
           employeeName: r.employeeName,
