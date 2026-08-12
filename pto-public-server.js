@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.25.1';
+const PORTAL_VERSION = '1.25.2';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -797,7 +797,7 @@ function portalRoleFor(email) {
 // override, so an action taken while previewing can never get misattributed to the person
 // being previewed.
 const ADMIN_EMAILS = new Set(['mac@lofty.com']);
-const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR']);
+const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR', 'REP']);
 function effectiveViewAsRole(identity, session) {
   return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
 }
