@@ -34,10 +34,16 @@ function rosterActiveOn(employee, date) {
 function normalizeScheduleActivity(value) { return String(value ?? '').trim(); }
 
 function scheduleForDate(scheduleData, email, date) {
-  const records = (scheduleData.schedules || [])
-    .filter(x => cleanEmail(x.employeeEmail) === cleanEmail(email) && (x.active || Boolean(x.effectiveTo)) && x.effectiveFrom <= date && (!x.effectiveTo || x.effectiveTo >= date))
+  const all = (scheduleData.schedules || []).filter(x => cleanEmail(x.employeeEmail) === cleanEmail(email) && (x.active || Boolean(x.effectiveTo)));
+  const records = all
+    .filter(x => x.effectiveFrom <= date && (!x.effectiveTo || x.effectiveTo >= date))
     .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
-  const record = records[0] || null;
+  // No schedule record explicitly covers this date yet (e.g. filing PTO for next month before
+  // next month's schedule has been built) - fall back to the most recently defined schedule as
+  // their current pattern instead of reporting the day as unknown, so weekend Rest Days still
+  // get detected on unbuilt future schedules.
+  const fallback = !records.length ? [...all].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0] : null;
+  const record = records[0] || fallback || null;
   const weekday = weekdayForDate(date);
   const base = record?.weekly?.[weekday] || null;
   const override = (scheduleData.overrides || [])
