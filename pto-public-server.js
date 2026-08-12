@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.26.0';
+const PORTAL_VERSION = '1.26.1';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -601,6 +601,29 @@ async function isPtoLeaderViewer(identity, session) {
   if (viewAs === 'REP') return false;
   const access = await ptoReviewAccess(identity, session.employeeName);
   return access.isTeamLeader || access.canFinalApprove;
+}
+
+// Who the Leadership PTO Calendar is ABOUT (whose requests appear), as opposed to
+// isPtoLeaderViewer above (who is ALLOWED to open it): anyone at least one other active
+// employee reports to (a real team lead, matched by email or by name the same way
+// ptoReviewAccess does), plus the fixed BQA/SOM identities.
+async function leadershipRequesterEmails() {
+  const roster = await loadRosterSnapshot();
+  const records = roster.records || [];
+  const nameToEmail = new Map(records.map(x => [String(x.employeeName || '').trim().toLowerCase(), ptoLogic.cleanEmail(x.employeeEmail)]));
+  const leaders = new Set();
+  for (const x of records) {
+    const leadEmail = ptoLogic.cleanEmail(x.teamLeadEmail);
+    if (leadEmail) leaders.add(leadEmail);
+    const leadName = String(x.teamLeadName || '').trim().toLowerCase();
+    if (leadName && nameToEmail.has(leadName)) leaders.add(nameToEmail.get(leadName));
+  }
+  for (const x of records) {
+    const email = ptoLogic.cleanEmail(x.employeeEmail);
+    const role = portalRoleFor(email);
+    if (role === 'BQA' || role === 'SOM') leaders.add(email);
+  }
+  return leaders;
 }
 
 
@@ -3104,10 +3127,10 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/pto/leadership-calendar' && req.method === 'GET') {
       if (!(await isPtoLeaderViewer(identity, session))) return json(res, 403, { ok: false, error: 'This calendar is only available to team leads, BQA, and SOM.' });
       const month = /^\d{4}-\d{2}$/.test(parsed.searchParams.get('month') || '') ? parsed.searchParams.get('month') : todayEasternDate().slice(0, 7);
-      const data = await loadPto();
+      const [data, leaders] = await Promise.all([loadPto(), leadershipRequesterEmails()]);
       const monthStart = `${month}-01`, monthEnd = `${month}-31`;
       const requests = (data.requests || [])
-        .filter(r => r.status !== 'DRAFT' && r.startDate <= monthEnd && r.endDate >= monthStart)
+        .filter(r => r.status !== 'DRAFT' && leaders.has(ptoLogic.cleanEmail(r.employeeEmail)) && r.startDate <= monthEnd && r.endDate >= monthStart)
         .map(r => ({
           requestId: r.requestId,
           employeeName: r.employeeName,
