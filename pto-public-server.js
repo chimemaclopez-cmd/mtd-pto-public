@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.24.0';
+const PORTAL_VERSION = '1.25.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -588,6 +588,28 @@ async function ptoReviewAccess(identity, employeeName = '') {
 
 function canReviewPtoRequest(access, request) {
   return access.canFinalApprove || access.memberEmails.has(ptoLogic.cleanEmail(request.employeeEmail));
+}
+
+// Peer scope (not review scope): everyone who shares the same team lead as `identity`, plus the
+// team lead and `identity` themselves. Used for the read-only team calendar so any rep can see
+// date availability across their own team, not just team leads reviewing their direct reports.
+async function ptoTeammateScope(identity) {
+  const roster = await loadRosterSnapshot();
+  const records = roster.records || [];
+  const cleanIdentity = ptoLogic.cleanEmail(identity);
+  const me = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
+  const myTeamLead = ptoLogic.cleanEmail(me?.teamLeadEmail || '');
+  const myTeamLeadName = String(me?.teamLeadName || '').trim().toLowerCase();
+  const scope = new Set([cleanIdentity]);
+  if (myTeamLead || myTeamLeadName) {
+    for (const x of records) {
+      if (ptoLogic.cleanEmail(x.teamLeadEmail) === myTeamLead || (myTeamLeadName && String(x.teamLeadName || '').trim().toLowerCase() === myTeamLeadName)) {
+        scope.add(ptoLogic.cleanEmail(x.employeeEmail));
+      }
+    }
+    if (myTeamLead) scope.add(myTeamLead);
+  }
+  return scope;
 }
 
 // --- Schedule Requests (Shift Change + Offline Task) - mirrors the PTO storage helpers above ---
@@ -3062,6 +3084,26 @@ const server = http.createServer(async (req, res) => {
         lastUpdated: data.lastUpdated || '',
         dataStatus: 'Live'
       });
+    }
+
+    if (parsed.pathname === '/api/pto/team-calendar' && req.method === 'GET') {
+      const month = /^\d{4}-\d{2}$/.test(parsed.searchParams.get('month') || '') ? parsed.searchParams.get('month') : todayEasternDate().slice(0, 7);
+      const [data, scope] = await Promise.all([loadPto(), ptoTeammateScope(identity)]);
+      const monthStart = `${month}-01`, monthEnd = `${month}-31`;
+      const requests = (data.requests || [])
+        .filter(r => r.status !== 'DRAFT' && scope.has(ptoLogic.cleanEmail(r.employeeEmail)) && r.startDate <= monthEnd && r.endDate >= monthStart)
+        .map(r => ({
+          requestId: r.requestId,
+          employeeName: r.employeeName,
+          isMine: ptoLogic.cleanEmail(r.employeeEmail) === identity,
+          startDate: r.startDate,
+          endDate: r.endDate,
+          requestType: r.requestType,
+          partialStartTime: r.partialStartTime || null,
+          partialEndTime: r.partialEndTime || null,
+          status: r.status
+        }));
+      return json(res, 200, { ok: true, month, requests, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
     }
 
     if (parsed.pathname === '/api/pto/requests' && req.method === 'POST') {
