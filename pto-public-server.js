@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.28.0';
+const PORTAL_VERSION = '1.28.1';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -3135,7 +3135,8 @@ const server = http.createServer(async (req, res) => {
           requestType: r.requestType,
           partialStartTime: r.partialStartTime || null,
           partialEndTime: r.partialEndTime || null,
-          status: r.status
+          status: r.status,
+          rdDates: r.rdDates || []
         }));
       return json(res, 200, { ok: true, month, requests, lastUpdated: data.lastUpdated || '', dataStatus: 'Live' });
     }
