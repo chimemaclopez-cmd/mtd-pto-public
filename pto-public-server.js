@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.29.1';
+const PORTAL_VERSION = '1.29.2';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -759,6 +759,18 @@ async function buildCoachingStandingSnapshot(email) {
   };
 }
 function todayEasternDate() { const p = easternDateParts(new Date()); return `${p.year}-${p.month}-${p.day}`; }
+// A "month|endDate" period key can end up dated in the future if a local admin's auto-refresh
+// job was left pointed at a fixed calendar date (e.g. month-end) instead of tracking "today" -
+// Zendesk just returns whatever's happened by request time under that mislabeled future key.
+// Naively picking "latest" by string-sorting keys then makes that phantom key win over the
+// real current period, silently serving stale/partial data under the wrong label as the
+// default view (confirmed live for both Site KPI's Daily EOD Report and KPI results). Periods
+// are filtered to real (non-future) ones wherever "the current period" is selected, including
+// the selectable list itself - a period for a date that hasn't happened has nothing legitimate
+// to show.
+function currentPeriodKeys(periodKeys, today = todayEasternDate()) {
+  return periodKeys.filter(key => (key.split('|')[1] || key) <= today);
+}
 function shiftDate(dateStr, deltaDays) { const [y, m, d] = dateStr.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d)); dt.setUTCDate(dt.getUTCDate() + deltaDays); return dt.toISOString().slice(0, 10); }
 function shiftMonths(dateStr, deltaMonths) { const [y, m, d] = dateStr.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1 + deltaMonths, d)); return dt.toISOString().slice(0, 10); }
 
@@ -1591,7 +1603,7 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/qa/dsat-review' && req.method === 'GET') {
       if (portalRoleFor(identity) !== 'BQA' && effectiveViewAsRole(identity, session) !== 'BQA') return json(res, 403, { ok: false, error: 'Not authorized.' });
       const siteMetricsData = await loadSiteMetricsSnapshot();
-      const availablePeriods = Object.keys(siteMetricsData.periods || {}).sort((a, b) => b.localeCompare(a));
+      const availablePeriods = currentPeriodKeys(Object.keys(siteMetricsData.periods || {})).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
       const period = (requestedPeriod && siteMetricsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
       const badTicketsDetail = (period && siteMetricsData.periods[period]?.csat?.badTicketsDetail) || [];
@@ -1889,7 +1901,9 @@ const server = http.createServer(async (req, res) => {
       const periods = kpiResults.periods || {};
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const dsatDisputes = await cloudStore.kvGetJson(DISPUTES_KEY, []);
+      const currentPeriodSet = new Set(currentPeriodKeys(Object.keys(periods)));
       const results = Object.entries(periods)
+        .filter(([period]) => currentPeriodSet.has(period))
         .flatMap(([period, rows]) => (rows || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity).map(x => ({ period, ...x })))
         .sort((a, b) => b.period.localeCompare(a.period))
         // Merged in fresh on every read, not trusted from any stored field on the row itself -
@@ -1898,7 +1912,7 @@ const server = http.createServer(async (req, res) => {
       const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim();
       const assignedMembers=scopedTeamMembers(roster,identity,session,session.employeeName);
       const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
-      const availablePeriods=Object.keys(periods).sort((a,b)=>b.localeCompare(a));
+      const availablePeriods=[...currentPeriodSet].sort((a,b)=>b.localeCompare(a));
       const requestedPeriod=String(parsed.searchParams.get('period')||'');
       const latestTeamPeriod=(requestedPeriod&&periods[requestedPeriod]?requestedPeriod:availablePeriods.find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))))||'';
       const periodResultsByEmail=new Map((latestTeamPeriod?(periods[latestTeamPeriod]||[]):[]).map(x=>[ptoLogic.cleanEmail(x.employeeEmail),x]));
@@ -1977,7 +1991,7 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/site-metrics' && req.method === 'GET') {
       const siteMetricsData = await loadSiteMetricsSnapshot();
       const periods = siteMetricsData.periods || {};
-      const availablePeriods = Object.keys(periods).sort((a, b) => b.localeCompare(a));
+      const availablePeriods = currentPeriodKeys(Object.keys(periods)).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
       const period = (requestedPeriod && periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
       // Daily EOD history for the trend table - each stored period is a cumulative
@@ -2012,7 +2026,10 @@ const server = http.createServer(async (req, res) => {
         // captured. Subtracting two negatives previously produced a false "100%" on
         // 2026-08-08 (1220 total that day vs. 1244 the day before) - fall back to the day's
         // own raw cumulative rather than trust arithmetic on numbers that can't both be right.
-        if (totalInbound < 0 || accepted < 0 || good + bad < 0) return { ...row, isDailyIsolated: false };
+        // Every component needs its own check, not just the three used above: checking only
+        // totalInbound/accepted/(good+bad) still lets e.g. completedInbound or bad go negative
+        // on its own (good absorbing the swing) and produce a >100% or negative rate undetected.
+        if (totalInbound < 0 || completedInbound < 0 || accepted < 0 || longCalls < 0 || good < 0 || bad < 0) return { ...row, isDailyIsolated: false };
         return {
           period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated, isDailyIsolated: true,
           callCompletion: { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null },

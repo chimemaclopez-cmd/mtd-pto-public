@@ -62,11 +62,16 @@ export function aggregateMemberAttendance(member, month) {
     else absence++;
     reasonParts.push(`${shortDate(d.date)} ${d.code}${d.reason ? ` — ${d.reason}` : ''}`);
   }
+  // PTO is authorized leave, not a mark against attendance - `scheduled` above intentionally
+  // still counts those days (it's what the table's own "Scheduled" column shows), but the
+  // percentage itself needs to exclude them from the denominator the same way it's already
+  // excluded from the numerator, or every PTO day silently drags the % down.
+  const eligibleForPct = scheduled - pto;
   return {
     employeeEmail: member.employeeEmail,
     employeeName: member.employeeName,
     scheduled, present, absenceDays: absence, ptoDays: pto, lateCount, ncnsCount,
-    attendancePct: scheduled ? roundTo((present / scheduled) * 100, 2) : null,
+    attendancePct: eligibleForPct ? roundTo((present / eligibleForPct) * 100, 2) : null,
     absenceReason: reasonParts.join(', ') || '—'
   };
 }
@@ -84,18 +89,25 @@ export function attendanceFactSummary(rows) {
 }
 
 // --- Productivity -----------------------------------------------------------------------
+// The canonical kpiType values are 'Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR',
+// 'Database Agent', 'Trainee', 'Excluded' (shared/kpi-config.js) - 'Voice Sr TSR'/'Non-Voice Sr
+// TSR' never exist anywhere in this codebase and matched nothing here, and Database Agent
+// wasn't handled at all, so a real Database Agent on the team appeared on the Team Overview
+// slide (which iterates the full team) but silently had zero rows on this one.
 export function productivityGroups(teamResults) {
-  const voice = [], nonVoice = [], senior = [];
+  const voice = [], nonVoice = [], senior = [], database = [];
   for (const row of teamResults || []) {
-    if (row.kpiType === 'Voice Jr TSR' || row.kpiType === 'Voice Sr TSR') {
+    if (row.kpiType === 'Voice Jr TSR') {
       voice.push({employeeName: row.employeeName, accepted: row.calls?.accepted ?? null, dailyAverage: row.calls?.dailyAverage ?? null, longCalls: row.calls?.longCalls ?? null, lcrRate: row.lcr?.rate ?? null});
-    } else if (row.kpiType === 'Non-Voice Jr TSR' || row.kpiType === 'Non-Voice Sr TSR') {
+    } else if (row.kpiType === 'Non-Voice Jr TSR') {
       nonVoice.push({employeeName: row.employeeName, solved: row.tickets?.solved ?? null, excluded: row.tickets?.excluded ?? null});
     } else if (row.kpiType === 'Senior TSR') {
       senior.push({employeeName: row.employeeName, updated: row.tickets?.unique ?? null, publicCount: row.tickets?.publicCount ?? null, internalCount: row.tickets?.internalCount ?? null, teamAvgBaseKpi: row.team?.average ?? null});
+    } else if (row.kpiType === 'Database Agent') {
+      database.push({employeeName: row.employeeName, leadImportCount: row.jiraLeadImport?.count ?? null, csatRate: row.csat?.rate ?? null, callsAccepted: row.calls?.accepted ?? null, callsDailyAverage: row.calls?.dailyAverage ?? null});
     }
   }
-  return {voice, nonVoice, senior};
+  return {voice, nonVoice, senior, database};
 }
 
 // --- CSAT -------------------------------------------------------------------------------
@@ -301,7 +313,7 @@ function attendanceSlide(pres, {rows, factSummary}, pageNum) {
   addFooter(slide, pageNum);
 }
 
-function productivitySlide(pres, {voice, nonVoice, senior}, pageNum) {
+function productivitySlide(pres, {voice, nonVoice, senior, database}, pageNum) {
   const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 2', title: 'Productivity', subtitle: 'Volume handled by role type'});
   let y = 1.9;
   if (voice.length) {
@@ -313,9 +325,15 @@ function productivitySlide(pres, {voice, nonVoice, senior}, pageNum) {
     slide.addText('NON-VOICE JR TSR', {x: 0.6, y, w: 6, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
     dataTable(slide, {headRow: ['Employee', 'Tickets Solved', 'Excluded'], rows: nonVoice.map(v => [v.employeeName, v.solved, v.excluded]), x: 0.6, y: y + 0.3, w: 6, colW: [3, 2, 1.5]});
   }
+  let yRight = 1.9;
   if (senior.length) {
-    slide.addText('SENIOR TSR', {x: 6.9, y: 1.9, w: 5.8, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
-    dataTable(slide, {headRow: ['Employee', 'Updated', 'Public', 'Internal', 'Team Avg Base KPI'], rows: senior.map(v => [v.employeeName, v.updated, v.publicCount, v.internalCount, v.teamAvgBaseKpi == null ? '—' : roundTo(v.teamAvgBaseKpi, 2)]), x: 6.9, y: 2.2, w: 5.8, colW: [2, 0.9, 0.9, 0.9, 1.1]});
+    slide.addText('SENIOR TSR', {x: 6.9, y: yRight, w: 5.8, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
+    dataTable(slide, {headRow: ['Employee', 'Updated', 'Public', 'Internal', 'Team Avg Base KPI'], rows: senior.map(v => [v.employeeName, v.updated, v.publicCount, v.internalCount, v.teamAvgBaseKpi == null ? '—' : roundTo(v.teamAvgBaseKpi, 2)]), x: 6.9, y: yRight + 0.3, w: 5.8, colW: [2, 0.9, 0.9, 0.9, 1.1]});
+    yRight += 0.3 + 0.35 * (senior.length + 1) + 0.25;
+  }
+  if (database.length) {
+    slide.addText('DATABASE AGENT', {x: 6.9, y: yRight, w: 5.8, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
+    dataTable(slide, {headRow: ['Employee', 'Lead Import', 'CSAT %', 'Calls', 'Daily Avg'], rows: database.map(v => [v.employeeName, v.leadImportCount, v.csatRate == null ? '—' : `${roundTo(v.csatRate, 2)}%`, v.callsAccepted, v.callsDailyAverage == null ? '—' : roundTo(v.callsDailyAverage, 2)]), x: 6.9, y: yRight + 0.3, w: 5.8, colW: [2, 1.1, 1, 0.9, 0.8]});
   }
   addFooter(slide, pageNum);
 }
@@ -382,7 +400,7 @@ function wrapUpSlide(pres, {workingWell, needsAttention}, pageNum) {
  */
 export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
   const attendanceRows = (teamAttendanceMembers || []).map(m => aggregateMemberAttendance(m, month));
-  const {voice, nonVoice, senior} = productivityGroups(teamResults);
+  const {voice, nonVoice, senior, database} = productivityGroups(teamResults);
   const csatTable = csatRows(teamResults);
   const badDetail = csatBadDetail(teamResults);
   const goodHighlights = csatGoodHighlights(teamResults);
@@ -403,7 +421,7 @@ export async function generateMbrDeck({leaderName, month, teamResults, teamAtten
   titleSlide(pres, {leaderName, monthText, sections});
   teamOverviewSlide(pres, {teamResults, insight: teamInsight}, 2);
   attendanceSlide(pres, {rows: attendanceRows, factSummary: attendanceFactSummary(attendanceRows)}, 3);
-  productivitySlide(pres, {voice, nonVoice, senior}, 4);
+  productivitySlide(pres, {voice, nonVoice, senior, database}, 4);
   csatBadSlide(pres, {rows: csatTable, badDetail, insight: csatInsight}, 5);
   csatGoodSlide(pres, {goodCounts, highlights: goodHighlights, totalGood}, 6);
   const coachingFactSummary = [
