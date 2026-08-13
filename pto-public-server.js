@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.27.3';
+const PORTAL_VERSION = '1.28.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -833,9 +833,16 @@ function portalRoleFor(email) {
 // override, so an action taken while previewing can never get misattributed to the person
 // being previewed.
 const ADMIN_EMAILS = new Set(['mac@lofty.com']);
+// Separate from ADMIN_EMAILS on purpose: Charlotte (SOM, department head) gets the View As
+// preview to check what other roles see, but not the admin-only Copilot connection controls or
+// credential-reset endpoint below - those stay Mac-only.
+const VIEW_AS_ALLOWED_EMAILS = new Set([...ADMIN_EMAILS, 'charlotte@lofty.com']);
 const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR', 'REP']);
+function canUseViewAs(identity) {
+  return VIEW_AS_ALLOWED_EMAILS.has(ptoLogic.cleanEmail(identity));
+}
 function effectiveViewAsRole(identity, session) {
-  return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
+  return canUseViewAs(identity) ? String(session?.viewAsRole || '') : '';
 }
 // SOM oversees the whole roster as the department head, not just her own direct reports like a
 // normal team lead - mirrors how she's already the FINAL_PTO_APPROVER_EMAIL and already sees
@@ -1212,7 +1219,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), viewAsRole: '' });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '' });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1325,7 +1332,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), viewAsRole });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -1333,7 +1340,7 @@ const server = http.createServer(async (req, res) => {
     // the session itself so it persists across page loads until explicitly cleared - every
     // write/decide endpoint still checks the real identity, never this preference.
     if (parsed.pathname === '/api/my/view-as' && req.method === 'POST') {
-      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseViewAs(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const body = await readJsonBody(req);
       const role = String(body.role || '').toUpperCase();
       if (role && !VIEW_AS_ROLES.has(role)) return json(res, 400, { ok: false, error: 'Unknown preview role.' });
