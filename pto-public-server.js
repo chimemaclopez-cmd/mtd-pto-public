@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.28.1';
+const PORTAL_VERSION = '1.29.1';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -178,8 +178,8 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js']);
-const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js']);
+const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js']);
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1859,6 +1859,31 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (parsed.pathname === '/api/my/mbr-review-insight' && req.method === 'POST') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can generate an MBR.' });
+      const body = await readJsonBody(req);
+      const draft = String(body.draft || '').trim();
+      const format = body.format === 'json' ? 'json' : 'text';
+      if (!draft) return json(res, 400, { ok: false, error: 'draft is required.' });
+      // Second-pass fact-check, not a rewrite: Copilot (tsr-bot) already drafted this line in the
+      // browser from a lean prompt; here it gets checked against the FULL underlying dataset by a
+      // second model before it goes in the deck. Always resolves ok:true with the original draft
+      // as a fallback - a stat line in an MBR should never fail to render just because Groq isn't
+      // configured or is briefly down.
+      if (!GROQ_API_KEY) return json(res, 200, { ok: true, reviewed: draft, reviewedBy: 'none' });
+      const context = JSON.stringify(body.context ?? {}).slice(0, 16000);
+      const instruction = format === 'json'
+        ? 'You are fact-checking a drafted JSON object for a Monthly Business Review slide against the supporting data below. Verify every number, name, and claim in the draft matches the data. If something is wrong, unsupported, or omits something important the data shows, correct it. Keep the exact same JSON shape as the draft. Return ONLY the corrected JSON object, no markdown, no preamble.'
+        : 'You are fact-checking a drafted sentence (max 2 sentences) for a Monthly Business Review slide against the supporting data below. Verify every number and name in the draft matches the data exactly. If it is fully accurate, return it as-is, optionally tightened for clarity. If anything is wrong or unsupported, rewrite it using ONLY the given data. Return ONLY the corrected sentence, no markdown, no preamble, no quotes.';
+      const prompt = `${instruction}\n\nSUPPORTING DATA:\n${context}\n\nDRAFT:\n${draft}`;
+      try {
+        const reviewed = await callGroq(prompt, { maxTokens: format === 'json' ? 700 : 200, json: format === 'json' });
+        return json(res, 200, { ok: true, reviewed, reviewedBy: 'groq' });
+      } catch (error) {
+        return json(res, 200, { ok: true, reviewed: draft, reviewedBy: 'none', error: error.message });
+      }
+    }
+
     if (parsed.pathname === '/api/my/kpi' && req.method === 'GET') {
       const [kpiResults, roster] = await Promise.all([loadKpiResultsSnapshot(), loadRosterSnapshot()]);
       const periods = kpiResults.periods || {};
@@ -1980,6 +2005,14 @@ const server = http.createServer(async (req, res) => {
         const longCalls = (lcr.longCalls || 0) - (plcr.longCalls || 0);
         const good = (cs.good || 0) - (pcs.good || 0);
         const bad = (cs.bad || 0) - (pcs.bad || 0);
+        // A cumulative month-to-date total can only hold steady or grow as the month goes on -
+        // a negative delta here means the stored MTD snapshot for this day (or the one before
+        // it) is inconsistent with the other, e.g. a refresh ran before the labeled day had
+        // fully elapsed, or Zendesk's own data changed between the two snapshots being
+        // captured. Subtracting two negatives previously produced a false "100%" on
+        // 2026-08-08 (1220 total that day vs. 1244 the day before) - fall back to the day's
+        // own raw cumulative rather than trust arithmetic on numbers that can't both be right.
+        if (totalInbound < 0 || accepted < 0 || good + bad < 0) return { ...row, isDailyIsolated: false };
         return {
           period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated, isDailyIsolated: true,
           callCompletion: { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null },
