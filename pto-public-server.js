@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.26.2';
+const PORTAL_VERSION = '1.27.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -837,6 +837,14 @@ const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR', 'RE
 function effectiveViewAsRole(identity, session) {
   return ADMIN_EMAILS.has(ptoLogic.cleanEmail(identity)) ? String(session?.viewAsRole || '') : '';
 }
+// SOM oversees the whole roster as the department head, not just her own direct reports like a
+// normal team lead - mirrors how she's already the FINAL_PTO_APPROVER_EMAIL and already sees
+// every PTO request company-wide regardless of team. Widens Team Attendance/Team Roster/Team
+// KPI the same way for her (and an admin previewing as SOM), everywhere those would otherwise
+// scope to "people who report to me."
+function isCompanyWideOverseer(identity, session) {
+  return (effectiveViewAsRole(identity, session) || portalRoleFor(identity)) === 'SOM';
+}
 // HR and SOM always qualify; anyone else needs at least one active direct report (i.e. is
 // actually a team lead) to post/manage announcements or Alignment items from this portal.
 async function canManageAnnouncements(identity, employeeName) {
@@ -981,6 +989,9 @@ function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs 
   if (viewingAsTraining || isRealTraining) {
     const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : identity;
     return (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+  }
+  if (allowViewAs && isCompanyWideOverseer(identity, session)) {
+    return (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
   }
   const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
   const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
@@ -1414,9 +1425,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/team-roster' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const assignedMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName));
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
       return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, members: assignedMembers });
     }
 
@@ -1425,9 +1434,7 @@ const server = http.createServer(async (req, res) => {
       const targetEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
       if (!targetEmail) return json(res, 400, { ok: false, error: 'employeeEmail is required.' });
       const roster = await loadRosterSnapshot();
-      const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, false).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       if (!memberEmails.has(targetEmail)) return json(res, 403, { ok: false, error: 'That employee is not on your team.' });
       const index = (roster.records || []).findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail);
       if (index < 0) return json(res, 400, { ok: false, error: 'Employee not found in the roster.' });
@@ -1856,8 +1863,8 @@ const server = http.createServer(async (req, res) => {
         // Merged in fresh on every read, not trusted from any stored field on the row itself -
         // see buildDsatKpiAdjustment for why this can't be a value written at decide-time.
         .map(row => ({ ...row, disputeAdjustment: buildDsatKpiAdjustment(row, dsatDisputes.filter(d => d.status === 'APPROVED' && ptoLogic.cleanEmail(d.employeeEmail) === identity && d.period === row.period).length) }));
-      const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim(),leaderEmail=ptoLogic.cleanEmail(signedInEmployee?.employeeEmail||identity);
-      const assignedMembers=(roster.records||[]).filter(x=>x.active!==false&&ptoLogic.cleanEmail(x.employeeEmail)!==identity&&(ptoLogic.cleanEmail(x.teamLeadEmail)===leaderEmail||String(x.teamLeadName||'').trim()===leaderName));
+      const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim();
+      const assignedMembers=scopedTeamMembers(roster,identity,session,session.employeeName);
       const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
       const availablePeriods=Object.keys(periods).sort((a,b)=>b.localeCompare(a));
       const requestedPeriod=String(parsed.searchParams.get('period')||'');
@@ -2310,7 +2317,7 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const memberEmails = new Set((roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || String(x.teamLeadName || '').trim() === leaderName)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       if (!memberEmails.has(email)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const attendance = await loadAttendanceSnapshot();
       const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
