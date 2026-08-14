@@ -20,15 +20,17 @@ tbody tr{transition:background-color .12s}tbody tr:nth-child(even) td{background
 @media(max-width:760px){th,td{padding:9px 10px}}
 @media print{.tableWrap{box-shadow:none;border-radius:0}th,td{padding:3px}}
 
-/* Global save/action confirmation (shared/ui-utils.js setMessage()) - floats above the page
-   instead of sitting inline above the tab bar, where a save confirmation was invisible whenever
-   the user had scrolled down a long list or had just closed a modal over their action. Only
-   #message (the one global banner every page has) is repositioned; the many per-section
-   .message divs elsewhere (e.g. #teamRosterError, #mbrReportMessage) stay inline right next to
-   the action that triggered them, where they're already visible without scrolling. */
-#message{position:fixed;top:18px;right:18px;left:auto;max-width:420px;z-index:9999;box-shadow:0 14px 32px rgba(32,36,55,.18);animation:toastIn .22s ease-out}
+/* Whole-section save/action confirmations - float above the page as a popup instead of sitting
+   inline in the page flow, where a confirmation was easy to miss whenever the user had scrolled
+   down a long list/grid or had just closed a modal over their action. #message is the one global
+   banner every page has (shared/ui-utils.js setMessage()); the *Message-suffixed IDs are the
+   equivalent per-tab banners for actions with their own dedicated result area (e.g. Team
+   Attendance's "N update(s) saved"). Per-FIELD validation divs (named ...Error, e.g.
+   #teamRosterError, #loginError, #coachingFormError) are deliberately excluded - those need to
+   stay inline right next to the field they're pointing at, not float away from it. */
+#message,#teamAttendanceMessage,#mbrReportMessage,#teamCoachingMessage,#teamDisciplinaryMessage,#teamAlignmentMessage,#alignmentReviewMessage{position:fixed;top:18px;right:18px;left:auto;max-width:420px;z-index:9999;box-shadow:0 14px 32px rgba(32,36,55,.18);animation:toastIn .22s ease-out}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:760px){#message{left:14px;right:14px;max-width:none}}
+@media(max-width:760px){#message,#teamAttendanceMessage,#mbrReportMessage,#teamCoachingMessage,#teamDisciplinaryMessage,#teamAlignmentMessage,#alignmentReviewMessage{left:14px;right:14px;max-width:none}}
 
 /* Rich-text composer (shared/rich-text.js) - toolbar + contenteditable body for SOP/announcement content pasted from Word/PDF. */
 .richTextToolbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
