@@ -236,6 +236,37 @@ export async function draftWrapUp(token, {teamResults, csatBad, coachingInProgre
   } catch { return draft; }
 }
 
+export async function draftAttendanceInsight(token, rows) {
+  const fallback = attendanceFactSummary(rows);
+  const prompt = `You are drafting one short sentence (max 2 sentences) for a Monthly Business Review slide about team attendance. Be direct and factual, no fluff, plain text only, no markdown, no preamble. Attendance detail this period: ${JSON.stringify(rows.map(r => ({employeeName: r.employeeName, attendancePct: r.attendancePct, absenceDays: r.absenceDays, ptoDays: r.ptoDays, reason: r.absenceReason})))}.`;
+  const context = {attendanceRows: rows};
+  return draftText(token, prompt, fallback, context);
+}
+
+export async function draftProductivityInsight(token, {voice, nonVoice, senior, database}) {
+  const totalCalls = sumBy(voice, v => v.accepted);
+  const totalLongCalls = sumBy(voice, v => v.longCalls);
+  const totalSolved = sumBy(nonVoice, v => v.solved);
+  const outlier = lcrOutlierNote(voice);
+  const fallback = [
+    `The team handled ${totalCalls} call(s)${totalLongCalls ? ` (${totalLongCalls} running 30+ minutes)` : ''} and solved ${totalSolved} ticket(s) this period.`,
+    outlier || ''
+  ].filter(Boolean).join(' ');
+  const prompt = `You are drafting one to two short sentences for a Monthly Business Review slide about team productivity and call/ticket volume. Be direct and factual, no fluff, plain text only, no markdown, no preamble. Voice call volume: ${JSON.stringify(voice)}. Non-Voice ticket volume: ${JSON.stringify(nonVoice)}. Senior TSR: ${JSON.stringify(senior)}. Database Agent: ${JSON.stringify(database)}.`;
+  const context = {voice, nonVoice, senior, database};
+  return draftText(token, prompt, fallback, context);
+}
+
+export async function draftCoachingInsight(token, {inPeriod, inProgress}) {
+  const fallback = [
+    inPeriod.length ? `${inPeriod.length} coaching session(s) logged this period.` : 'No coaching sessions were logged this period.',
+    inProgress.length ? `${inProgress.length} follow-up(s) currently in progress.` : ''
+  ].filter(Boolean).join(' ');
+  const prompt = `You are drafting one short sentence (max 2 sentences) for a Monthly Business Review slide about coaching sessions. Be direct and factual, no fluff, plain text only, no markdown, no preamble. Coaching sessions logged this period: ${JSON.stringify(inPeriod.map(r => ({employeeName: r.employeeName, category: r.category, status: r.status})))}. Follow-ups in progress: ${JSON.stringify(inProgress.map(r => ({employeeName: r.employeeName, category: r.category})))}.`;
+  const context = {inPeriod, inProgress};
+  return draftText(token, prompt, fallback, context);
+}
+
 // --- Deck assembly (pptxgenjs, loaded as window.PptxGenJS via shared/vendor/pptxgen.bundle.js) ---
 const P = MBR_PALETTE;
 const FONT = 'Calibri';
@@ -365,7 +396,7 @@ function attendanceSlide(pres, {rows, factSummary}, pageNum) {
   addFooter(slide, pageNum);
 }
 
-function productivitySlide(pres, {voice, nonVoice, senior, database}, pageNum) {
+function productivitySlide(pres, {voice, nonVoice, senior, database, insight}, pageNum) {
   const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 2', title: 'Productivity', subtitle: 'Volume handled by role type'});
   let y = 1.9;
   if (voice.length) {
@@ -387,6 +418,7 @@ function productivitySlide(pres, {voice, nonVoice, senior, database}, pageNum) {
     slide.addText('DATABASE AGENT', {x: 6.9, y: yRight, w: 5.8, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
     dataTable(slide, {headRow: ['Employee', 'Lead Import', 'CSAT %', 'Calls', 'Daily Avg'], rows: database.map(v => [v.employeeName, v.leadImportCount, v.csatRate == null ? '—' : `${roundTo(v.csatRate, 2)}%`, v.callsAccepted, v.callsDailyAverage == null ? '—' : roundTo(v.callsDailyAverage, 2)]), x: 6.9, y: yRight + 0.3, w: 5.8, colW: [2, 1.1, 1, 0.9, 0.8]});
   }
+  insightCallout(slide, insight, 6.15);
   addFooter(slide, pageNum);
 }
 
@@ -424,6 +456,89 @@ function coachingSlide(pres, {inPeriod, inProgress, factSummary}, pageNum) {
     dataTable(slide, {headRow: ['Employee', 'Category', 'Status', 'Follow-up Date'], rows: inProgress.map(r => [r.employeeName, r.category, r.status, r.targetFollowUpDate ? shortDate(r.targetFollowUpDate) : '—']), x: 0.6, y: y + 0.3, w: 12.1, colW: [3.5, 3.5, 2.5, 2.6]});
   }
   insightCallout(slide, factSummary, 6.15);
+  addFooter(slide, pageNum);
+}
+
+function attendanceChartSlide(pres, {rows}, pageNum) {
+  const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 1', title: 'Attendance % by Employee', subtitle: 'Present days ÷ (Scheduled − PTO) this period'});
+  const withPct = rows.filter(r => r.attendancePct != null);
+  if (withPct.length) {
+    slide.addChart('bar', [{name: 'Attendance %', labels: withPct.map(r => r.employeeName), values: withPct.map(r => r.attendancePct)}], {
+      x: 0.6, y: 1.9, w: 12.1, h: 4.9, barDir: 'bar',
+      chartColors: [P.accent],
+      showTitle: false, showLegend: false, showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: P.ink, dataLabelFontSize: 10, dataLabelFormatCode: '0"%"',
+      catAxisLabelColor: P.ink, catAxisLabelFontSize: 10, valAxisLabelColor: P.muted, valAxisMaxVal: 100, valAxisMinVal: 0,
+      valGridLine: {color: 'DFE2EA', size: 0.75}, catGridLine: {style: 'none'}
+    });
+  } else {
+    slide.addText('No attendance percentages could be computed this period.', {x: 0.6, y: 2.5, w: 12.1, h: 0.5, fontFace: FONT, fontSize: 14, color: P.muted, italic: true});
+  }
+  addFooter(slide, pageNum);
+}
+
+function productivityChartSlide(pres, {voice, nonVoice}, pageNum) {
+  const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 2', title: 'Volume Handled by Employee', subtitle: 'Accepted calls and tickets solved this period'});
+  const hasVoice = voice.length > 0, hasNonVoice = nonVoice.length > 0;
+  if (hasVoice) {
+    slide.addText('ACCEPTED CALLS — VOICE JR TSR', {x: 0.6, y: 1.85, w: 5.8, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
+    slide.addChart('bar', [{name: 'Accepted Calls', labels: voice.map(v => v.employeeName), values: voice.map(v => v.accepted ?? 0)}], {
+      x: 0.6, y: 2.15, w: hasNonVoice ? 5.8 : 12.1, h: 4.6, barDir: 'bar',
+      chartColors: [P.accent], showTitle: false, showLegend: false, showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: P.ink, dataLabelFontSize: 10,
+      catAxisLabelColor: P.ink, catAxisLabelFontSize: 10, valAxisLabelColor: P.muted,
+      valGridLine: {color: 'DFE2EA', size: 0.75}, catGridLine: {style: 'none'}
+    });
+  }
+  if (hasNonVoice) {
+    const x = hasVoice ? 6.9 : 0.6, w = hasVoice ? 5.8 : 12.1;
+    slide.addText('TICKETS SOLVED — NON-VOICE JR TSR', {x, y: 1.85, w, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accentSecondary});
+    slide.addChart('bar', [{name: 'Tickets Solved', labels: nonVoice.map(v => v.employeeName), values: nonVoice.map(v => v.solved ?? 0)}], {
+      x, y: 2.15, w, h: 4.6, barDir: 'bar',
+      chartColors: [P.accentSecondary], showTitle: false, showLegend: false, showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: P.ink, dataLabelFontSize: 10,
+      catAxisLabelColor: P.ink, catAxisLabelFontSize: 10, valAxisLabelColor: P.muted,
+      valGridLine: {color: 'DFE2EA', size: 0.75}, catGridLine: {style: 'none'}
+    });
+  }
+  if (!hasVoice && !hasNonVoice) {
+    slide.addText('No Voice or Non-Voice call/ticket volume to chart this period.', {x: 0.6, y: 2.5, w: 12.1, h: 0.5, fontFace: FONT, fontSize: 14, color: P.muted, italic: true});
+  }
+  addFooter(slide, pageNum);
+}
+
+function coachingChartSlide(pres, {inPeriod}, pageNum) {
+  const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 4', title: 'Coaching by Category', subtitle: inPeriod.length ? 'Distribution of coaching sessions logged this period' : 'No coaching sessions were logged this period.'});
+  if (inPeriod.length) {
+    const counts = {};
+    for (const r of inPeriod) counts[r.category || 'Uncategorized'] = (counts[r.category || 'Uncategorized'] || 0) + 1;
+    const labels = Object.keys(counts);
+    const palette = [P.accent, P.accentSecondary, P.good, P.bad, P.goodLight, P.muted];
+    slide.addChart('pie', [{name: 'Coaching Sessions', labels, values: labels.map(l => counts[l])}], {
+      x: 3.67, y: 1.9, w: 6, h: 4.9,
+      chartColors: labels.map((l, i) => palette[i % palette.length]),
+      showTitle: false, showLegend: true, legendPos: 'b', showValue: true,
+      dataLabelColor: P.white, dataLabelFontSize: 11, dataLabelPosition: 'ctr', dataLabelFormatCode: '0'
+    });
+  } else {
+    slide.addText('No coaching sessions were logged this period.', {x: 0.6, y: 2.5, w: 12.1, h: 0.5, fontFace: FONT, fontSize: 14, color: P.muted, italic: true});
+  }
+  addFooter(slide, pageNum);
+}
+
+function definitionsSlide(pres, pageNum) {
+  const slide = sectionHeaderSlide(pres, {eyebrow: 'Reference', title: 'Definitions & Methodology', subtitle: 'How the figures in this report are calculated'});
+  const defs = [
+    ['Final KPI', 'Weighted blend of an employee’s role-specific metrics (calls/tickets handled, CSAT, quality) into one score, per the KPI configuration for their role.'],
+    ['Attendance %', 'Present days ÷ (Scheduled days − PTO days). PTO is authorized leave and is excluded from both the numerator and the denominator so it never counts against attendance.'],
+    ['CSAT Rate', 'Good survey responses ÷ (Good + Bad survey responses) this period, per employee or team-wide.'],
+    ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
+    ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
+    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.']
+  ];
+  let y = 1.95;
+  for (const [term, def] of defs) {
+    slide.addText(term, {x: 0.6, y, w: 3.2, h: 0.6, fontFace: FONT, fontSize: 12, bold: true, color: P.accent, valign: 'top'});
+    slide.addText(def, {x: 4, y, w: 8.7, h: 0.6, fontFace: FONT, fontSize: 11, color: P.ink, valign: 'top'});
+    y += 0.78;
+  }
   addFooter(slide, pageNum);
 }
 
@@ -481,27 +596,34 @@ function gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachin
  */
 export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
   const d = gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications});
-  const [teamInsight, csatInsight, wrapUp] = await Promise.all([
+  const [teamInsight, csatInsight, wrapUp, attendanceInsight, productivityInsight, coachingInsight] = await Promise.all([
     draftTeamOverviewInsight(copilotToken, teamResults),
     draftCsatInsight(copilotToken, d.badDetail, teamResults.length),
-    draftWrapUp(copilotToken, {teamResults, csatBad: d.badDetail, coachingInProgress: d.inProgress})
+    draftWrapUp(copilotToken, {teamResults, csatBad: d.badDetail, coachingInProgress: d.inProgress}),
+    draftAttendanceInsight(copilotToken, d.attendanceRows),
+    draftProductivityInsight(copilotToken, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}),
+    draftCoachingInsight(copilotToken, {inPeriod: d.inPeriod, inProgress: d.inProgress})
   ]);
   d.teamInsight = teamInsight; d.csatInsight = csatInsight; d.wrapUp = wrapUp;
 
   const pres = newDeck();
   const monthText = monthLabel(month);
-  const sections = ['Team Snapshot', 'Attendance', 'Productivity', 'CSAT', 'Coaching', 'Pending & Reminders'];
+  const sections = ['Team Snapshot', 'Attendance', 'Productivity', 'CSAT', 'Coaching', 'Definitions', 'Pending & Reminders'];
   titleSlide(pres, {leaderName, monthText, sections});
   teamSnapshotSlide(pres, {teamResults, attendanceRows: d.attendanceRows, csatTable: d.csatTable, coachingCount: d.inPeriod.length}, 2);
   kpiBarChartSlide(pres, {teamResults}, 3);
   teamOverviewSlide(pres, {teamResults, insight: d.teamInsight}, 4);
-  attendanceSlide(pres, {rows: d.attendanceRows, factSummary: attendanceFactSummary(d.attendanceRows)}, 5);
-  productivitySlide(pres, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}, 6);
-  csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 7);
-  csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 8);
-  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: d.coachingFactSummary}, 9);
-  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 10);
-  wrapUpSlide(pres, d.wrapUp, 11);
+  attendanceSlide(pres, {rows: d.attendanceRows, factSummary: attendanceInsight}, 5);
+  attendanceChartSlide(pres, {rows: d.attendanceRows}, 6);
+  productivitySlide(pres, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database, insight: productivityInsight}, 7);
+  productivityChartSlide(pres, {voice: d.voice, nonVoice: d.nonVoice}, 8);
+  csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 9);
+  csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 10);
+  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: coachingInsight}, 11);
+  coachingChartSlide(pres, {inPeriod: d.inPeriod}, 12);
+  definitionsSlide(pres, 13);
+  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 14);
+  wrapUpSlide(pres, d.wrapUp, 15);
 
   const fileName = `MBR - Team ${leaderName} - ${monthText}.pptx`;
   await pres.writeFile({fileName});
@@ -560,6 +682,70 @@ function loadLogoDataUrl(url, targetHeightPx) {
     img.onerror = () => reject(new Error('Could not resize the logo image.'));
     img.src = dataUrl;
   }));
+}
+
+// jsPDF has no native chart support, unlike pptxgenjs - these are hand-drawn on an offscreen
+// <canvas> via the Canvas 2D API and embedded as PNG images via doc.addImage(), so the PDF gets
+// the same chart set the PPTX deck renders natively. Each helper burns its own legend/labels
+// directly into the bitmap (canvas text, not PDF text) so the caller only needs one addImage()
+// call per chart instead of hand-laying-out a separate legend in PDF coordinates.
+function drawPieChartDataUrl(segments, {size = 420, colors = []} = {}) {
+  const rowH = 30, legendH = segments.length * rowH + 16;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size + legendH;
+  const ctx = canvas.getContext('2d');
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  const cx = size / 2, cy = size / 2, r = size / 2 - 10;
+  let angle = -Math.PI / 2;
+  segments.forEach((seg, i) => {
+    const slice = total ? (seg.value / total) * Math.PI * 2 : Math.PI * 2 / segments.length;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = `#${colors[i] || '999999'}`;
+    ctx.fill();
+    angle += slice;
+  });
+  ctx.font = '600 20px Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+  segments.forEach((seg, i) => {
+    const ly = size + 16 + i * rowH + rowH / 2;
+    ctx.fillStyle = `#${colors[i] || '999999'}`;
+    ctx.fillRect(0, ly - 9, 18, 18);
+    ctx.fillStyle = '#1B1F2A';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${seg.label} (${seg.value})`, 26, ly);
+  });
+  return {dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height};
+}
+
+function drawBarChartDataUrl(items, {color = '3B5CDF', width = 900, valueSuffix = ''} = {}) {
+  const rowH = 46, padTop = 10, padBottom = 10, padRight = 80;
+  const canvas = document.createElement('canvas');
+  const measureCtx = canvas.getContext('2d');
+  measureCtx.font = '600 22px Arial, sans-serif';
+  const labelW = Math.max(20, ...items.map(it => measureCtx.measureText(it.label).width)) + 20;
+  canvas.width = width;
+  canvas.height = padTop + padBottom + rowH * Math.max(1, items.length);
+  const ctx = canvas.getContext('2d');
+  ctx.font = '600 22px Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+  const max = Math.max(1, ...items.map(it => it.value || 0));
+  const chartX = labelW, chartW = width - labelW - padRight;
+  items.forEach((it, i) => {
+    const y = padTop + i * rowH, barH = rowH * 0.55, by = y + (rowH - barH) / 2;
+    ctx.fillStyle = '#1B1F2A';
+    ctx.textAlign = 'right';
+    ctx.fillText(it.label, chartX - 12, y + rowH / 2);
+    const barW = chartW * ((it.value || 0) / max);
+    ctx.fillStyle = `#${color}`;
+    ctx.fillRect(chartX, by, Math.max(barW, 1), barH);
+    ctx.fillStyle = '#1B1F2A';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${it.value ?? '—'}${valueSuffix}`, chartX + barW + 10, y + rowH / 2);
+  });
+  return {dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height};
 }
 
 // No ticket in this data model carries a formal "escalated" flag or a call-reason/disposition
@@ -629,7 +815,7 @@ async function draftExecutiveReportSections(token, ctx) {
   const fallback = executiveReportFallback(ctx);
   if (!token) return fallback;
   const {leaderName, teamResults, attendanceRows, stats, voice, nonVoice, badDetail, goodHighlights, inPeriod, inProgress, evaluations, month} = ctx;
-  const prompt = `You are drafting a Month-to-Date Executive Report for a BPO support team lead, in the style of a formal ops report (like a daily ops report, but summarizing the whole month so far). Reply with ONLY a JSON object, no other text and no markdown, in exactly this shape: {"executiveSummary":"...","attendanceAndCoverage":"...","teamMtdPerformance":"...","mtdOperations":"...","keyRisksAndFollowUps":"...","leadershipActionsTaken":"...","nextPeriodPriorities":["...","..."],"overallAssessment":"..."}. Each value except nextPeriodPriorities is a short paragraph (2-4 sentences), plain text, no markdown. nextPeriodPriorities is an array of 2-4 short bullet strings. Base every claim strictly on the data below - never invent a number, a ticket topic, or an action the data doesn't support. This data has no ticket-escalation flag and no call-reason/disposition codes, so do not invent "escalated tickets" or "call driver categories" - if you reference call or ticket activity, stick to the actual counts given. If a category has nothing to report (e.g. no leadership actions, no risks), say so factually and plainly, the way a real ops report would ("No additional manual leadership actions were logged this period beyond standard oversight.") rather than inventing content.
+  const prompt = `You are drafting a Month-to-Date Executive Report for a BPO support team lead, in the style of a formal ops report (like a daily ops report, but summarizing the whole month so far). Reply with ONLY a JSON object, no other text and no markdown, in exactly this shape: {"executiveSummary":"...","attendanceAndCoverage":"...","teamMtdPerformance":"...","mtdOperations":"...","keyRisksAndFollowUps":"...","leadershipActionsTaken":"...","nextPeriodPriorities":["...","..."],"overallAssessment":"..."}. Each value except nextPeriodPriorities is a short paragraph (2-4 sentences), plain text, no markdown. nextPeriodPriorities is an array of 2-4 short bullet strings. Each value except nextPeriodPriorities should be 4-6 sentences of substantive, specific analysis (not 2-4) - name specific employees, specific numbers, and specific tickets/categories wherever the data supports it, the way a real ops leader writing for their own director would, not a generic summary. Base every claim strictly on the data below - never invent a number, a ticket topic, or an action the data doesn't support. This data has no ticket-escalation flag and no call-reason/disposition codes, so do not invent "escalated tickets" or "call driver categories" - if you reference call or ticket activity, stick to the actual counts given. If a category has nothing to report (e.g. no leadership actions, no risks), say so factually and plainly, the way a real ops report would ("No additional manual leadership actions were logged this period beyond standard oversight.") rather than inventing content.
 
 DATA:
 Team: ${leaderName}, ${teamResults.length} member(s), reporting month ${month}.
@@ -720,7 +906,7 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
   try {
     const logo = await loadLogoDataUrl('shared/img/lofty-logo.png', 120);
     logoH = 0.34;
-    doc.addImage(logo.dataUrl, 'PNG', marginX, y, logoH * (logo.width / logo.height), logoH);
+    doc.addImage(logo.dataUrl, 'PNG', marginX, y, logoH * (logo.width / logo.height), logoH, undefined, 'MEDIUM');
   } catch { /* logo is a nice-to-have - a fetch hiccup shouldn't block the report */ }
   y += logoH ? logoH + 0.22 : 0;
 
@@ -815,8 +1001,11 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
       y += lines.length * 0.16 + 0.14;
     } else y += 0.06;
   }
-  function subheading(title, color = P.accent) {
-    ensureRoom(0.3);
+  // keepWithNext reserves room for the heading together with (an estimate of) whatever renders
+  // right after it - without this, a heading can print as the last line on a page while its own
+  // chart/table starts fresh on the next page, stranding it away from the content it labels.
+  function subheading(title, color = P.accent, keepWithNext = 0) {
+    ensureRoom(0.3 + keepWithNext);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...hexToRgb(color));
     doc.text(title, marginX, y);
     y += 0.22;
@@ -857,6 +1046,19 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
     });
     y += 0.25;
   }
+  // jsPDF has no native chart API - drawPieChartDataUrl()/drawBarChartDataUrl() hand-draw onto an
+  // offscreen canvas and hand back a PNG plus its pixel dimensions, so this just scales to a
+  // target width and preserves aspect ratio instead of guessing a height.
+  function addChartImage(chart, targetW) {
+    const h = targetW * (chart.height / chart.width);
+    ensureRoom(h + 0.3);
+    // jsPDF's addImage() writes PNGs as a raw, uncompressed bitmap by default (confirmed earlier
+    // via the logo: 1368x448px raw RGB alone produced a 2.4MB PDF) - a compression argument
+    // ('MEDIUM' here) makes it FlateEncode the pixel data instead, which is a huge win for these
+    // chart PNGs specifically since they're mostly large flat-color regions (bars, pie slices).
+    doc.addImage(chart.dataUrl, 'PNG', marginX, y, targetW, h, undefined, 'MEDIUM');
+    y += h + 0.3;
+  }
 
   sectionHeading('Team Overview', `${teamResults.length} active team member(s)`);
   pdfTable({
@@ -864,10 +1066,27 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
     headRow: ['Employee', 'KPI Type', 'Channel', 'Final KPI', 'Performance'],
     rows: teamResults.map(r => [r.employeeName, r.kpiType, r.primaryChannel, r.finalKpi == null ? '—' : r.finalKpi, r.performanceStatus || '—'])
   });
+  {
+    const tierCounts = {};
+    for (const r of teamResults) tierCounts[r.performanceStatus || 'Not Rated'] = (tierCounts[r.performanceStatus || 'Not Rated'] || 0) + 1;
+    const tierLabels = Object.keys(tierCounts);
+    const tierPie = drawPieChartDataUrl(tierLabels.map(l => ({label: l, value: tierCounts[l]})), {colors: tierLabels.map(l => TIER_CHART_COLORS[l] || P.muted)});
+    const csatPie = drawPieChartDataUrl([{label: 'Good', value: stats.totalGood}, {label: 'Bad', value: stats.totalBad}], {colors: [P.good, P.bad]});
+    const chartW = (contentW - 0.4) / 2;
+    const h = Math.max(chartW * (tierPie.height / tierPie.width), chartW * (csatPie.height / csatPie.width));
+    subheading('PERFORMANCE & CSAT AT A GLANCE', P.accent, h);
+    doc.addImage(tierPie.dataUrl, 'PNG', marginX, y, chartW, chartW * (tierPie.height / tierPie.width), undefined, 'MEDIUM');
+    doc.addImage(csatPie.dataUrl, 'PNG', marginX + chartW + 0.4, y, chartW, chartW * (csatPie.height / csatPie.width), undefined, 'MEDIUM');
+    y += h + 0.3;
+  }
 
   sectionHeading('Productivity', 'Volume handled by role type - the detail behind each Final KPI above');
+  if (d.voice.length || d.nonVoice.length) {
+    if (d.voice.length) { const chart = drawBarChartDataUrl(d.voice.map(v => ({label: v.employeeName, value: v.accepted ?? 0})), {color: P.accent}); subheading('ACCEPTED CALLS — VOICE JR TSR', P.accent, contentW * (chart.height / chart.width)); addChartImage(chart, contentW); }
+    if (d.nonVoice.length) { const chart = drawBarChartDataUrl(d.nonVoice.map(v => ({label: v.employeeName, value: v.solved ?? 0})), {color: P.accentSecondary}); subheading('TICKETS SOLVED — NON-VOICE JR TSR', P.accentSecondary, contentW * (chart.height / chart.width)); addChartImage(chart, contentW); }
+  }
   if (d.voice.length) {
-    subheading('VOICE JR TSR');
+    subheading('VOICE JR TSR', P.accent, 0.35);
     pdfTable({colW: [2.4, 1.2, 1.1, 1.2, 1.3], headRow: ['Employee', 'Accepted Calls', 'Daily Avg', 'Long Calls', 'LCR %'],
       rows: d.voice.map(v => [v.employeeName, v.accepted, v.dailyAverage == null ? '—' : roundTo(v.dailyAverage, 2), v.longCalls, v.lcrRate == null ? '—' : `${roundTo(v.lcrRate, 2)}%`])});
     const note = lcrOutlierNote(d.voice);
@@ -880,7 +1099,7 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
     }
   }
   if (d.nonVoice.length) {
-    subheading('NON-VOICE JR TSR');
+    subheading('NON-VOICE JR TSR', P.accent, 0.35);
     pdfTable({colW: [3.6, 2.0, 1.6], headRow: ['Employee', 'Tickets Solved', 'Excluded'], rows: d.nonVoice.map(v => [v.employeeName, v.solved, v.excluded])});
   }
   if (d.senior.length) {
@@ -907,6 +1126,14 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
   }
 
   sectionHeading('Attendance Detail', attendanceFactSummary(d.attendanceRows));
+  {
+    const withPct = d.attendanceRows.filter(r => r.attendancePct != null);
+    if (withPct.length) {
+      const chart = drawBarChartDataUrl(withPct.map(r => ({label: r.employeeName, value: r.attendancePct})), {color: P.accent, valueSuffix: '%'});
+      subheading('ATTENDANCE % BY EMPLOYEE', P.accent, contentW * (chart.height / chart.width));
+      addChartImage(chart, contentW);
+    }
+  }
   pdfTable({
     colW: [1.8, 0.8, 0.8, 1.0, 1.0, 0.8, 1.0],
     headRow: ['Employee', 'Scheduled', 'Present', 'Attendance %', 'Absence Days', 'PTO Days', 'Absence Reason'],
@@ -920,6 +1147,30 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
   if (d.inProgress.length) {
     subheading('IN PROGRESS');
     pdfTable({colW: [2.4, 2.4, 1.2, 1.2], headRow: ['Employee', 'Category', 'Status', 'Follow-up Date'], rows: d.inProgress.map(r => [r.employeeName, r.category, r.status, r.targetFollowUpDate ? shortDate(r.targetFollowUpDate) : '—'])});
+  }
+
+  sectionHeading('Definitions & Methodology', 'How the figures in this report are calculated');
+  const definitions = [
+    ['Final KPI', 'Weighted blend of an employee’s role-specific metrics (calls/tickets handled, CSAT, quality) into one score, per the KPI configuration for their role.'],
+    // jsPDF's base "helvetica" font uses WinAnsiEncoding, which has no glyph for the U+2212 minus
+    // sign the PPTX side uses freely (PowerPoint's Calibri renders it fine) - it silently prints
+    // as a stray quote mark here instead, so the PDF copy of this line uses a plain hyphen.
+    ['Attendance %', 'Present days ÷ (Scheduled days - PTO days). PTO is authorized leave and is excluded from both the numerator and the denominator so it never counts against attendance.'],
+    ['CSAT Rate', 'Good survey responses ÷ (Good + Bad survey responses) this period, per employee or team-wide.'],
+    ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
+    ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
+    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.']
+  ];
+  for (const [term, def] of definitions) {
+    ensureRoom(0.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...hexToRgb(P.accent));
+    doc.text(term, marginX, y);
+    y += 0.19;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...hexToRgb(P.ink));
+    const lines = doc.splitTextToSize(def, contentW);
+    ensureRoom(lines.length * 0.16 + 0.1);
+    doc.text(lines, marginX, y);
+    y += lines.length * 0.16 + 0.2;
   }
 
   addFooter();
