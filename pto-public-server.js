@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.31.0';
+const PORTAL_VERSION = '1.32.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -178,7 +178,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
@@ -461,6 +461,15 @@ const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 // Must match the same literal in zendesk-proxy.js's syncCsatRefreshRequestsFromCloud() - the
 // two processes only share state through this key, there's no shared module between them.
 const CSAT_REFRESH_REQUESTS_KEY = 'mtdkpi:csat-refresh-requests';
+// Service Recovery: this server has no Zendesk credentials, so "did the customer respond after
+// we contacted them" can't be answered here - SERVICE_RECOVERY_CHECK_REQUESTS_KEY queues that
+// question for zendesk-proxy.js's syncServiceRecoveryChecksFromCloud() (same request-queue
+// pattern as CSAT_REFRESH_REQUESTS_KEY) and SERVICE_RECOVERY_STATUS_KEY is where it writes the
+// answer back. SERVICE_RECOVERY_CONTACTS_KEY, in contrast, is owned entirely by this server -
+// the "Contacted" timestamp is TL-entered, no Zendesk data needed to record it.
+const SERVICE_RECOVERY_CONTACTS_KEY = 'mtdkpi:service-recovery-contacts';
+const SERVICE_RECOVERY_CHECK_REQUESTS_KEY = 'mtdkpi:service-recovery-check-requests';
+const SERVICE_RECOVERY_STATUS_KEY = 'mtdkpi:service-recovery-status';
 // New-hire creation and endorse/reject decisions both need to land in roster.json on the
 // local admin machine - same request-queue-and-poll pattern as CSAT_REFRESH_REQUESTS_KEY
 // above, consumed by syncNewHireRequestsFromCloud() in zendesk-proxy.js. Training scores are
@@ -1752,6 +1761,123 @@ const server = http.createServer(async (req, res) => {
       cache[ticketId] = saved;
       await cloudStore.kvSetJson(DSAT_AI_CACHE_KEY, cache);
       return json(res, 200, { ok: true, analysis: saved });
+    }
+
+    // --- Service Recovery: bad CSATs a Team Lead's own reports received, needing a 24-hour
+    // customer follow-up, plus a cross-team-lead leaderboard on how well every team is doing at
+    // it. Source data is the same site-wide followUpDetail computed in zendesk-proxy.js (every
+    // ticket that was EVER rated bad this period, whether or not it's since recovered) - see the
+    // comment on siteFollowUpDetail there for why badTicketsDetail (DSAT Review's source) can't
+    // answer this on its own. "Contacted" is TL-entered (no Zendesk signal exists for it);
+    // "customer responded" is computed by zendesk-proxy.js from the ticket's own audit trail,
+    // asynchronously, via SERVICE_RECOVERY_CHECK_REQUESTS_KEY/STATUS_KEY above.
+    function withinHours(fromIso, toIso, hours) {
+      const from = new Date(fromIso).getTime(), to = new Date(toIso).getTime();
+      return Number.isFinite(from) && Number.isFinite(to) && to >= from && (to - from) <= hours * 3600000;
+    }
+    async function loadServiceRecoveryPeriodData(requestedPeriod) {
+      const siteMetricsData = await loadSiteMetricsSnapshot();
+      const availablePeriods = currentPeriodKeys(Object.keys(siteMetricsData.periods || {})).sort((a, b) => b.localeCompare(a));
+      const period = (requestedPeriod && siteMetricsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
+      const followUpDetail = (period && siteMetricsData.periods[period]?.csat?.followUpDetail) || [];
+      const [contacts, statusMap] = await Promise.all([
+        cloudStore.kvGetJson(SERVICE_RECOVERY_CONTACTS_KEY, []),
+        cloudStore.kvGetJson(SERVICE_RECOVERY_STATUS_KEY, {})
+      ]);
+      const contactByTicketId = new Map(contacts.filter(c => c.period === period).map(c => [String(c.ticketId), c]));
+      const enriched = followUpDetail.map(t => {
+        const ticketId = String(t.ticketId);
+        const contact = contactByTicketId.get(ticketId) || null;
+        const contactedAt = contact?.contactedAt || null;
+        const status = statusMap[ticketId] || null;
+        const recoveredWithin7d = Boolean(t.recovered && t.recoveredAt && withinHours(t.surveyDate, t.recoveredAt, 7 * 24));
+        return {
+          ...t,
+          contactedAt, contactedByName: contact?.contactedByName || '',
+          contactedWithin24h: Boolean(contactedAt && withinHours(t.surveyDate, contactedAt, 24)),
+          recoveredWithin7d,
+          customerResponded: Boolean(status?.customerResponded)
+        };
+      });
+      return { period, availablePeriods, tickets: enriched };
+    }
+
+    if (parsed.pathname === '/api/my/service-recovery' && req.method === 'GET') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can view Service Recovery.' });
+      const { period, availablePeriods, tickets } = await loadServiceRecoveryPeriodData(String(parsed.searchParams.get('period') || ''));
+      const roster = await loadRosterSnapshot();
+      const myTeamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const myTickets = tickets.filter(t => myTeamEmails.has(ptoLogic.cleanEmail(t.employeeEmail))).sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
+      return json(res, 200, { ok: true, period, availablePeriods, tickets: myTickets });
+    }
+
+    if (parsed.pathname === '/api/my/service-recovery/contact' && req.method === 'POST') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can log a Service Recovery contact.' });
+      const body = await readJsonBody(req);
+      const ticketId = String(body.ticketId || '').trim();
+      const period = String(body.period || '').trim();
+      const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+      if (!ticketId || !period || !employeeEmail) return json(res, 400, { ok: false, error: 'ticketId, period, and employeeEmail are required.' });
+      const roster = await loadRosterSnapshot();
+      const myTeamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, false).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      if (!myTeamEmails.has(employeeEmail)) return json(res, 403, { ok: false, error: 'That ticket is not one of your direct reports.' });
+      const contacts = await cloudStore.kvGetJson(SERVICE_RECOVERY_CONTACTS_KEY, []);
+      const now = new Date().toISOString();
+      const existingIndex = contacts.findIndex(c => String(c.ticketId) === ticketId && c.period === period);
+      const record = { ticketId, period, employeeEmail, contactedAt: now, contactedBy: identity, contactedByName: session.employeeName || identity };
+      if (existingIndex >= 0) contacts[existingIndex] = record; else contacts.push(record);
+      await cloudStore.kvSetJson(SERVICE_RECOVERY_CONTACTS_KEY, contacts);
+      const checkQueue = await cloudStore.kvGetJson(SERVICE_RECOVERY_CHECK_REQUESTS_KEY, []);
+      checkQueue.push({ ticketId, contactedAt: now, requestedAt: now });
+      await cloudStore.kvSetJson(SERVICE_RECOVERY_CHECK_REQUESTS_KEY, checkQueue);
+      return json(res, 200, { ok: true, contactedAt: now });
+    }
+
+    // Every Team Lead sees this leaderboard, not just their own row - same visibility model as
+    // the existing Site KPI tab (company-wide numbers shown to everyone, not gated to one role).
+    if (parsed.pathname === '/api/team-leads/service-recovery-summary' && req.method === 'GET') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can view the Service Recovery leaderboard.' });
+      const { period, availablePeriods, tickets } = await loadServiceRecoveryPeriodData(String(parsed.searchParams.get('period') || ''));
+      const roster = await loadRosterSnapshot();
+      const teamLeadByEmail = new Map((roster.records || []).map(x => [ptoLogic.cleanEmail(x.employeeEmail), String(x.teamLeadName || '').trim()]));
+      const byLead = new Map();
+      const bucketFor = t => teamLeadByEmail.get(ptoLogic.cleanEmail(t.employeeEmail)) || 'Other';
+      for (const t of tickets) {
+        const teamLeadName = bucketFor(t);
+        if (!byLead.has(teamLeadName)) byLead.set(teamLeadName, { teamLeadName, total: 0, contactedWithin24h: 0, recoveredWithin7d: 0, customerResponded: 0 });
+        const row = byLead.get(teamLeadName);
+        row.total++;
+        if (t.contactedWithin24h) row.contactedWithin24h++;
+        if (t.recoveredWithin7d) row.recoveredWithin7d++;
+        if (t.customerResponded) row.customerResponded++;
+      }
+      const rate = (n, total) => total ? Math.round((n / total) * 1000) / 10 : null;
+      const rows = [...byLead.values()].map(r => ({
+        teamLeadName: r.teamLeadName, total: r.total,
+        followUp24hRate: rate(r.contactedWithin24h, r.total), followUp24hCount: r.contactedWithin24h,
+        recovered7dRate: rate(r.recoveredWithin7d, r.total), recovered7dCount: r.recoveredWithin7d,
+        customerResponseRate: rate(r.customerResponded, r.total), customerResponseCount: r.customerResponded
+      }));
+      // Ranked by 24h follow-up rate (the metric this report exists to drive) - teams with zero
+      // bad CSATs this period (nothing to rank) and the "Other"/unattributed bucket both sort to
+      // the bottom rather than competing for rank on an empty or unowned sample.
+      rows.sort((a, b) => {
+        if (a.teamLeadName === 'Other') return 1;
+        if (b.teamLeadName === 'Other') return -1;
+        if (a.followUp24hRate == null && b.followUp24hRate == null) return a.teamLeadName.localeCompare(b.teamLeadName);
+        if (a.followUp24hRate == null) return 1;
+        if (b.followUp24hRate == null) return -1;
+        return b.followUp24hRate - a.followUp24hRate;
+      });
+      rows.forEach((r, i) => { r.rank = i + 1; });
+      const totals = tickets.length;
+      const overall = {
+        total: totals,
+        followUp24hRate: rate(tickets.filter(t => t.contactedWithin24h).length, totals), followUp24hCount: tickets.filter(t => t.contactedWithin24h).length,
+        recovered7dRate: rate(tickets.filter(t => t.recoveredWithin7d).length, totals), recovered7dCount: tickets.filter(t => t.recoveredWithin7d).length,
+        customerResponseRate: rate(tickets.filter(t => t.customerResponded).length, totals), customerResponseCount: tickets.filter(t => t.customerResponded).length
+      };
+      return json(res, 200, { ok: true, period, availablePeriods, rows, overall });
     }
 
     // Only BQA's own on-behalf sessions for this employee - not the employee's full coaching
