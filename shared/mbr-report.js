@@ -267,6 +267,26 @@ export async function draftCoachingInsight(token, {inPeriod, inProgress}) {
   return draftText(token, prompt, fallback, context);
 }
 
+// Deterministic Service Recovery fact summary - also the fallback for the drafted insight below.
+// "Contacted"/"customer responded" are both computed server-side from the ticket's own Zendesk
+// audit trail (a public reply from Mac or Prince after the survey, then one from the customer
+// after that), not TL-entered, so this is purely reporting on numbers already resolved upstream.
+function serviceRecoveryFactSummary(tickets) {
+  const total = tickets.length;
+  if (!total) return 'No bad CSATs were logged for this team this period.';
+  const within24h = tickets.filter(t => t.contactedWithin24h).length;
+  const overdue = tickets.filter(t => !t.contactedAt).length;
+  const recovered = tickets.filter(t => t.customerResponded).length;
+  return `${within24h} of ${total} bad CSAT(s) were contacted within 24 hours this period.${overdue ? ` ${overdue} still have no recorded contact.` : ''}${recovered ? ` ${recovered} customer(s) responded back after being contacted.` : ''}`;
+}
+export async function draftServiceRecoveryInsight(token, tickets) {
+  const fallback = serviceRecoveryFactSummary(tickets);
+  if (!tickets.length) return fallback;
+  const prompt = `You are drafting one to two short sentences for a Monthly Business Review slide about Service Recovery - following up on bad CSAT ratings within 24 hours. Be direct and factual, no fluff, plain text only, no markdown, no preamble. Bad CSAT follow-up detail this period: ${JSON.stringify(tickets.map(t => ({employeeName: t.employeeName, surveyDate: t.surveyDate, contactedAt: t.contactedAt, contactedWithin24h: t.contactedWithin24h, customerResponded: t.customerResponded})))}.`;
+  const context = {serviceRecoveryTickets: tickets};
+  return draftText(token, prompt, fallback, context);
+}
+
 // --- Deck assembly (pptxgenjs, loaded as window.PptxGenJS via shared/vendor/pptxgen.bundle.js) ---
 const P = MBR_PALETTE;
 const FONT = 'Calibri';
@@ -444,6 +464,32 @@ function csatGoodSlide(pres, {goodCounts, highlights, totalGood}, pageNum) {
   addFooter(slide, pageNum);
 }
 
+// "Contacted" and "customer responded" both come pre-computed from zendesk-proxy.js scanning
+// each ticket's own Zendesk audit trail (a public reply from Mac/Prince after the survey, then
+// one from the customer after that) - nothing here is TL-entered, so this slide is purely
+// presentational over server-computed fields.
+function serviceRecoverySlide(pres, {tickets, insight}, pageNum) {
+  const total = tickets.length;
+  const within24h = tickets.filter(t => t.contactedWithin24h).length;
+  const recovered7d = tickets.filter(t => t.recoveredWithin7d).length;
+  const responded = tickets.filter(t => t.customerResponded).length;
+  const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 3b', title: 'Service Recovery', subtitle: `${total} bad CSAT(s) needing follow-up this period`});
+  dataTable(slide, {
+    headRow: ['Bad CSATs', 'Contacted Within 24h', '7d Bad→Good', 'Customer Responded'],
+    rows: [[total, `${within24h}/${total || 0}`, `${recovered7d}/${total || 0}`, `${responded}/${total || 0}`]],
+    x: 0.6, y: 1.85, w: 12.1, colW: [3.025, 3.025, 3.025, 3.025]
+  });
+  if (total) {
+    dataTable(slide, {
+      headRow: ['Employee', 'Survey Date', 'Status', 'Ticket'],
+      rows: tickets.slice(0, 8).map(t => [t.employeeName, shortDate(t.surveyDate), t.customerResponded ? 'Recovered' : t.contactedAt ? (t.contactedWithin24h ? 'Contacted On Time' : 'Contacted Late') : 'Awaiting Contact', `#${t.ticketId ?? '—'}`]),
+      x: 0.6, y: 2.65, w: 12.1, colW: [3.5, 2, 4, 2.6], statusCol: 2
+    });
+  }
+  insightCallout(slide, insight, 6.15);
+  addFooter(slide, pageNum);
+}
+
 function coachingSlide(pres, {inPeriod, inProgress, factSummary}, pageNum) {
   const slide = sectionHeaderSlide(pres, {eyebrow: 'Section 4', title: 'Coaching Sessions', subtitle: inPeriod.length ? `${inPeriod.length} coaching session(s) logged this period` : 'No coaching sessions were logged this period.'});
   let y = 1.9;
@@ -531,13 +577,14 @@ function definitionsSlide(pres, pageNum) {
     ['CSAT Rate', 'Good survey responses ÷ (Good + Bad survey responses) this period, per employee or team-wide.'],
     ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
     ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
-    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.']
+    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.'],
+    ['Service Recovery', 'A bad CSAT is "Contacted" once Mac or Prince posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
   ];
   let y = 1.95;
   for (const [term, def] of defs) {
     slide.addText(term, {x: 0.6, y, w: 3.2, h: 0.6, fontFace: FONT, fontSize: 12, bold: true, color: P.accent, valign: 'top'});
     slide.addText(def, {x: 4, y, w: 8.7, h: 0.6, fontFace: FONT, fontSize: 11, color: P.ink, valign: 'top'});
-    y += 0.78;
+    y += 0.7;
   }
   addFooter(slide, pageNum);
 }
@@ -594,21 +641,23 @@ function gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachin
  * Builds and downloads the MBR deck in the browser. All inputs are already-fetched API
  * responses / already-aggregated data - this function does not fetch anything itself.
  */
-export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
+export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, serviceRecoveryTickets, copilotToken}) {
   const d = gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications});
-  const [teamInsight, csatInsight, wrapUp, attendanceInsight, productivityInsight, coachingInsight] = await Promise.all([
+  const srTickets = serviceRecoveryTickets || [];
+  const [teamInsight, csatInsight, wrapUp, attendanceInsight, productivityInsight, coachingInsight, serviceRecoveryInsight] = await Promise.all([
     draftTeamOverviewInsight(copilotToken, teamResults),
     draftCsatInsight(copilotToken, d.badDetail, teamResults.length),
     draftWrapUp(copilotToken, {teamResults, csatBad: d.badDetail, coachingInProgress: d.inProgress}),
     draftAttendanceInsight(copilotToken, d.attendanceRows),
     draftProductivityInsight(copilotToken, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}),
-    draftCoachingInsight(copilotToken, {inPeriod: d.inPeriod, inProgress: d.inProgress})
+    draftCoachingInsight(copilotToken, {inPeriod: d.inPeriod, inProgress: d.inProgress}),
+    draftServiceRecoveryInsight(copilotToken, srTickets)
   ]);
   d.teamInsight = teamInsight; d.csatInsight = csatInsight; d.wrapUp = wrapUp;
 
   const pres = newDeck();
   const monthText = monthLabel(month);
-  const sections = ['Team Snapshot', 'Attendance', 'Productivity', 'CSAT', 'Coaching', 'Definitions', 'Pending & Reminders'];
+  const sections = ['Team Snapshot', 'Attendance', 'Productivity', 'CSAT', 'Service Recovery', 'Coaching', 'Definitions', 'Pending & Reminders'];
   titleSlide(pres, {leaderName, monthText, sections});
   teamSnapshotSlide(pres, {teamResults, attendanceRows: d.attendanceRows, csatTable: d.csatTable, coachingCount: d.inPeriod.length}, 2);
   kpiBarChartSlide(pres, {teamResults}, 3);
@@ -619,11 +668,12 @@ export async function generateMbrDeck({leaderName, month, teamResults, teamAtten
   productivityChartSlide(pres, {voice: d.voice, nonVoice: d.nonVoice}, 8);
   csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 9);
   csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 10);
-  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: coachingInsight}, 11);
-  coachingChartSlide(pres, {inPeriod: d.inPeriod}, 12);
-  definitionsSlide(pres, 13);
-  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 14);
-  wrapUpSlide(pres, d.wrapUp, 15);
+  serviceRecoverySlide(pres, {tickets: srTickets, insight: serviceRecoveryInsight}, 11);
+  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: coachingInsight}, 12);
+  coachingChartSlide(pres, {inPeriod: d.inPeriod}, 13);
+  definitionsSlide(pres, 14);
+  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 15);
+  wrapUpSlide(pres, d.wrapUp, 16);
 
   const fileName = `MBR - Team ${leaderName} - ${monthText}.pptx`;
   await pres.writeFile({fileName});
@@ -874,7 +924,8 @@ Evaluations due in the next 30 days: ${evaluations.length}.`;
  * already-fetched API responses / already-aggregated data - this function does not fetch
  * anything itself except the Lofty logo image.
  */
-export async function generateExecutiveReportPdf({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
+export async function generateExecutiveReportPdf({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, serviceRecoveryTickets, copilotToken}) {
+  serviceRecoveryTickets = serviceRecoveryTickets || [];
   if (!window.jspdf?.jsPDF) throw new Error('jsPDF did not load - check shared/vendor/jspdf.umd.min.js.');
   const d = gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications});
   const stats = teamHeadlineStats(teamResults, d.attendanceRows, d.csatTable);
@@ -1125,6 +1176,23 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
       rows: d.goodHighlights.map(h => [h.employeeName, shortDate(h.surveyDate), `"${truncate(h.comment, 220)}"`])});
   }
 
+  // "Contacted"/"customer responded" are both computed server-side from each ticket's own
+  // Zendesk audit trail (a public reply from Mac or Prince after the survey, then one from the
+  // customer after that) - nothing here is TL-entered, this section is purely reporting.
+  sectionHeading('Service Recovery', serviceRecoveryFactSummary(serviceRecoveryTickets));
+  if (serviceRecoveryTickets.length) {
+    const srWithin24h = serviceRecoveryTickets.filter(t => t.contactedWithin24h).length;
+    const srRecovered = serviceRecoveryTickets.filter(t => t.customerResponded).length;
+    pdfTable({
+      colW: [1.5, 1.5, 1.5, 1.5], headRow: ['Bad CSATs', 'Contacted Within 24h', '7d Bad→Good', 'Customer Responded'],
+      rows: [[serviceRecoveryTickets.length, `${srWithin24h}/${serviceRecoveryTickets.length}`, `${serviceRecoveryTickets.filter(t => t.recoveredWithin7d).length}/${serviceRecoveryTickets.length}`, `${srRecovered}/${serviceRecoveryTickets.length}`]]
+    });
+    pdfTable({
+      colW: [2.0, 1.3, 2.2, 1.7], headRow: ['Employee', 'Survey Date', 'Status', 'Ticket'],
+      rows: serviceRecoveryTickets.map(t => [t.employeeName, shortDate(t.surveyDate), t.customerResponded ? 'Recovered' : t.contactedAt ? (t.contactedWithin24h ? 'Contacted On Time' : 'Contacted Late') : 'Awaiting Contact', `#${t.ticketId ?? '—'}`])
+    });
+  }
+
   sectionHeading('Attendance Detail', attendanceFactSummary(d.attendanceRows));
   {
     const withPct = d.attendanceRows.filter(r => r.attendancePct != null);
@@ -1159,7 +1227,8 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
     ['CSAT Rate', 'Good survey responses ÷ (Good + Bad survey responses) this period, per employee or team-wide.'],
     ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
     ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
-    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.']
+    ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.'],
+    ['Service Recovery', 'A bad CSAT is "Contacted" once Mac or Prince posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
   ];
   for (const [term, def] of definitions) {
     ensureRoom(0.3);

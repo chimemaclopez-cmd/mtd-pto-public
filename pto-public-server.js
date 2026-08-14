@@ -97,7 +97,7 @@ const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.32.0';
+const PORTAL_VERSION = '1.33.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -461,15 +461,6 @@ const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 // Must match the same literal in zendesk-proxy.js's syncCsatRefreshRequestsFromCloud() - the
 // two processes only share state through this key, there's no shared module between them.
 const CSAT_REFRESH_REQUESTS_KEY = 'mtdkpi:csat-refresh-requests';
-// Service Recovery: this server has no Zendesk credentials, so "did the customer respond after
-// we contacted them" can't be answered here - SERVICE_RECOVERY_CHECK_REQUESTS_KEY queues that
-// question for zendesk-proxy.js's syncServiceRecoveryChecksFromCloud() (same request-queue
-// pattern as CSAT_REFRESH_REQUESTS_KEY) and SERVICE_RECOVERY_STATUS_KEY is where it writes the
-// answer back. SERVICE_RECOVERY_CONTACTS_KEY, in contrast, is owned entirely by this server -
-// the "Contacted" timestamp is TL-entered, no Zendesk data needed to record it.
-const SERVICE_RECOVERY_CONTACTS_KEY = 'mtdkpi:service-recovery-contacts';
-const SERVICE_RECOVERY_CHECK_REQUESTS_KEY = 'mtdkpi:service-recovery-check-requests';
-const SERVICE_RECOVERY_STATUS_KEY = 'mtdkpi:service-recovery-status';
 // New-hire creation and endorse/reject decisions both need to land in roster.json on the
 // local admin machine - same request-queue-and-poll pattern as CSAT_REFRESH_REQUESTS_KEY
 // above, consumed by syncNewHireRequestsFromCloud() in zendesk-proxy.js. Training scores are
@@ -1768,9 +1759,11 @@ const server = http.createServer(async (req, res) => {
     // it. Source data is the same site-wide followUpDetail computed in zendesk-proxy.js (every
     // ticket that was EVER rated bad this period, whether or not it's since recovered) - see the
     // comment on siteFollowUpDetail there for why badTicketsDetail (DSAT Review's source) can't
-    // answer this on its own. "Contacted" is TL-entered (no Zendesk signal exists for it);
-    // "customer responded" is computed by zendesk-proxy.js from the ticket's own audit trail,
-    // asynchronously, via SERVICE_RECOVERY_CHECK_REQUESTS_KEY/STATUS_KEY above.
+    // answer this on its own. Both "Contacted" and "customer responded" are fully automatic -
+    // zendesk-proxy.js's enrichServiceRecoveryContacts() scans each ticket's own Zendesk audit
+    // trail for a public reply from Mac or Prince after the survey (contacted), then a public
+    // reply from the customer after that (responded) - nothing is TL-entered, so this server
+    // just reads the already-enriched followUpDetail as-is, no separate KV merge needed.
     function withinHours(fromIso, toIso, hours) {
       const from = new Date(fromIso).getTime(), to = new Date(toIso).getTime();
       return Number.isFinite(from) && Number.isFinite(to) && to >= from && (to - from) <= hours * 3600000;
@@ -1780,26 +1773,13 @@ const server = http.createServer(async (req, res) => {
       const availablePeriods = currentPeriodKeys(Object.keys(siteMetricsData.periods || {})).sort((a, b) => b.localeCompare(a));
       const period = (requestedPeriod && siteMetricsData.periods[requestedPeriod]) ? requestedPeriod : (availablePeriods[0] || '');
       const followUpDetail = (period && siteMetricsData.periods[period]?.csat?.followUpDetail) || [];
-      const [contacts, statusMap] = await Promise.all([
-        cloudStore.kvGetJson(SERVICE_RECOVERY_CONTACTS_KEY, []),
-        cloudStore.kvGetJson(SERVICE_RECOVERY_STATUS_KEY, {})
-      ]);
-      const contactByTicketId = new Map(contacts.filter(c => c.period === period).map(c => [String(c.ticketId), c]));
-      const enriched = followUpDetail.map(t => {
-        const ticketId = String(t.ticketId);
-        const contact = contactByTicketId.get(ticketId) || null;
-        const contactedAt = contact?.contactedAt || null;
-        const status = statusMap[ticketId] || null;
-        const recoveredWithin7d = Boolean(t.recovered && t.recoveredAt && withinHours(t.surveyDate, t.recoveredAt, 7 * 24));
-        return {
-          ...t,
-          contactedAt, contactedByName: contact?.contactedByName || '',
-          contactedWithin24h: Boolean(contactedAt && withinHours(t.surveyDate, contactedAt, 24)),
-          recoveredWithin7d,
-          customerResponded: Boolean(status?.customerResponded)
-        };
-      });
-      return { period, availablePeriods, tickets: enriched };
+      const tickets = followUpDetail.map(t => ({
+        ...t,
+        recoveredWithin7d: Boolean(t.recovered && t.recoveredAt && withinHours(t.surveyDate, t.recoveredAt, 7 * 24)),
+        contactedWithin24h: Boolean(t.contactedAt && withinHours(t.surveyDate, t.contactedAt, 24)),
+        customerResponded: Boolean(t.customerResponded)
+      }));
+      return { period, availablePeriods, tickets };
     }
 
     if (parsed.pathname === '/api/my/service-recovery' && req.method === 'GET') {
@@ -1809,28 +1789,6 @@ const server = http.createServer(async (req, res) => {
       const myTeamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       const myTickets = tickets.filter(t => myTeamEmails.has(ptoLogic.cleanEmail(t.employeeEmail))).sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
       return json(res, 200, { ok: true, period, availablePeriods, tickets: myTickets });
-    }
-
-    if (parsed.pathname === '/api/my/service-recovery/contact' && req.method === 'POST') {
-      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can log a Service Recovery contact.' });
-      const body = await readJsonBody(req);
-      const ticketId = String(body.ticketId || '').trim();
-      const period = String(body.period || '').trim();
-      const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
-      if (!ticketId || !period || !employeeEmail) return json(res, 400, { ok: false, error: 'ticketId, period, and employeeEmail are required.' });
-      const roster = await loadRosterSnapshot();
-      const myTeamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, false).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
-      if (!myTeamEmails.has(employeeEmail)) return json(res, 403, { ok: false, error: 'That ticket is not one of your direct reports.' });
-      const contacts = await cloudStore.kvGetJson(SERVICE_RECOVERY_CONTACTS_KEY, []);
-      const now = new Date().toISOString();
-      const existingIndex = contacts.findIndex(c => String(c.ticketId) === ticketId && c.period === period);
-      const record = { ticketId, period, employeeEmail, contactedAt: now, contactedBy: identity, contactedByName: session.employeeName || identity };
-      if (existingIndex >= 0) contacts[existingIndex] = record; else contacts.push(record);
-      await cloudStore.kvSetJson(SERVICE_RECOVERY_CONTACTS_KEY, contacts);
-      const checkQueue = await cloudStore.kvGetJson(SERVICE_RECOVERY_CHECK_REQUESTS_KEY, []);
-      checkQueue.push({ ticketId, contactedAt: now, requestedAt: now });
-      await cloudStore.kvSetJson(SERVICE_RECOVERY_CHECK_REQUESTS_KEY, checkQueue);
-      return json(res, 200, { ok: true, contactedAt: now });
     }
 
     // Every Team Lead sees this leaderboard, not just their own row - same visibility model as
