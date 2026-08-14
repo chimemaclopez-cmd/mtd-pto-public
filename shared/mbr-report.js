@@ -1,19 +1,23 @@
 import {copilotChat, copilotResponseText} from './qa-dsat-service.js';
 import {api} from './ui-utils.js';
 
-// Palette extracted directly from the sample deck's explicit slide fills (not its unused
-// default Office theme) - see MBR - Team Reymark Mac Lopez - July 2026.pptx.
+// Lofty's actual brand colors, not the generic violet the original sample deck happened to use -
+// accent/accentSecondary sampled directly from shared/img/lofty-logo.png (#3B5CDF) and the
+// portal's own body background gradient (rgba(87,47,180) = #572FB4); good/bad match the exact
+// status green/red already used throughout pto-public.html so a good/bad CSAT ticket reads the
+// same color here as it does on the portal itself.
 export const MBR_PALETTE = {
   darkBg: '0B142B',
-  accent: '6C63FF',
+  accent: '3B5CDF',
+  accentSecondary: '572FB4',
   muted: '9AA4C2',
   lightBg: 'F2F4FA',
   navyMid: '152040',
   navyCard: '1B274A',
   navyDeep: '1F3864',
-  good: '2ECC8F',
+  good: '19AB63',
   goodLight: '8BC34A',
-  bad: 'C0504D',
+  bad: 'C2313A',
   white: 'FFFFFF',
   ink: '1B1F2A'
 };
@@ -318,12 +322,12 @@ function productivitySlide(pres, {voice, nonVoice, senior, database}, pageNum) {
   let y = 1.9;
   if (voice.length) {
     slide.addText('VOICE JR TSR', {x: 0.6, y, w: 6, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
-    dataTable(slide, {headRow: ['Employee', 'Accepted Calls', 'Daily Avg', 'Long Calls', 'LCR %'], rows: voice.map(v => [v.employeeName, v.accepted, v.dailyAverage == null ? '—' : roundTo(v.dailyAverage, 2), v.longCalls, v.lcrRate == null ? '—' : `${roundTo(v.lcrRate, 2)}%`]), x: 0.6, y: y + 0.3, w: 6, colW: [2.2, 1.4, 1, 1.1, 0.9]});
+    dataTable(slide, {headRow: ['Employee', 'Accepted Calls', 'Daily Avg', 'Long Calls', 'LCR %'], rows: voice.map(v => [v.employeeName, v.accepted, v.dailyAverage == null ? '—' : roundTo(v.dailyAverage, 2), v.longCalls, v.lcrRate == null ? '—' : `${roundTo(v.lcrRate, 2)}%`]), x: 0.6, y: y + 0.3, w: 6, colW: [2, 1.2, 0.9, 1, 0.9]});
     y += 0.3 + 0.35 * (voice.length + 1) + 0.25;
   }
   if (nonVoice.length) {
     slide.addText('NON-VOICE JR TSR', {x: 0.6, y, w: 6, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
-    dataTable(slide, {headRow: ['Employee', 'Tickets Solved', 'Excluded'], rows: nonVoice.map(v => [v.employeeName, v.solved, v.excluded]), x: 0.6, y: y + 0.3, w: 6, colW: [3, 2, 1.5]});
+    dataTable(slide, {headRow: ['Employee', 'Tickets Solved', 'Excluded'], rows: nonVoice.map(v => [v.employeeName, v.solved, v.excluded]), x: 0.6, y: y + 0.3, w: 6, colW: [2.8, 1.8, 1.4]});
   }
   let yRight = 1.9;
   if (senior.length) {
@@ -394,11 +398,15 @@ function wrapUpSlide(pres, {workingWell, needsAttention}, pageNum) {
   addFooter(slide, pageNum);
 }
 
-/**
- * Builds and downloads the MBR deck in the browser. All inputs are already-fetched API
- * responses / already-aggregated data - this function does not fetch anything itself.
- */
-export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
+// Shared by both the PPTX deck and the PDF executive report - the aggregation is identical
+// either way, only the rendering (and which narrative gets drafted on top of it) differs.
+// Computing this once and handing both renderers the same object keeps them from ever quietly
+// drifting apart the way the two scheduleForDate() copies and the two attendance-% formulas did
+// elsewhere in this codebase. Deliberately does NOT draft any AI narrative itself - the PPTX and
+// PDF want different narrative shapes (a couple of slide captions vs. a full multi-section
+// report), so each caller drafts only what it actually renders instead of paying for AI calls
+// whose output would go unused.
+function gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications}) {
   const attendanceRows = (teamAttendanceMembers || []).map(m => aggregateMemberAttendance(m, month));
   const {voice, nonVoice, senior, database} = productivityGroups(teamResults);
   const csatTable = csatRows(teamResults);
@@ -408,31 +416,465 @@ export async function generateMbrDeck({leaderName, month, teamResults, teamAtten
   const totalGood = goodCounts.reduce((s, r) => s + r.good, 0);
   const {inPeriod, inProgress} = coachingSections(coachingRecords, month);
   const {evaluations, anniversaries} = pendingReminders(notifications);
+  const coachingFactSummary = [
+    inPeriod.length ? `${inPeriod.length} coaching session(s) logged this period.` : 'No coaching sessions were logged this period.',
+    inProgress.length ? `${inProgress.length} of ${teamResults.length} team member(s) already have coaching sessions in progress.` : ''
+  ].filter(Boolean).join(' ');
 
+  return {
+    attendanceRows, voice, nonVoice, senior, database, csatTable, badDetail, goodHighlights, goodCounts, totalGood,
+    inPeriod, inProgress, evaluations, anniversaries, coachingFactSummary
+  };
+}
+
+/**
+ * Builds and downloads the MBR deck in the browser. All inputs are already-fetched API
+ * responses / already-aggregated data - this function does not fetch anything itself.
+ */
+export async function generateMbrDeck({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
+  const d = gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications});
   const [teamInsight, csatInsight, wrapUp] = await Promise.all([
     draftTeamOverviewInsight(copilotToken, teamResults),
-    draftCsatInsight(copilotToken, badDetail, teamResults.length),
-    draftWrapUp(copilotToken, {teamResults, csatBad: badDetail, coachingInProgress: inProgress})
+    draftCsatInsight(copilotToken, d.badDetail, teamResults.length),
+    draftWrapUp(copilotToken, {teamResults, csatBad: d.badDetail, coachingInProgress: d.inProgress})
   ]);
+  d.teamInsight = teamInsight; d.csatInsight = csatInsight; d.wrapUp = wrapUp;
 
   const pres = newDeck();
   const monthText = monthLabel(month);
   const sections = ['Attendance', 'Productivity', 'CSAT', 'Coaching', 'Pending & Reminders'];
   titleSlide(pres, {leaderName, monthText, sections});
-  teamOverviewSlide(pres, {teamResults, insight: teamInsight}, 2);
-  attendanceSlide(pres, {rows: attendanceRows, factSummary: attendanceFactSummary(attendanceRows)}, 3);
-  productivitySlide(pres, {voice, nonVoice, senior, database}, 4);
-  csatBadSlide(pres, {rows: csatTable, badDetail, insight: csatInsight}, 5);
-  csatGoodSlide(pres, {goodCounts, highlights: goodHighlights, totalGood}, 6);
-  const coachingFactSummary = [
-    inPeriod.length ? `${inPeriod.length} coaching session(s) logged this period.` : 'No coaching sessions were logged this period.',
-    inProgress.length ? `${inProgress.length} of ${teamResults.length} team member(s) already have coaching sessions in progress.` : ''
-  ].filter(Boolean).join(' ');
-  coachingSlide(pres, {inPeriod, inProgress, factSummary: coachingFactSummary}, 7);
-  remindersSlide(pres, {evaluations, anniversaries}, 8);
-  wrapUpSlide(pres, wrapUp, 9);
+  teamOverviewSlide(pres, {teamResults, insight: d.teamInsight}, 2);
+  attendanceSlide(pres, {rows: d.attendanceRows, factSummary: attendanceFactSummary(d.attendanceRows)}, 3);
+  productivitySlide(pres, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}, 4);
+  csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 5);
+  csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 6);
+  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: d.coachingFactSummary}, 7);
+  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 8);
+  wrapUpSlide(pres, d.wrapUp, 9);
 
   const fileName = `MBR - Team ${leaderName} - ${monthText}.pptx`;
   await pres.writeFile({fileName});
+  return fileName;
+}
+
+// --- Executive Summary (PDF) -------------------------------------------------------------
+// A condensed 1-2 page brief for forwarding, not a print of the slide deck - headline numbers
+// plus the same Copilot/Groq-drafted narrative the deck uses, rather than every detail table.
+function hexToRgb(hex) {
+  const n = parseInt(hex, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function fmtStatNumber(v, decimals = 1) { return v == null ? '—' : String(roundTo(v, decimals)); }
+function fmtStatPct(v, decimals = 1) { return v == null ? '—' : `${roundTo(v, decimals)}%`; }
+
+function teamHeadlineStats(teamResults, attendanceRows, csatTable) {
+  const validKpi = (teamResults || []).filter(r => r.finalKpi != null && Number.isFinite(+r.finalKpi));
+  const avgFinalKpi = validKpi.length ? validKpi.reduce((s, r) => s + Number(r.finalKpi), 0) / validKpi.length : null;
+  const attendancePcts = (attendanceRows || []).filter(r => r.attendancePct != null).map(r => r.attendancePct);
+  const avgAttendancePct = attendancePcts.length ? attendancePcts.reduce((s, v) => s + v, 0) / attendancePcts.length : null;
+  const totalGood = (csatTable || []).reduce((s, r) => s + (r.good || 0), 0);
+  const totalBad = (csatTable || []).reduce((s, r) => s + (r.bad || 0), 0);
+  const overallCsatRate = (totalGood + totalBad) ? totalGood / (totalGood + totalBad) * 100 : null;
+  return {avgFinalKpi, avgAttendancePct, overallCsatRate, totalGood, totalBad};
+}
+
+function loadImageAsDataUrl(url) {
+  return fetch(url).then(res => {
+    if (!res.ok) throw new Error(`${url} returned HTTP ${res.status}`);
+    return res.blob();
+  }).then(blob => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Could not read image.'));
+    reader.readAsDataURL(blob);
+  }));
+}
+// jsPDF's addImage() embeds a PNG as a raw, uncompressed bitmap (no Filter at all) rather than
+// re-compressing it - the source logo file is 1368x448px for crisp on-screen use elsewhere in
+// the portal, but embedded at that resolution for a logo that prints at 0.34in tall it alone
+// blew the PDF up to ~2.4MB (1368*448*3 bytes of raw RGB, confirmed via the PDF's own XObject
+// dict). Downscaling to a realistic print resolution first keeps the same crispness at actual
+// output size while cutting the embedded bitmap down by roughly (targetHeightPx/448)^2.
+function loadLogoDataUrl(url, targetHeightPx) {
+  return loadImageAsDataUrl(url).then(dataUrl => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = targetHeightPx / img.naturalHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = targetHeightPx;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve({dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height});
+    };
+    img.onerror = () => reject(new Error('Could not resize the logo image.'));
+    img.src = dataUrl;
+  }));
+}
+
+// No ticket in this data model carries a formal "escalated" flag or a call-reason/disposition
+// code (confirmed by reading collectMetricSummaries in zendesk-proxy.js - it only ever counts
+// accepted/long calls, never categorizes why a call happened or ran long). Rather than invent
+// categories the underlying data can't support, this callout surfaces the one genuine, factual
+// signal that IS available: which rep's Long Call Rate is the outlier, and by how much.
+function lcrOutlierNote(voice) {
+  const withLcr = (voice || []).filter(v => v.lcrRate != null);
+  if (withLcr.length < 2) return null;
+  const avg = withLcr.reduce((s, v) => s + v.lcrRate, 0) / withLcr.length;
+  const top = [...withLcr].sort((a, b) => b.lcrRate - a.lcrRate)[0];
+  if (top.lcrRate <= avg * 1.15) return null;
+  return `${top.employeeName} has the team's highest Long Call Rate this period at ${roundTo(top.lcrRate, 1)}% (${top.longCalls} of ${top.accepted} accepted calls ran 30+ minutes), versus a team average of ${roundTo(avg, 1)}% - worth a coaching conversation on call efficiency.`;
+}
+
+function sumBy(arr, fn) { return (arr || []).reduce((s, x) => s + (Number(fn(x)) || 0), 0); }
+function stringField(value, fallback) { return typeof value === 'string' && value.trim() ? value.trim() : fallback; }
+
+// Deterministic, data-only version of every report section - used verbatim when Copilot isn't
+// connected, and as the fallback for any individual section Copilot/Groq fails to produce. Every
+// number here traces directly to an aggregate already computed above; nothing is inferred.
+function executiveReportFallback({leaderName, teamResults, attendanceRows, stats, voice, nonVoice, badDetail, inPeriod, inProgress, evaluations}) {
+  const teamSize = teamResults.length;
+  const tierCounts = {};
+  for (const r of teamResults) tierCounts[r.performanceStatus || 'Not Rated'] = (tierCounts[r.performanceStatus || 'Not Rated'] || 0) + 1;
+  const tierText = Object.entries(tierCounts).map(([k, v]) => `${v} ${k}`).join(', ');
+  const watchList = teamResults.filter(r => r.performanceStatus === 'Intervention').map(r => r.employeeName);
+  const fullAttendanceCount = attendanceRows.filter(r => r.attendancePct != null && r.attendancePct >= 100).length;
+  const withAbsence = attendanceRows.filter(r => r.absenceDays > 0);
+  const totalCallsAccepted = sumBy(voice, v => v.accepted);
+  const totalLongCalls = sumBy(voice, v => v.longCalls);
+  const totalTicketsSolved = sumBy(nonVoice, v => v.solved);
+
+  const risks = [
+    watchList.length ? `${watchList.length} team member(s) are at Intervention-tier KPI and need continued coaching support: ${watchList.join(', ')}.` : '',
+    badDetail.length ? `${badDetail.length} bad CSAT ticket(s) logged this period warrant follow-up.` : '',
+    evaluations.length ? `${evaluations.length} evaluation(s) are due in the next 30 days.` : ''
+  ].filter(Boolean).join(' ') || 'No significant risks were identified this period.';
+
+  return {
+    executiveSummary: `Team ${leaderName} closed the period with ${fmtStatPct(stats.avgAttendancePct)} average attendance and ${fmtStatPct(stats.overallCsatRate)} CSAT. The team handled ${totalCallsAccepted} call(s)${totalLongCalls ? ` (${totalLongCalls} running 30+ minutes)` : ' with no long calls'} and solved ${totalTicketsSolved} ticket(s) this period, with ${badDetail.length} bad CSAT ticket(s) logged team-wide.`,
+    attendanceAndCoverage: `Average attendance was ${fmtStatPct(stats.avgAttendancePct)} across ${teamSize} team member(s), with ${fullAttendanceCount} at 100% attendance this period. ${withAbsence.length ? `${withAbsence.length} team member(s) had at least one absence day.` : 'No absences were recorded.'}`,
+    teamMtdPerformance: `Team performance this period: ${tierText}.${watchList.length ? ` Needs attention: ${watchList.join(', ')}.` : ''} CSAT stands at ${fmtStatPct(stats.overallCsatRate)} (${stats.totalGood} Good, ${stats.totalBad} Bad).`,
+    mtdOperations: `The team handled ${totalCallsAccepted} call(s) and solved ${totalTicketsSolved} ticket(s) this period.${totalLongCalls ? ` ${totalLongCalls} call(s) ran 30 minutes or longer.` : ''}`,
+    keyRisksAndFollowUps: risks,
+    leadershipActionsTaken: inPeriod.length ? `${inPeriod.length} coaching session(s) were logged this period${inProgress.length ? `, with ${inProgress.length} follow-up(s) currently in progress` : ''}.` : 'No additional manual leadership actions were logged this period beyond standard operational oversight.',
+    nextPeriodPriorities: [
+      badDetail.length ? `Follow up on the ${badDetail.length} bad CSAT ticket(s) logged this period.` : '',
+      watchList.length ? `Continue coaching support for ${watchList.join(', ')}.` : '',
+      evaluations.length ? `Complete the ${evaluations.length} evaluation(s) due in the next 30 days.` : '',
+      'Maintain current CSAT and attendance performance.'
+    ].filter(Boolean),
+    overallAssessment: `Operations were ${watchList.length || badDetail.length ? 'broadly stable, with a few areas needing continued attention' : 'stable'} this period, with ${tierText} across the team and ${fmtStatPct(stats.overallCsatRate)} CSAT. ${risks === 'No significant risks were identified this period.' ? 'No significant risks were identified.' : 'Continued focus on the items above will help sustain service standards.'}`
+  };
+}
+
+/**
+ * Drafts the full 8-section Executive Report narrative in one Copilot call, then fact-checks the
+ * whole thing in one Groq review pass against the full underlying dataset (same
+ * draft-then-review pattern as the PPTX insights, just one combined document instead of three
+ * separate lines - see /api/my/mbr-review-insight). Falls back to executiveReportFallback() at
+ * both the "no Copilot" and "Copilot/Groq output didn't parse" points, so a report never ships
+ * with a missing section.
+ */
+async function draftExecutiveReportSections(token, ctx) {
+  const fallback = executiveReportFallback(ctx);
+  if (!token) return fallback;
+  const {leaderName, teamResults, attendanceRows, stats, voice, nonVoice, badDetail, goodHighlights, inPeriod, inProgress, evaluations, month} = ctx;
+  const prompt = `You are drafting a Month-to-Date Executive Report for a BPO support team lead, in the style of a formal ops report (like a daily ops report, but summarizing the whole month so far). Reply with ONLY a JSON object, no other text and no markdown, in exactly this shape: {"executiveSummary":"...","attendanceAndCoverage":"...","teamMtdPerformance":"...","mtdOperations":"...","keyRisksAndFollowUps":"...","leadershipActionsTaken":"...","nextPeriodPriorities":["...","..."],"overallAssessment":"..."}. Each value except nextPeriodPriorities is a short paragraph (2-4 sentences), plain text, no markdown. nextPeriodPriorities is an array of 2-4 short bullet strings. Base every claim strictly on the data below - never invent a number, a ticket topic, or an action the data doesn't support. This data has no ticket-escalation flag and no call-reason/disposition codes, so do not invent "escalated tickets" or "call driver categories" - if you reference call or ticket activity, stick to the actual counts given. If a category has nothing to report (e.g. no leadership actions, no risks), say so factually and plainly, the way a real ops report would ("No additional manual leadership actions were logged this period beyond standard oversight.") rather than inventing content.
+
+DATA:
+Team: ${leaderName}, ${teamResults.length} member(s), reporting month ${month}.
+Team KPI results: ${JSON.stringify(teamResults.map(r => ({name: r.employeeName, kpiType: r.kpiType, tier: r.performanceStatus, finalKpi: r.finalKpi})))}.
+Attendance: ${JSON.stringify(attendanceRows.map(r => ({name: r.employeeName, attendancePct: r.attendancePct, absenceDays: r.absenceDays, ptoDays: r.ptoDays, reason: r.absenceReason})))}.
+CSAT: ${stats.totalGood} good, ${stats.totalBad} bad, overall rate ${stats.overallCsatRate}%.
+Bad CSAT tickets: ${JSON.stringify(badDetail.map(t => ({employeeName: t.employeeName, subject: t.subject, comment: t.comment})))}.
+Good CSAT highlights: ${JSON.stringify(goodHighlights.map(h => ({employeeName: h.employeeName, comment: h.comment})))}.
+Voice call volume: ${JSON.stringify(voice.map(v => ({name: v.employeeName, accepted: v.accepted, longCalls: v.longCalls, lcrRate: v.lcrRate})))}.
+Non-Voice ticket volume: ${JSON.stringify(nonVoice.map(v => ({name: v.employeeName, solved: v.solved, excluded: v.excluded})))}.
+Coaching sessions logged this period: ${inPeriod.length}. Coaching follow-ups in progress: ${inProgress.length}.
+Evaluations due in the next 30 days: ${evaluations.length}.`;
+  let draft;
+  try {
+    const result = await copilotChat(token, prompt);
+    const raw = copilotResponseText(result);
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw);
+    draft = {
+      executiveSummary: stringField(parsed.executiveSummary, fallback.executiveSummary),
+      attendanceAndCoverage: stringField(parsed.attendanceAndCoverage, fallback.attendanceAndCoverage),
+      teamMtdPerformance: stringField(parsed.teamMtdPerformance, fallback.teamMtdPerformance),
+      mtdOperations: stringField(parsed.mtdOperations, fallback.mtdOperations),
+      keyRisksAndFollowUps: stringField(parsed.keyRisksAndFollowUps, fallback.keyRisksAndFollowUps),
+      leadershipActionsTaken: stringField(parsed.leadershipActionsTaken, fallback.leadershipActionsTaken),
+      nextPeriodPriorities: stringBullets(parsed.nextPeriodPriorities, fallback.nextPeriodPriorities),
+      overallAssessment: stringField(parsed.overallAssessment, fallback.overallAssessment)
+    };
+  } catch { return fallback; }
+
+  const context = {
+    teamPerformance: teamResults.map(r => ({name: r.employeeName, tier: r.performanceStatus, finalKpi: r.finalKpi})),
+    attendanceRows, csat: {good: stats.totalGood, bad: stats.totalBad, rate: stats.overallCsatRate}, badDetail, voice, nonVoice,
+    coachingSessionsLogged: inPeriod.length, coachingFollowUpsInProgress: inProgress.length, evaluationsDue: evaluations.length
+  };
+  const reviewedRaw = await reviewWithGroq(JSON.stringify(draft), context, 'json');
+  try {
+    const reviewedParsed = JSON.parse(reviewedRaw.match(/\{[\s\S]*\}/)?.[0] || reviewedRaw);
+    return {
+      executiveSummary: stringField(reviewedParsed.executiveSummary, draft.executiveSummary),
+      attendanceAndCoverage: stringField(reviewedParsed.attendanceAndCoverage, draft.attendanceAndCoverage),
+      teamMtdPerformance: stringField(reviewedParsed.teamMtdPerformance, draft.teamMtdPerformance),
+      mtdOperations: stringField(reviewedParsed.mtdOperations, draft.mtdOperations),
+      keyRisksAndFollowUps: stringField(reviewedParsed.keyRisksAndFollowUps, draft.keyRisksAndFollowUps),
+      leadershipActionsTaken: stringField(reviewedParsed.leadershipActionsTaken, draft.leadershipActionsTaken),
+      nextPeriodPriorities: stringBullets(reviewedParsed.nextPeriodPriorities, draft.nextPeriodPriorities),
+      overallAssessment: stringField(reviewedParsed.overallAssessment, draft.overallAssessment)
+    };
+  } catch { return draft; }
+}
+
+/**
+ * Builds and downloads a multi-page Executive Report PDF in the browser: a narrative
+ * executive-report front section (headline stats + an 8-part Copilot/Groq-drafted MTD report,
+ * modeled on a real daily-ops-report format) followed by the supporting per-employee detail
+ * behind those numbers, rendered for print/forwarding instead of slides. All inputs are
+ * already-fetched API responses / already-aggregated data - this function does not fetch
+ * anything itself except the Lofty logo image.
+ */
+export async function generateExecutiveReportPdf({leaderName, month, teamResults, teamAttendanceMembers, coachingRecords, notifications, copilotToken}) {
+  if (!window.jspdf?.jsPDF) throw new Error('jsPDF did not load - check shared/vendor/jspdf.umd.min.js.');
+  const d = gatherMbrAggregates({teamResults, month, teamAttendanceMembers, coachingRecords, notifications});
+  const stats = teamHeadlineStats(teamResults, d.attendanceRows, d.csatTable);
+  const report = await draftExecutiveReportSections(copilotToken, {leaderName, month, teamResults, attendanceRows: d.attendanceRows, stats, voice: d.voice, nonVoice: d.nonVoice, badDetail: d.badDetail, goodHighlights: d.goodHighlights, inPeriod: d.inPeriod, inProgress: d.inProgress, evaluations: d.evaluations});
+  const monthText = monthLabel(month);
+
+  const doc = new window.jspdf.jsPDF({unit: 'in', format: 'letter'});
+  const pageW = 8.5, pageH = 11, marginX = 0.65, marginBottom = 0.7, contentW = pageW - marginX * 2;
+  let y = 0.6, pageNum = 1;
+
+  function addFooter() {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...hexToRgb(P.muted));
+    doc.text('Lofty Support · Executive Report', marginX, pageH - 0.4);
+    doc.text(String(pageNum), pageW - marginX, pageH - 0.4, {align: 'right'});
+  }
+  // Returns true when a page break happened, so a table mid-render knows to redraw its header.
+  function ensureRoom(height) {
+    if (y + height > pageH - marginBottom) {
+      addFooter();
+      doc.addPage();
+      pageNum++;
+      y = 0.6;
+      return true;
+    }
+    return false;
+  }
+
+  let logoH = 0;
+  try {
+    const logo = await loadLogoDataUrl('shared/img/lofty-logo.png', 120);
+    logoH = 0.34;
+    doc.addImage(logo.dataUrl, 'PNG', marginX, y, logoH * (logo.width / logo.height), logoH);
+  } catch { /* logo is a nice-to-have - a fetch hiccup shouldn't block the report */ }
+  y += logoH ? logoH + 0.22 : 0;
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...hexToRgb(P.accent));
+  doc.text('EXECUTIVE SUMMARY', marginX, y);
+  y += 0.32;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(24); doc.setTextColor(...hexToRgb(P.ink));
+  doc.text(`Team ${leaderName}`, marginX, y);
+  y += 0.26;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(...hexToRgb(P.muted));
+  doc.text(`Performance Summary · ${monthText}`, marginX, y);
+  y += 0.22;
+  doc.setDrawColor(...hexToRgb('DFE2EA')); doc.setLineWidth(0.01);
+  doc.line(marginX, y, pageW - marginX, y);
+  y += 0.35;
+
+  const tileGap = 0.25, tileW = (contentW - tileGap * 3) / 4, tileH = 1.0;
+  const tiles = [
+    {label: 'TEAM AVG KPI', value: fmtStatNumber(stats.avgFinalKpi)},
+    {label: 'ATTENDANCE', value: fmtStatPct(stats.avgAttendancePct)},
+    {label: 'CSAT RATE', value: fmtStatPct(stats.overallCsatRate)},
+    {label: 'COACHING SESSIONS', value: String(d.inPeriod.length)}
+  ];
+  tiles.forEach((tile, i) => {
+    const x = marginX + i * (tileW + tileGap), midX = x + tileW / 2;
+    doc.setFillColor(...hexToRgb(P.lightBg));
+    doc.roundedRect(x, y, tileW, tileH, 0.08, 0.08, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(...hexToRgb(P.accent));
+    doc.text(tile.value, midX, y + 0.55, {align: 'center'});
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...hexToRgb(P.muted));
+    doc.text(tile.label, midX, y + 0.82, {align: 'center'});
+  });
+  y += tileH + 0.4;
+
+  function narrativeSection(title, body) {
+    ensureRoom(0.55);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...hexToRgb(P.accent));
+    doc.text(title, marginX, y);
+    y += 0.24;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...hexToRgb(P.ink));
+    const lines = doc.splitTextToSize(body, contentW);
+    ensureRoom(lines.length * 0.2 + 0.1);
+    doc.text(lines, marginX, y);
+    y += lines.length * 0.2 + 0.3;
+  }
+  function bulletListSection(title, items, color) {
+    ensureRoom(0.45);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...hexToRgb(color));
+    doc.text(title, marginX, y);
+    y += 0.26;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...hexToRgb(P.ink));
+    for (const item of items) {
+      const lines = doc.splitTextToSize(`•  ${item}`, contentW - 0.1);
+      ensureRoom(lines.length * 0.2 + 0.08);
+      doc.text(lines, marginX + 0.1, y);
+      y += lines.length * 0.2 + 0.1;
+    }
+    y += 0.15;
+  }
+  // Mirrors a real daily/MTD ops report's structure: a lead paragraph, then attendance,
+  // performance, operations, risks, leadership actions, forward priorities, and a closing
+  // assessment - each grounded in the same aggregated data, drafted by Copilot and fact-checked
+  // by Groq (or the deterministic fallback above if either is unavailable).
+  narrativeSection('EXECUTIVE SUMMARY', report.executiveSummary);
+  narrativeSection('ATTENDANCE AND COVERAGE', report.attendanceAndCoverage);
+  narrativeSection('TEAM MTD PERFORMANCE', report.teamMtdPerformance);
+  narrativeSection('MTD OPERATIONS', report.mtdOperations);
+  narrativeSection('KEY RISKS AND FOLLOW-UPS', report.keyRisksAndFollowUps);
+  narrativeSection('LEADERSHIP ACTIONS TAKEN', report.leadershipActionsTaken);
+  bulletListSection('NEXT-PERIOD PRIORITIES', report.nextPeriodPriorities, P.accent);
+  narrativeSection('OVERALL ASSESSMENT', report.overallAssessment);
+
+  // --- Supporting detail: the per-employee evidence behind the headline numbers above ------
+  ensureRoom(0.5);
+  doc.setDrawColor(...hexToRgb('DFE2EA')); doc.setLineWidth(0.01);
+  doc.line(marginX, y, pageW - marginX, y);
+  y += 0.28;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...hexToRgb(P.accent));
+  doc.text('SUPPORTING DETAIL', marginX, y);
+  y += 0.32;
+
+  function sectionHeading(title, subtitle) {
+    ensureRoom(0.4);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...hexToRgb(P.ink));
+    doc.text(title, marginX, y);
+    y += 0.24;
+    if (subtitle) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...hexToRgb(P.muted));
+      const lines = doc.splitTextToSize(subtitle, contentW);
+      ensureRoom(lines.length * 0.16 + 0.1);
+      doc.text(lines, marginX, y);
+      y += lines.length * 0.16 + 0.14;
+    } else y += 0.06;
+  }
+  function subheading(title, color = P.accent) {
+    ensureRoom(0.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...hexToRgb(color));
+    doc.text(title, marginX, y);
+    y += 0.22;
+  }
+  function pdfTable({colW, headRow, rows, fontSize = 9}) {
+    const x = marginX, totalW = colW.reduce((a, b) => a + b, 0), lineH = fontSize / 72 * 1.15, cellPad = 0.06;
+    function drawHeaderRow() {
+      // A header label wider than its column (e.g. "Team Avg Base KPI" in 1.2in, "Absence
+      // Reason" in 1.0in) used to just draw straight past the column - and since header text is
+      // white-on-navy, whatever ran past the header bar's own right edge landed as white text on
+      // the plain white page: invisible, not merely clipped. Wrapping headers the same way body
+      // cells already wrap fixes it for any column width instead of hand-tuning each table.
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(fontSize);
+      const headLines = headRow.map((label, i) => doc.splitTextToSize(String(label), colW[i] - cellPad * 2));
+      const h = Math.max(1, ...headLines.map(l => l.length)) * lineH + cellPad * 2;
+      doc.setFillColor(...hexToRgb(P.navyDeep));
+      doc.rect(x, y, totalW, h, 'F');
+      doc.setTextColor(...hexToRgb(P.white));
+      let cx = x;
+      headLines.forEach((lines, i) => { doc.text(lines, cx + cellPad, y + cellPad + lineH * 0.78); cx += colW[i]; });
+      y += h;
+    }
+    ensureRoom(lineH + cellPad * 2 + 0.3);
+    drawHeaderRow();
+    rows.forEach((row, ri) => {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(fontSize);
+      const cellLines = row.map((cell, i) => doc.splitTextToSize(cell == null ? '—' : String(cell), colW[i] - cellPad * 2));
+      const rowH = Math.max(1, ...cellLines.map(l => l.length)) * lineH + cellPad * 2;
+      if (ensureRoom(rowH)) drawHeaderRow();
+      doc.setFillColor(...hexToRgb(ri % 2 ? P.lightBg : P.white));
+      doc.rect(x, y, totalW, rowH, 'F');
+      doc.setDrawColor(...hexToRgb('DFE2EA')); doc.setLineWidth(0.005);
+      doc.rect(x, y, totalW, rowH, 'S');
+      doc.setTextColor(...hexToRgb(P.ink));
+      let cx = x;
+      cellLines.forEach((lines, i) => { doc.text(lines, cx + cellPad, y + cellPad + lineH * 0.78); cx += colW[i]; });
+      y += rowH;
+    });
+    y += 0.25;
+  }
+
+  sectionHeading('Team Overview', `${teamResults.length} active team member(s)`);
+  pdfTable({
+    colW: [2.2, 1.7, 1.5, 0.9, 0.9],
+    headRow: ['Employee', 'KPI Type', 'Channel', 'Final KPI', 'Performance'],
+    rows: teamResults.map(r => [r.employeeName, r.kpiType, r.primaryChannel, r.finalKpi == null ? '—' : r.finalKpi, r.performanceStatus || '—'])
+  });
+
+  sectionHeading('Productivity', 'Volume handled by role type - the detail behind each Final KPI above');
+  if (d.voice.length) {
+    subheading('VOICE JR TSR');
+    pdfTable({colW: [2.4, 1.2, 1.1, 1.2, 1.3], headRow: ['Employee', 'Accepted Calls', 'Daily Avg', 'Long Calls', 'LCR %'],
+      rows: d.voice.map(v => [v.employeeName, v.accepted, v.dailyAverage == null ? '—' : roundTo(v.dailyAverage, 2), v.longCalls, v.lcrRate == null ? '—' : `${roundTo(v.lcrRate, 2)}%`])});
+    const note = lcrOutlierNote(d.voice);
+    if (note) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5); doc.setTextColor(...hexToRgb(P.bad));
+      const lines = doc.splitTextToSize(note, contentW);
+      ensureRoom(lines.length * 0.18 + 0.2);
+      doc.text(lines, marginX, y);
+      y += lines.length * 0.18 + 0.25;
+    }
+  }
+  if (d.nonVoice.length) {
+    subheading('NON-VOICE JR TSR');
+    pdfTable({colW: [3.6, 2.0, 1.6], headRow: ['Employee', 'Tickets Solved', 'Excluded'], rows: d.nonVoice.map(v => [v.employeeName, v.solved, v.excluded])});
+  }
+  if (d.senior.length) {
+    subheading('SENIOR TSR');
+    pdfTable({colW: [2.4, 1.2, 1.2, 1.2, 1.2], headRow: ['Employee', 'Updated', 'Public', 'Internal', 'Team Avg Base KPI'],
+      rows: d.senior.map(v => [v.employeeName, v.updated, v.publicCount, v.internalCount, v.teamAvgBaseKpi == null ? '—' : roundTo(v.teamAvgBaseKpi, 2)])});
+  }
+  if (d.database.length) {
+    subheading('DATABASE AGENT');
+    pdfTable({colW: [2.4, 1.4, 1.2, 1.1, 1.1], headRow: ['Employee', 'Lead Import', 'CSAT %', 'Calls', 'Daily Avg'],
+      rows: d.database.map(v => [v.employeeName, v.leadImportCount, v.csatRate == null ? '—' : `${roundTo(v.csatRate, 2)}%`, v.callsAccepted, v.callsDailyAverage == null ? '—' : roundTo(v.callsDailyAverage, 2)])});
+  }
+
+  sectionHeading('CSAT — Investigation', `${d.badDetail.length} bad CSAT(s) logged team-wide this period`);
+  if (d.badDetail.length) {
+    subheading('BAD CSAT DETAIL — CUSTOMER COMMENTS', P.bad);
+    pdfTable({colW: [1.6, 2.0, 0.8, 2.8], headRow: ['Employee', 'Ticket', 'Date', 'Customer Comment'],
+      rows: d.badDetail.map(t => [t.employeeName, `#${t.ticketId ?? '—'} — ${truncate(t.subject, 45)}`, shortDate(t.surveyDate), truncate(t.comment, 260) || '—'])});
+  }
+  if (d.goodHighlights.length) {
+    subheading('STANDOUT CUSTOMER COMMENTS', P.good);
+    pdfTable({colW: [1.8, 0.9, 4.5], headRow: ['Employee', 'Date', 'Comment'],
+      rows: d.goodHighlights.map(h => [h.employeeName, shortDate(h.surveyDate), `"${truncate(h.comment, 220)}"`])});
+  }
+
+  sectionHeading('Attendance Detail', attendanceFactSummary(d.attendanceRows));
+  pdfTable({
+    colW: [1.8, 0.8, 0.8, 1.0, 1.0, 0.8, 1.0],
+    headRow: ['Employee', 'Scheduled', 'Present', 'Attendance %', 'Absence Days', 'PTO Days', 'Absence Reason'],
+    rows: d.attendanceRows.map(r => [r.employeeName, r.scheduled, r.present, r.attendancePct == null ? '—' : `${r.attendancePct}%`, r.absenceDays, r.ptoDays, r.absenceReason])
+  });
+
+  sectionHeading('Coaching', d.coachingFactSummary);
+  if (d.inPeriod.length) {
+    pdfTable({colW: [2.4, 2.4, 1.2, 1.2], headRow: ['Employee', 'Category', 'Status', 'Coaching Date'], rows: d.inPeriod.map(r => [r.employeeName, r.category, r.status, shortDate(r.coachingDate)])});
+  }
+  if (d.inProgress.length) {
+    subheading('IN PROGRESS');
+    pdfTable({colW: [2.4, 2.4, 1.2, 1.2], headRow: ['Employee', 'Category', 'Status', 'Follow-up Date'], rows: d.inProgress.map(r => [r.employeeName, r.category, r.status, r.targetFollowUpDate ? shortDate(r.targetFollowUpDate) : '—'])});
+  }
+
+  addFooter();
+
+  const fileName = `Executive Report - Team ${leaderName} - ${monthText}.pdf`;
+  doc.save(fileName);
   return fileName;
 }
