@@ -295,6 +295,54 @@ function titleSlide(pres, {leaderName, monthText, sections}) {
   slide.addText(`Prepared for ${leaderName} · Lofty Support`, {x: 0.8, y: 6.6, w: 11.7, h: 0.35, fontFace: FONT, fontSize: 11, color: P.muted});
 }
 
+// Performance tier -> chart color: mirrors the same good/bad semantic mapping dataTable() already
+// uses for the statusCol text coloring elsewhere in this deck, so a tier reads the same color
+// whether it's a table cell or a chart slice.
+const TIER_CHART_COLORS = {Exceptional: '19AB63', Exceeds: '8BC34A', Meets: '3B5CDF', Intervention: 'C2313A'};
+
+function teamSnapshotSlide(pres, {teamResults, attendanceRows, csatTable, coachingCount}, pageNum) {
+  const slide = sectionHeaderSlide(pres, {title: 'Team Snapshot', subtitle: 'Performance and CSAT at a glance'});
+  const stats = teamHeadlineStats(teamResults, attendanceRows, csatTable);
+  dataTable(slide, {
+    headRow: ['Team Avg KPI', 'Attendance %', 'CSAT Rate', 'Coaching Sessions'],
+    rows: [[fmtStatNumber(stats.avgFinalKpi), fmtStatPct(stats.avgAttendancePct), fmtStatPct(stats.overallCsatRate), String(coachingCount)]],
+    x: 0.6, y: 1.85, w: 12.1, colW: [3.025, 3.025, 3.025, 3.025]
+  });
+
+  const tierCounts = {};
+  for (const r of teamResults) tierCounts[r.performanceStatus || 'Not Rated'] = (tierCounts[r.performanceStatus || 'Not Rated'] || 0) + 1;
+  const tierLabels = Object.keys(tierCounts);
+  slide.addText('PERFORMANCE TIER DISTRIBUTION', {x: 0.6, y: 2.65, w: 5.6, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.accent});
+  slide.addChart('pie', [{name: 'Team', labels: tierLabels, values: tierLabels.map(l => tierCounts[l])}], {
+    x: 0.6, y: 3.0, w: 5.6, h: 3.6,
+    chartColors: tierLabels.map(l => TIER_CHART_COLORS[l] || P.muted),
+    showTitle: false, showLegend: true, legendPos: 'b', showValue: true,
+    dataLabelColor: P.white, dataLabelFontSize: 11, dataLabelPosition: 'ctr', dataLabelFormatCode: '0'
+  });
+
+  slide.addText('CSAT — GOOD VS. BAD', {x: 6.9, y: 2.65, w: 5.6, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: P.good});
+  slide.addChart('doughnut', [{name: 'CSAT', labels: ['Good', 'Bad'], values: [stats.totalGood, stats.totalBad]}], {
+    x: 6.9, y: 3.0, w: 5.6, h: 3.6,
+    chartColors: [P.good, P.bad],
+    showTitle: false, showLegend: true, legendPos: 'b', showValue: true,
+    dataLabelColor: P.white, dataLabelFontSize: 11, dataLabelPosition: 'ctr', dataLabelFormatCode: '0'
+  });
+  addFooter(slide, pageNum);
+}
+
+function kpiBarChartSlide(pres, {teamResults}, pageNum) {
+  const slide = sectionHeaderSlide(pres, {title: 'Final KPI by Employee', subtitle: 'Team performance this period'});
+  const rows = teamResults.filter(r => r.finalKpi != null && Number.isFinite(+r.finalKpi));
+  slide.addChart('bar', [{name: 'Final KPI', labels: rows.map(r => r.employeeName), values: rows.map(r => Number(r.finalKpi))}], {
+    x: 0.6, y: 1.9, w: 12.1, h: 5.0, barDir: 'bar',
+    chartColors: [P.accent],
+    showTitle: false, showLegend: false, showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: P.ink, dataLabelFontSize: 10,
+    catAxisLabelColor: P.ink, catAxisLabelFontSize: 10, valAxisLabelColor: P.muted,
+    valGridLine: {color: 'DFE2EA', size: 0.75}, catGridLine: {style: 'none'}
+  });
+  addFooter(slide, pageNum);
+}
+
 function teamOverviewSlide(pres, {teamResults, insight}, pageNum) {
   const slide = sectionHeaderSlide(pres, {title: 'Team Overview', subtitle: `Team Snapshot — ${teamResults.length} Active Members`});
   dataTable(slide, {
@@ -442,16 +490,18 @@ export async function generateMbrDeck({leaderName, month, teamResults, teamAtten
 
   const pres = newDeck();
   const monthText = monthLabel(month);
-  const sections = ['Attendance', 'Productivity', 'CSAT', 'Coaching', 'Pending & Reminders'];
+  const sections = ['Team Snapshot', 'Attendance', 'Productivity', 'CSAT', 'Coaching', 'Pending & Reminders'];
   titleSlide(pres, {leaderName, monthText, sections});
-  teamOverviewSlide(pres, {teamResults, insight: d.teamInsight}, 2);
-  attendanceSlide(pres, {rows: d.attendanceRows, factSummary: attendanceFactSummary(d.attendanceRows)}, 3);
-  productivitySlide(pres, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}, 4);
-  csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 5);
-  csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 6);
-  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: d.coachingFactSummary}, 7);
-  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 8);
-  wrapUpSlide(pres, d.wrapUp, 9);
+  teamSnapshotSlide(pres, {teamResults, attendanceRows: d.attendanceRows, csatTable: d.csatTable, coachingCount: d.inPeriod.length}, 2);
+  kpiBarChartSlide(pres, {teamResults}, 3);
+  teamOverviewSlide(pres, {teamResults, insight: d.teamInsight}, 4);
+  attendanceSlide(pres, {rows: d.attendanceRows, factSummary: attendanceFactSummary(d.attendanceRows)}, 5);
+  productivitySlide(pres, {voice: d.voice, nonVoice: d.nonVoice, senior: d.senior, database: d.database}, 6);
+  csatBadSlide(pres, {rows: d.csatTable, badDetail: d.badDetail, insight: d.csatInsight}, 7);
+  csatGoodSlide(pres, {goodCounts: d.goodCounts, highlights: d.goodHighlights, totalGood: d.totalGood}, 8);
+  coachingSlide(pres, {inPeriod: d.inPeriod, inProgress: d.inProgress, factSummary: d.coachingFactSummary}, 9);
+  remindersSlide(pres, {evaluations: d.evaluations, anniversaries: d.anniversaries}, 10);
+  wrapUpSlide(pres, d.wrapUp, 11);
 
   const fileName = `MBR - Team ${leaderName} - ${monthText}.pptx`;
   await pres.writeFile({fileName});
