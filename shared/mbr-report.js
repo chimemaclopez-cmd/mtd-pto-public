@@ -269,7 +269,7 @@ export async function draftCoachingInsight(token, {inPeriod, inProgress}) {
 
 // Deterministic Service Recovery fact summary - also the fallback for the drafted insight below.
 // "Contacted"/"customer responded" are both computed server-side from the ticket's own Zendesk
-// audit trail (a public reply from Mac or Prince after the survey, then one from the customer
+// audit trail (a public reply from a Team Lead or Senior TSR after the survey, then one from the customer
 // after that), not TL-entered, so this is purely reporting on numbers already resolved upstream.
 function serviceRecoveryFactSummary(tickets) {
   const total = tickets.length;
@@ -465,7 +465,7 @@ function csatGoodSlide(pres, {goodCounts, highlights, totalGood}, pageNum) {
 }
 
 // "Contacted" and "customer responded" both come pre-computed from zendesk-proxy.js scanning
-// each ticket's own Zendesk audit trail (a public reply from Mac/Prince after the survey, then
+// each ticket's own Zendesk audit trail (a public reply from a Team Lead or Senior TSR after the survey, then
 // one from the customer after that) - nothing here is TL-entered, so this slide is purely
 // presentational over server-computed fields.
 function serviceRecoverySlide(pres, {tickets, insight}, pageNum) {
@@ -578,7 +578,7 @@ function definitionsSlide(pres, pageNum) {
     ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
     ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
     ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.'],
-    ['Service Recovery', 'A bad CSAT is "Contacted" once Mac or Prince posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
+    ['Service Recovery', 'A bad CSAT is "Contacted" once that employee\'s own Team Lead or assigned Senior TSR posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
   ];
   let y = 1.95;
   for (const [term, def] of defs) {
@@ -1177,7 +1177,7 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
   }
 
   // "Contacted"/"customer responded" are both computed server-side from each ticket's own
-  // Zendesk audit trail (a public reply from Mac or Prince after the survey, then one from the
+  // Zendesk audit trail (a public reply from a Team Lead or Senior TSR after the survey, then one from the
   // customer after that) - nothing here is TL-entered, this section is purely reporting.
   sectionHeading('Service Recovery', serviceRecoveryFactSummary(serviceRecoveryTickets));
   if (serviceRecoveryTickets.length) {
@@ -1228,7 +1228,7 @@ export async function generateExecutiveReportPdf({leaderName, month, teamResults
     ['LCR (Long Call Rate)', 'Accepted calls running 30+ minutes ÷ total accepted calls, per employee.'],
     ['Performance Tier', 'Exceptional / Exceeds / Meets / Intervention, derived from Final KPI against the role’s tier thresholds.'],
     ['Coaching Session', 'A logged 1:1 coaching record tied to a specific category and date; "in progress" means a follow-up date beyond this reporting period.'],
-    ['Service Recovery', 'A bad CSAT is "Contacted" once Mac or Prince posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
+    ['Service Recovery', 'A bad CSAT is "Contacted" once that employee\'s own Team Lead or assigned Senior TSR posts a public reply on the ticket after the survey (detected from Zendesk\'s own audit trail, not manually entered); "Recovered" means the customer replied back after that.']
   ];
   for (const [term, def] of definitions) {
     ensureRoom(0.3);
