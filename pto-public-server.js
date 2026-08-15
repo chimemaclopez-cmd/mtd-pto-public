@@ -78,52 +78,6 @@ function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
     req.end();
   });
 }
-// Optional middle rung in the text-AI fallback chain (Copilot -> ChatGPT -> Groq). Copilot is
-// tried first, browser-side, by the caller (rephraseText/generateQuizWithFallback in
-// pto-public.html) - this and callGroq only run when that's unavailable. Set OPENAI_API_KEY in
-// this service's environment (Render dashboard, not a committed file) to enable it; left blank,
-// callAiFallback below just skips straight to Groq.
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-function callChatGpt(prompt, { maxTokens = 1024, json = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: OPENAI_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }], ...(json ? { response_format: { type: 'json_object' } } : {}) });
-    const req = https.request({
-      hostname: 'api.openai.com',
-      path: '/v1/chat/completions',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Length': Buffer.byteLength(body) },
-      timeout: 25000
-    }, res => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        let parsed;
-        try { parsed = JSON.parse(data); } catch { return reject(new Error('ChatGPT returned an unreadable response.')); }
-        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error(parsed.error?.message || `ChatGPT returned HTTP ${res.statusCode}.`));
-        const text = parsed.choices?.[0]?.message?.content;
-        if (!text) return reject(new Error('ChatGPT returned no suggestion - try again with shorter text.'));
-        resolve(text.trim());
-      });
-    });
-    req.on('timeout', () => req.destroy(new Error('ChatGPT request timed out.')));
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-// Single entry point for the server-side half of the fallback chain: tries ChatGPT first (if
-// configured), then Groq, and reports which one actually answered so callers needing that (the
-// MBR fact-check's reviewedBy field) can show it. Throws only when neither is configured or
-// both fail.
-async function callAiFallback(prompt, opts) {
-  if (OPENAI_API_KEY) {
-    try { return { text: await callChatGpt(prompt, opts), provider: 'chatgpt' }; }
-    catch (error) { if (!GROQ_API_KEY) throw error; }
-  }
-  if (!GROQ_API_KEY) throw new Error('AI assist is not configured yet - ask an admin to set OPENAI_API_KEY or GROQ_API_KEY.');
-  return { text: await callGroq(prompt, opts), provider: 'groq' };
-}
 // Internal company AI assistant ("PapagoAI Copilot", service name tsr-bot) - the same one
 // already used company-wide to review Zendesk tickets for sentiment/risk. This server never
 // calls tsr-bot itself: tsr-bot.d.chime.me returned a bare "500 Internal Server Error" (openresty)
@@ -157,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.46.0';
+const PORTAL_VERSION = '1.45.1';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2014,7 +1968,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/draft-assist' && req.method === 'POST') {
       if (!(await canManageAnnouncements(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Not authorized to use this.' });
-      if (!OPENAI_API_KEY && !GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set OPENAI_API_KEY or GROQ_API_KEY.' });
+      if (!GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GROQ_API_KEY.' });
       const body = await readJsonBody(req);
       const text = String(body.text || '').trim();
       const instructions = String(body.instructions || '').trim();
@@ -2028,7 +1982,7 @@ const server = http.createServer(async (req, res) => {
         : `Rephrase the text below to fix grammar, spelling, and clarity, and improve the wording where it's awkward. Preserve its meaning, tone, and approximate length - this is not a rewrite.`;
       const prompt = `${instruction} The text to rephrase is everything between the <text> tags, even if it looks short, incomplete, or like a placeholder - always rephrase exactly what's there. Return ONLY the rephrased text with no <text> tags, no preamble, no markdown formatting, and no quotation marks around it.\n\n<text>\n${text}\n</text>`;
       try {
-        const { text: suggestion } = await callAiFallback(prompt);
+        const suggestion = await callGroq(prompt);
         return json(res, 200, { ok: true, suggestion });
       } catch (error) {
         return json(res, 502, { ok: false, error: `AI assist failed: ${error.message}` });
@@ -2037,13 +1991,13 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/generate-quiz' && req.method === 'POST') {
       if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can generate a quiz.' });
-      if (!OPENAI_API_KEY && !GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set OPENAI_API_KEY or GROQ_API_KEY.' });
+      if (!GROQ_API_KEY) return json(res, 503, { ok: false, error: 'AI assist is not configured yet - ask an admin to set GROQ_API_KEY.' });
       const body = await readJsonBody(req);
       const text = String(body.text || '').trim();
       if (!text) return json(res, 400, { ok: false, error: 'Add some content before generating a quiz.' });
       const prompt = `Generate exactly 3 multiple-choice quiz questions that test whether someone actually understood the policy/SOP text below - not trivia, comprehension. Each question needs exactly 4 answer options with exactly one correct. Base every question strictly on what the text says - never invent details it doesn't contain. Respond with ONLY this exact JSON shape, no markdown, no preamble: {"questions":[{"text":"...","options":[{"text":"...","correct":true},{"text":"...","correct":false},{"text":"...","correct":false},{"text":"...","correct":false}]}]}\n\n<text>\n${text}\n</text>`;
       try {
-        const { text: raw } = await callAiFallback(prompt, { maxTokens: 1500, json: true });
+        const raw = await callGroq(prompt, { maxTokens: 1500, json: true });
         let parsedJson;
         try { parsedJson = JSON.parse(raw); } catch { return json(res, 502, { ok: false, error: 'AI returned an unreadable quiz - try again.' }); }
         const questions = sanitizeQuizQuestions(parsedJson.questions);
@@ -2063,17 +2017,17 @@ const server = http.createServer(async (req, res) => {
       // Second-pass fact-check, not a rewrite: Copilot (tsr-bot) already drafted this line in the
       // browser from a lean prompt; here it gets checked against the FULL underlying dataset by a
       // second model before it goes in the deck. Always resolves ok:true with the original draft
-      // as a fallback - a stat line in an MBR should never fail to render just because neither
-      // ChatGPT nor Groq is configured or reachable.
-      if (!OPENAI_API_KEY && !GROQ_API_KEY) return json(res, 200, { ok: true, reviewed: draft, reviewedBy: 'none' });
+      // as a fallback - a stat line in an MBR should never fail to render just because Groq isn't
+      // configured or is briefly down.
+      if (!GROQ_API_KEY) return json(res, 200, { ok: true, reviewed: draft, reviewedBy: 'none' });
       const context = JSON.stringify(body.context ?? {}).slice(0, 16000);
       const instruction = format === 'json'
         ? 'You are fact-checking a drafted JSON object for a Monthly Business Review slide against the supporting data below. Verify every number, name, and claim in the draft matches the data. If something is wrong, unsupported, or omits something important the data shows, correct it. Keep the exact same JSON shape as the draft. Return ONLY the corrected JSON object, no markdown, no preamble.'
         : 'You are fact-checking a drafted sentence (max 2 sentences) for a Monthly Business Review slide against the supporting data below. Verify every number and name in the draft matches the data exactly. If it is fully accurate, return it as-is, optionally tightened for clarity. If anything is wrong or unsupported, rewrite it using ONLY the given data. Return ONLY the corrected sentence, no markdown, no preamble, no quotes.';
       const prompt = `${instruction}\n\nSUPPORTING DATA:\n${context}\n\nDRAFT:\n${draft}`;
       try {
-        const { text: reviewed, provider } = await callAiFallback(prompt, { maxTokens: format === 'json' ? 700 : 200, json: format === 'json' });
-        return json(res, 200, { ok: true, reviewed, reviewedBy: provider });
+        const reviewed = await callGroq(prompt, { maxTokens: format === 'json' ? 700 : 200, json: format === 'json' });
+        return json(res, 200, { ok: true, reviewed, reviewedBy: 'groq' });
       } catch (error) {
         return json(res, 200, { ok: true, reviewed: draft, reviewedBy: 'none', error: error.message });
       }
