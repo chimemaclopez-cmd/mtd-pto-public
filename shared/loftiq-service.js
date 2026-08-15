@@ -71,6 +71,24 @@ export function isLoftIqMetaResponse(text){
   return acksOpener.test(t)&&personaTalk.test(t);
 }
 
+// A second, distinct flaky failure mode observed during calibration: Copilot claims a fact
+// "wasn't provided" (e.g. "no employee KPI data was provided") when the field is actually
+// present and populated in EMPLOYEE'S OWN DATA above - confirmed live by an identical retry
+// answering correctly both times observed, so this is Copilot flakiness, not a real data gap.
+// Deliberately keyed on "data/information ... provided" phrasing rather than any "don't have
+// X" wording - the prompt's own STRICT RULE instructs Lotti to phrase a genuinely-empty field
+// as "you don't have any X," which is a correct, confident answer and must never be mistaken
+// for this failure mode (e.g. "No, you don't have any disciplinary records" doesn't match).
+export function isLoftIqFalseNoDataClaim(text){
+  const t=(text||'').trim();
+  if(!t)return false;
+  return /\b(no|not|wasn'?t|weren'?t|isn'?t|don'?t|doesn'?t|can'?t|couldn'?t|didn'?t)\b[^.!?]{0,60}\b(data|information)\b[^.!?]{0,40}\b(provided|given|included|shared|available)\b/i.test(t);
+}
+
+export function isLoftIqBadAnswer(text){
+  return isLoftIqMetaResponse(text)||isLoftIqFalseNoDataClaim(text);
+}
+
 // Builds the actual Copilot prompt: real data context (from loadLoftIqContext, gathered
 // server-side and scoped strictly to the signed-in user's real identity) + this scope's prior
 // exchanges (manual context-stuffing, since Copilot's chat/messages call is single-shot with no

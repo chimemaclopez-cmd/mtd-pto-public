@@ -15,10 +15,14 @@ export const disconnectCopilot=()=>api('/api/admin/copilot/disconnect',{method:'
 // them, same as Team_Mac_Daily_Operations_Dashboard.html already does successfully.
 const COPILOT_BASE='https://tsr-bot.d.chime.me/api/v1';
 const COPILOT_CLIENT_VERSION='2.4.2';
+// No timeout used to mean a hung tsr-bot request left the UI (a triage loop, LoftIQ's
+// "thinking" state, Suggest Reply) stuck indefinitely with no way out but a page reload -
+// 30s is generous for a single chat/messages call but still bounds the wait.
+const COPILOT_TIMEOUT_MS=30000;
 async function copilotDirectFetch(path,opts={}){
   let r;
-  try{r=await fetch(`${COPILOT_BASE}${path}`,{...opts,headers:{Accept:'application/json','X-Client-Version':COPILOT_CLIENT_VERSION,...(opts.headers||{})}})}
-  catch{throw new Error('Could not reach Copilot from this browser/network.')}
+  try{r=await fetch(`${COPILOT_BASE}${path}`,{...opts,signal:AbortSignal.timeout(COPILOT_TIMEOUT_MS),headers:{Accept:'application/json','X-Client-Version':COPILOT_CLIENT_VERSION,...(opts.headers||{})}})}
+  catch(error){throw new Error(error.name==='TimeoutError'?`Copilot did not respond within ${COPILOT_TIMEOUT_MS/1000}s.`:'Could not reach Copilot from this browser/network.')}
   const raw=await r.text();
   let parsed;
   try{parsed=raw?JSON.parse(raw):{}}
@@ -44,3 +48,34 @@ export function copilotResponseText(data){
   return data?.content||data?.answer||data?.message||JSON.stringify(data);
 }
 export const copilotChat=(token,question)=>copilotDirectFetch('/chat/messages',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({question,streaming_mode:false})});
+
+// Single home for "is this error really an expired/invalid connection" - every Copilot call
+// site across the portal (LoftIQ, DSAT/Service Recovery triage, Suggest Reply, Alignment
+// Consistency Check, rephrase/quiz) used to each carry its own copy of this regex.
+export function isCopilotAuthError(error){
+  return Boolean(error?.copilotCode)||/invalid.*token|token.*invalid|expired|unauthor|401/i.test(error?.message||'');
+}
+
+// tsr-bot is flaky in ways one call can't distinguish from a real answer - a dropped
+// connection, an unreadable response, or (for callers that pass isBadAnswer) a detectably
+// wrong-shaped reply (LoftIQ's meta-response/false-refusal patterns, a DSAT triage reply that
+// failed schema validation). One retry on the identical prompt has resolved every flaky case
+// observed live during calibration testing. Auth errors are never retried - they need a fresh
+// token, not another attempt with the same expired one, so they're thrown immediately for the
+// caller's existing reconnect-prompt handling. Bounded to maxRetries extra attempts so a
+// stubbornly bad answer still returns (or throws) rather than looping.
+export async function copilotChatWithRetry(token,question,{isBadAnswer,maxRetries=1}={}){
+  let lastError=null,lastResult=null;
+  for(let attempt=0;attempt<=maxRetries;attempt++){
+    try{
+      const result=await copilotChat(token,question);
+      if(!isBadAnswer||!isBadAnswer(copilotResponseText(result)))return result;
+      lastResult=result;lastError=null;
+    }catch(error){
+      if(isCopilotAuthError(error))throw error;
+      lastError=error;lastResult=null;
+    }
+  }
+  if(lastError)throw lastError;
+  return lastResult;
+}
