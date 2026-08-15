@@ -112,7 +112,7 @@ const SOP_LIBRARY_KEY = 'mtdkpi:sop-library';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.39.0';
+const PORTAL_VERSION = '1.40.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2444,7 +2444,21 @@ const server = http.createServer(async (req, res) => {
         // names it couldn't see (confirmed live) rather than making them up, which was the
         // right call given what it had - but the fix is giving it the real per-member list, not
         // loosening the "don't invent" rule.
-        const teamMembers = teamRows.map(r => ({ employeeName: r.employeeName, kpiType: r.kpiType, finalKpi: r.finalKpi, performanceStatus: r.performanceStatus }));
+        // csatGoodNeededFor90/lcrShortCallsNeededBelow5 mirror goodNeededFor90/
+        // shortCallsNeededBelow5 in pto-public.html exactly (the Rep Goal Tracker on the KPI
+        // Scores tab) - a real question ("how many good ratings does X need for 90%") was
+        // otherwise unanswerable because this per-rep goal math lived only client-side.
+        const teamMembers = teamRows.map(r => {
+          const good = Number(r.csat?.good || 0), bad = Number(r.csat?.bad || 0), surveys = good + bad;
+          const csatGoodNeededFor90 = surveys ? Math.max(0, 9 * bad - good) : null;
+          const accepted = Number(r.lcr?.accepted || 0), longCalls = Number(r.lcr?.longCalls || 0);
+          const lcrShortCallsNeededBelow5 = accepted ? Math.max(0, 20 * longCalls - accepted + 1) : null;
+          return {
+            employeeName: r.employeeName, kpiType: r.kpiType, finalKpi: r.finalKpi, performanceStatus: r.performanceStatus,
+            csatGood: good, csatBad: bad, csatRate: surveys ? Math.round((good / surveys) * 1000) / 10 : null, csatGoodNeededFor90,
+            longCallsAccepted: accepted, longCalls, lcrRate: accepted ? Math.round((longCalls / accepted) * 1000) / 10 : null, lcrShortCallsNeededBelow5
+          };
+        });
 
         const priorDates = ptoLogic.dateRange(monthStart, today).filter(d => d < today);
         const attendanceFlags = assignedMembers.map(m => {
