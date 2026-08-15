@@ -112,7 +112,7 @@ const SOP_LIBRARY_KEY = 'mtdkpi:sop-library';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.41.0';
+const PORTAL_VERSION = '1.42.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2398,7 +2398,12 @@ const server = http.createServer(async (req, res) => {
       const upcomingSchedule = ptoLogic.dateRange(today, scheduleWindowEnd.toISOString().slice(0, 10)).map(date => {
         const resolved = ptoLogic.scheduleForDate(schedules, identity, date);
         const t = resolved.template;
-        return { date, weekday: resolved.weekday, off: t ? Boolean(t.off) : null, shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null), shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null) };
+        // exactActivities (lunch/break blocks with real start/end times) resolved the exact same
+        // way /api/my/schedule does - LoftIQ was answering "what time is my lunch" by saying it
+        // didn't have that data, when the schedule actually carries it, it just wasn't being
+        // passed through here.
+        const exactActivities = t?.off ? [] : (resolved.override ? (resolved.override.exactActivities || []) : (resolved.record?.exactActivities?.[resolved.weekday] || []));
+        return { date, weekday: resolved.weekday, off: t ? Boolean(t.off) : null, shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null), shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null), breaks: exactActivities.map(a => ({ activity: a.activityId, startTime: a.startTime, endTime: a.endTime })) };
       });
 
       // This month's attendance, summarized as code counts (not a day-by-day dump) - enough
