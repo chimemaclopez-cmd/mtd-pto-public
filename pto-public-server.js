@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.34.0';
+const PORTAL_VERSION = '1.35.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2357,24 +2357,139 @@ const server = http.createServer(async (req, res) => {
     function loftIqScopeKey(scopeType, scopeId) { return `${scopeType || 'general'}:${scopeId || ''}`; }
 
     if (parsed.pathname === '/api/my/loftiq/context' && req.method === 'GET') {
-      const roster = await loadRosterSnapshot();
-      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
-      const [kpiResults, pto, coaching, disputes] = await Promise.all([
-        loadKpiResultsSnapshot(), loadPto(), loadCoaching(), cloudStore.kvGetJson(DISPUTES_KEY, [])
+      // LoftIQ's whole context is "everything the signed-in employee can already see about
+      // themselves elsewhere in this portal" - Profile, KPI, Schedule, Attendance, PTO,
+      // Coaching, Disciplinary, Alignment, DSAT disputes, Points/Rewards, Announcements, and
+      // company-wide Site KPI (visible to everyone regardless of role) - plus a `team` block
+      // for anyone who actually leads a team. It never reaches into another employee's own
+      // personal data; the `team` block is built only from data a real lead already has
+      // legitimate access to (Team KPI, Team Attendance, Team Coaching, Service Recovery).
+      const [roster, kpiResults, pto, coaching, disputes, disciplinary, alignment, schedules, attendance, points, redemptions, announcementSnapshot, publicAnnouncements, siteMetricsData] = await Promise.all([
+        loadRosterSnapshot(), loadKpiResultsSnapshot(), loadPto(), loadCoaching(), cloudStore.kvGetJson(DISPUTES_KEY, []),
+        loadDisciplinary(), loadAlignment(), loadScheduleSnapshot(), loadAttendanceSnapshot(), computeAllPoints(),
+        cloudStore.kvGetJson(REWARD_REDEMPTIONS_KEY, []), loadAnnouncementsSnapshot(), cloudStore.kvGetJson('mtdkpi:public-announcements', []), loadSiteMetricsSnapshot()
       ]);
+      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const todayParts = easternDateParts(new Date());
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const monthStart = `${today.slice(0, 7)}-01`;
+
       const periodsSorted = Object.keys(kpiResults.periods || {}).sort((a, b) => b.localeCompare(a));
       const myKpiRows = periodsSorted.map(p => (kpiResults.periods[p] || []).find(r => ptoLogic.cleanEmail(r.employeeEmail) === identity)).filter(Boolean);
-      const latestKpi = myKpiRows[0] || null;
+      // Last 3 rated periods, not just the latest - "why did my KPI drop" needs something to
+      // compare the latest period against, which a single snapshot can never answer.
+      const kpiHistory = myKpiRows.slice(0, 3).map(row => ({ period: row.period, finalKpi: row.finalKpi, performanceStatus: row.performanceStatus, csat: row.csat || null, calls: row.calls || null, tickets: row.tickets || null, lcr: row.lcr || null }));
       const myPtoRequests = (pto.requests || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status !== 'DRAFT');
       const myCoaching = (coaching.records || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status !== 'DRAFT');
       const myDisputes = disputes.filter(d => ptoLogic.cleanEmail(d.employeeEmail) === identity);
+      const myDisciplinary = (disciplinary.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && ['DECIDED', 'ACKNOWLEDGED'].includes(x.status));
+      const myAlignment = (alignment.records || []).filter(x => x.status === 'APPROVED' && (x.targetEmployees || []).some(t => ptoLogic.cleanEmail(t.employeeEmail) === identity));
+
+      // Upcoming schedule: next 7 days, same source /api/my/schedule reads.
+      const sevenDaysOut = new Date(`${today}T12:00:00Z`);
+      sevenDaysOut.setUTCDate(sevenDaysOut.getUTCDate() + 6);
+      const upcomingSchedule = ptoLogic.dateRange(today, sevenDaysOut.toISOString().slice(0, 10)).map(date => {
+        const resolved = ptoLogic.scheduleForDate(schedules, identity, date);
+        const t = resolved.template;
+        return { date, weekday: resolved.weekday, off: t ? Boolean(t.off) : null, shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null), shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null) };
+      });
+
+      // This month's attendance, summarized as code counts (not a day-by-day dump) - enough
+      // to answer "how many times was I late" without the prompt ballooning on a full calendar.
+      const attendanceByCode = {};
+      for (const date of ptoLogic.dateRange(monthStart, today)) {
+        const code = ptoLogic.attendanceCodeOnDate(attendance, identity, date);
+        if (code) attendanceByCode[code] = (attendanceByCode[code] || 0) + 1;
+      }
+
+      const myEarned = points.byEmployee[identity]?.allTime.total || 0;
+      const mySpent = redemptions.filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status === 'APPROVED').reduce((sum, r) => sum + r.pointCost, 0);
+
+      const recentAnnouncements = [...(announcementSnapshot.announcements || []), ...publicAnnouncements]
+        .filter(x => x.active !== false)
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+        .slice(0, 3)
+        .map(a => ({ title: a.title, createdAt: a.createdAt }));
+
+      const siteAvailablePeriods = currentPeriodKeys(Object.keys(siteMetricsData.periods || {})).sort((a, b) => b.localeCompare(a));
+      const latestSitePeriod = siteAvailablePeriods[0] || '';
+      const latestSiteRow = latestSitePeriod ? siteMetricsData.periods[latestSitePeriod] : null;
+      const companyKpi = latestSiteRow ? { period: latestSitePeriod, callCompletionRate: latestSiteRow.callCompletion?.rate ?? null, longCallRate: latestSiteRow.longCallRate?.rate ?? null, csatRate: latestSiteRow.csat?.rate ?? null } : null;
+
+      // Team block: only for an employee who actually leads a team (same scopedTeamMembers
+      // check /api/my/kpi's own isTeamLeader flag already uses) - built entirely from data that
+      // lead already has legitimate access to elsewhere (Team KPI, Team Attendance, Team
+      // Coaching, Service Recovery), never from another rep's own personal tab. Kept as its own
+      // `team` key (never merged into the top-level fields above) so the prompt can tell the
+      // model this is aggregate/team data, not the asking employee's personal record.
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      let team = null;
+      if (assignedMembers.length) {
+        const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+        const teamPeriod = periodsSorted.find(p => (kpiResults.periods[p] || []).some(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))) || '';
+        const periodRows = teamPeriod ? (kpiResults.periods[teamPeriod] || []) : [];
+        const teamRows = assignedMembers.map(m => periodRows.find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(m.employeeEmail))).filter(Boolean);
+        const teamAverage = teamRows.length ? Math.round((teamRows.reduce((sum, x) => sum + Number(x.finalKpi || 0), 0) / teamRows.length) * 10) / 10 : null;
+        const performanceBreakdown = {};
+        teamRows.forEach(r => { performanceBreakdown[r.performanceStatus] = (performanceBreakdown[r.performanceStatus] || 0) + 1; });
+
+        const priorDates = ptoLogic.dateRange(monthStart, today).filter(d => d < today);
+        const attendanceFlags = assignedMembers.map(m => {
+          const email = ptoLogic.cleanEmail(m.employeeEmail);
+          let lateCount = 0, missingCount = 0;
+          for (const date of ptoLogic.dateRange(monthStart, today)) { if (ptoLogic.attendanceCodeOnDate(attendance, email, date) === 'LATE') lateCount++; }
+          for (const date of priorDates) {
+            const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+            const eligible = !resolved.missingSchedule && Boolean(resolved.template) && !resolved.template.off;
+            if (!eligible) continue;
+            if (!ptoLogic.attendanceCodeOnDate(attendance, email, date)) missingCount++;
+          }
+          if (lateCount < 3 && missingCount < 1) return null;
+          return { employeeName: m.employeeName, lateCount, missingCount };
+        }).filter(Boolean);
+
+        const daysUntil = (dateStr) => {
+          const [y1, m1, d1] = dateStr.split('-').map(Number);
+          const [y2, m2, d2] = today.split('-').map(Number);
+          return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
+        };
+        const coachingFollowUpsDue = (coaching.records || [])
+          .filter(r => r.targetFollowUpDate && ['SENT', 'ACKNOWLEDGED'].includes(r.status) && ptoLogic.cleanEmail(r.teamLeadEmail) === identity)
+          .map(r => ({ employeeName: r.employeeName, category: r.category, followUpDate: r.targetFollowUpDate, daysUntil: daysUntil(r.targetFollowUpDate) }))
+          .filter(r => r.daysUntil <= 7)
+          .sort((a, b) => a.daysUntil - b.daysUntil);
+
+        const { tickets: srTickets } = await loadServiceRecoveryPeriodData('');
+        const myTickets = srTickets.filter(t => memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+        const rate = (n, total) => total ? Math.round((n / total) * 1000) / 10 : null;
+        const serviceRecovery = myTickets.length ? {
+          total: myTickets.length,
+          followUp24hRate: rate(myTickets.filter(t => t.contactedWithin24h).length, myTickets.length),
+          recovered7dRate: rate(myTickets.filter(t => t.recoveredWithin7d).length, myTickets.length)
+        } : null;
+
+        team = { teamSize: assignedMembers.length, teamPeriod, teamAverage, performanceBreakdown, attendanceFlags, coachingFollowUpsDue, serviceRecovery };
+      }
+
       const context = {
         employeeName: me?.employeeName || session.employeeName || '',
         kpiType: me?.kpiType || '',
-        latestKpi: latestKpi ? { period: latestKpi.period, finalKpi: latestKpi.finalKpi, performanceStatus: latestKpi.performanceStatus, csat: latestKpi.csat || null, calls: latestKpi.calls || null, tickets: latestKpi.tickets || null, lcr: latestKpi.lcr || null } : null,
+        jobTitle: me?.jobTitle || '',
+        hireDate: me?.hireDate || '',
+        teamLeadName: me?.teamLeadName || '',
+        kpiHistory,
+        upcomingSchedule,
+        attendanceThisMonth: attendanceByCode,
         ptoRequests: myPtoRequests.map(r => ({ requestId: r.requestId, status: r.status, requestType: r.requestType, date: r.date, reason: r.reason })),
         coachingSessions: myCoaching.map(r => ({ coachingId: r.coachingId, category: r.category, status: r.status, coachingDate: r.coachingDate, targetFollowUpDate: r.targetFollowUpDate || null })),
-        dsatDisputes: myDisputes.map(d => ({ id: d.id, ticketId: d.ticketId, status: d.status, period: d.period }))
+        disciplinaryRecords: myDisciplinary.map(r => ({ category: r.category, finalTier: r.finalTier, finalSanction: r.finalSanction, sanctionDate: r.sanctionDate })),
+        alignmentRecords: myAlignment.map(r => ({ title: r.title, category: r.category, dueDate: r.dueDate, acknowledged: Boolean(r.acknowledgments?.[identity]) })),
+        dsatDisputes: myDisputes.map(d => ({ id: d.id, ticketId: d.ticketId, status: d.status, period: d.period })),
+        pointsBalance: { earned: myEarned, spent: mySpent, balance: myEarned - mySpent },
+        recentAnnouncements,
+        companyKpi,
+        isTeamLead: assignedMembers.length > 0,
+        team
       };
       return json(res, 200, { ok: true, context });
     }
