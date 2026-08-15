@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.35.0';
+const PORTAL_VERSION = '1.36.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2385,10 +2385,16 @@ const server = http.createServer(async (req, res) => {
       const myDisciplinary = (disciplinary.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && ['DECIDED', 'ACKNOWLEDGED'].includes(x.status));
       const myAlignment = (alignment.records || []).filter(x => x.status === 'APPROVED' && (x.targetEmployees || []).some(t => ptoLogic.cleanEmail(t.employeeEmail) === identity));
 
-      // Upcoming schedule: next 7 days, same source /api/my/schedule reads.
-      const sevenDaysOut = new Date(`${today}T12:00:00Z`);
-      sevenDaysOut.setUTCDate(sevenDaysOut.getUTCDate() + 6);
-      const upcomingSchedule = ptoLogic.dateRange(today, sevenDaysOut.toISOString().slice(0, 10)).map(date => {
+      // Upcoming schedule: next 30 days (not just 7) - a question like "can I file PTO on the
+      // 28th" is usually asked with a couple weeks' notice, and a 7-day window made every such
+      // question fail even for the one thing this data COULD answer (is that even a scheduled
+      // workday). This still can't answer PTO *capacity/staffing* eligibility for a future date
+      // (that's a live per-request forecast - see /api/pto/forecast - not something to
+      // pre-compute for every possible date), so the prompt below tells LoftIQ to say what it
+      // does know (scheduled or not) and point to PTO Requests for the real capacity check.
+      const scheduleWindowEnd = new Date(`${today}T12:00:00Z`);
+      scheduleWindowEnd.setUTCDate(scheduleWindowEnd.getUTCDate() + 29);
+      const upcomingSchedule = ptoLogic.dateRange(today, scheduleWindowEnd.toISOString().slice(0, 10)).map(date => {
         const resolved = ptoLogic.scheduleForDate(schedules, identity, date);
         const t = resolved.template;
         return { date, weekday: resolved.weekday, off: t ? Boolean(t.off) : null, shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null), shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null) };
@@ -2432,6 +2438,12 @@ const server = http.createServer(async (req, res) => {
         const teamAverage = teamRows.length ? Math.round((teamRows.reduce((sum, x) => sum + Number(x.finalKpi || 0), 0) / teamRows.length) * 10) / 10 : null;
         const performanceBreakdown = {};
         teamRows.forEach(r => { performanceBreakdown[r.performanceStatus] = (performanceBreakdown[r.performanceStatus] || 0) + 1; });
+        // Named, not just tallied - "who needs coaching based on KPI" is unanswerable from a
+        // {Watch:2,Intervention:1} count alone. Without this, LoftIQ correctly refused to guess
+        // names it couldn't see (confirmed live) rather than making them up, which was the
+        // right call given what it had - but the fix is giving it the real per-member list, not
+        // loosening the "don't invent" rule.
+        const teamMembers = teamRows.map(r => ({ employeeName: r.employeeName, kpiType: r.kpiType, finalKpi: r.finalKpi, performanceStatus: r.performanceStatus }));
 
         const priorDates = ptoLogic.dateRange(monthStart, today).filter(d => d < today);
         const attendanceFlags = assignedMembers.map(m => {
@@ -2468,7 +2480,7 @@ const server = http.createServer(async (req, res) => {
           recovered7dRate: rate(myTickets.filter(t => t.recoveredWithin7d).length, myTickets.length)
         } : null;
 
-        team = { teamSize: assignedMembers.length, teamPeriod, teamAverage, performanceBreakdown, attendanceFlags, coachingFollowUpsDue, serviceRecovery };
+        team = { teamSize: assignedMembers.length, teamPeriod, teamAverage, performanceBreakdown, teamMembers, attendanceFlags, coachingFollowUpsDue, serviceRecovery };
       }
 
       const context = {
@@ -2523,6 +2535,19 @@ const server = http.createServer(async (req, res) => {
       if (all[identity][key].messages.length > 40) all[identity][key].messages = all[identity][key].messages.slice(-40);
       await cloudStore.kvSetJson(LOFTIQ_CONVERSATIONS_KEY, all);
       return json(res, 200, { ok: true, thread: all[identity][key] });
+    }
+
+    if (parsed.pathname === '/api/my/loftiq/clear-thread' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const scopeType = String(body.scopeType || 'general').slice(0, 40);
+      const scopeId = String(body.scopeId || '').slice(0, 80);
+      const all = await loadLoftIqConversations();
+      const key = loftIqScopeKey(scopeType, scopeId);
+      if (all[identity]?.[key]) {
+        delete all[identity][key];
+        await cloudStore.kvSetJson(LOFTIQ_CONVERSATIONS_KEY, all);
+      }
+      return json(res, 200, { ok: true });
     }
 
     if (parsed.pathname === '/api/my/loftiq/mark-viewed' && req.method === 'POST') {
