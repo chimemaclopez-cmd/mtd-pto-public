@@ -1718,9 +1718,12 @@ const server = http.createServer(async (req, res) => {
     // for all of them: each one's own browser needs it to call tsr-bot directly (see the
     // file-level comment above loadCopilotAuth for why this can't happen server-side).
     if (parsed.pathname === '/api/admin/copilot/status' && req.method === 'GET') {
-      const canUseCopilot = ADMIN_EMAILS.has(identity) || portalRoleFor(identity) === 'BQA' || effectiveViewAsRole(identity, session) === 'BQA'
-        || ['SOM', 'HR', 'TRAINING'].includes(portalRoleFor(identity)) || (await hasDirectReports(identity, session.employeeName, effectiveViewAsRole(identity, session)));
-      if (!canUseCopilot) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      // Originally gated to admin/BQA/SOM/HR/TRAINING/team-leads only, back when the only
+      // Copilot-backed features were DSAT Review (BQA-only) and Service Recovery (TL-only).
+      // LoftIQ is rep-facing by design (KPI/PTO/coaching questions are squarely a rep's own
+      // questions), so this read-only status/token check is open to any signed-in employee -
+      // `identity` above is already guaranteed authenticated (see the `!session` 401 above).
+      // Only the actual connect/disconnect actions below stay admin-only.
       const auth = await loadCopilotAuth();
       if (!auth) return json(res, 200, { ok: true, connected: false, isAdmin: ADMIN_EMAILS.has(identity) });
       return json(res, 200, { ok: true, connected: true, email: auth.email, connectedAt: auth.connectedAt, token: auth.token, isAdmin: ADMIN_EMAILS.has(identity) });
