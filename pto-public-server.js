@@ -112,7 +112,7 @@ const SOP_LIBRARY_KEY = 'mtdkpi:sop-library';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.40.0';
+const PORTAL_VERSION = '1.41.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2635,27 +2635,46 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
     // Plain keyword-overlap relevance, not a real search index - fine at the scale of a handful
-    // to a few dozen pasted SOPs. Title matches count for more than body matches.
-    if (parsed.pathname === '/api/my/loftiq/sop-search' && req.method === 'GET') {
-      const query = String(parsed.searchParams.get('q') || '').trim().toLowerCase();
-      if (!query) return json(res, 200, { ok: true, sops: [] });
-      const words = query.split(/\W+/).filter(w => w.length > 2);
-      if (!words.length) return json(res, 200, { ok: true, sops: [] });
-      const data = await loadSopLibrary();
-      const scored = (data.records || []).map(r => {
-        const titleLower = r.title.toLowerCase(), bodyLower = r.body.toLowerCase();
+    // to a few dozen entries. Title matches count for more than body matches. Shared by SOP
+    // Library search and Alignment search below (same shape: title + body text).
+    function keywordSearchRecords(query, records, { titleKey = 'title', bodyKey = 'body' } = {}) {
+      const words = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      if (!words.length) return [];
+      return records.map(r => {
+        const titleLower = String(r[titleKey] || '').toLowerCase(), bodyLower = String(r[bodyKey] || '').toLowerCase();
         let score = 0;
         for (const w of words) {
           // Naive plural/singular check (drop/add a trailing "s") - a plain substring match on
-          // "birthdays" otherwise misses a SOP body that only says "birthday", which is common
+          // "birthdays" otherwise misses a body that only says "birthday", which is common
           // enough in practice to be worth this cheap a fix without a real stemming library.
           const variants = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`];
           if (variants.some(v => titleLower.includes(v))) score += 3;
           if (variants.some(v => bodyLower.includes(v))) score += 1;
         }
         return { r, score };
-      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
-      return json(res, 200, { ok: true, sops: scored.map(x => ({ title: x.r.title, body: x.r.body.slice(0, 1200) })) });
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.r);
+    }
+    if (parsed.pathname === '/api/my/loftiq/sop-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim();
+      if (!query) return json(res, 200, { ok: true, sops: [] });
+      const data = await loadSopLibrary();
+      const matched = keywordSearchRecords(query, data.records || []);
+      return json(res, 200, { ok: true, sops: matched.map(r => ({ title: r.title, body: r.body.slice(0, 1200) })) });
+    }
+
+    // Alignment: the portal's own real company SOP/policy system (title + rich-text body,
+    // admin/TL-authored, employee-acknowledged) - a more official source than the pasted SOP
+    // Library above. Search covers every APPROVED alignment regardless of who it was targeted
+    // to (unlike /api/my/alignment, which only returns records assigned to the caller) since
+    // general knowledge should be available to any employee's question, not just the ones a
+    // record happened to be sent to.
+    if (parsed.pathname === '/api/my/loftiq/alignment-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim();
+      if (!query) return json(res, 200, { ok: true, alignments: [] });
+      const data = await loadAlignment();
+      const approved = (data.records || []).filter(r => r.status === 'APPROVED').map(r => ({ ...r, bodyText: stripArticleHtml(r.body) }));
+      const matched = keywordSearchRecords(query, approved, { bodyKey: 'bodyText' });
+      return json(res, 200, { ok: true, alignments: matched.map(r => ({ title: r.title, category: r.category, body: r.bodyText.slice(0, 1200) })) });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
