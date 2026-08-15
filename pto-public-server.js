@@ -107,12 +107,11 @@ const SERVICE_RECOVERY_AI_CACHE_KEY = 'mtdkpi:service-recovery-ai-cache';
 // system, just one more field on the same getMyNotifications() response.
 const LOFTIQ_CONVERSATIONS_KEY = 'mtdkpi:loftiq-conversations';
 const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
-const SOP_LIBRARY_KEY = 'mtdkpi:sop-library';
 
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.43.0';
+const PORTAL_VERSION = '1.44.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2607,41 +2606,8 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // SOP library: internal knowledge admins paste in (title + body text, no file upload/
-    // parsing - this app has zero backend npm dependencies today and pasted text keeps it that
-    // way). Read/search is open to any signed-in employee since every Lotti conversation should
-    // be able to draw on it; only adding/removing entries is admin-gated.
-    async function loadSopLibrary() { return cloudStore.kvGetJson(SOP_LIBRARY_KEY, { records: [] }); }
-    if (parsed.pathname === '/api/admin/sops' && req.method === 'GET') {
-      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const data = await loadSopLibrary();
-      return json(res, 200, { ok: true, records: (data.records || []).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
-    }
-    if (parsed.pathname === '/api/admin/sops' && req.method === 'POST') {
-      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const body = await readJsonBody(req);
-      const title = String(body.title || '').trim().slice(0, 200);
-      const text = String(body.body || '').trim().slice(0, 20000);
-      if (!title || !text) return json(res, 400, { ok: false, error: 'Title and body are required.' });
-      const data = await loadSopLibrary();
-      data.records = data.records || [];
-      const sopId = `SOP-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      data.records.push({ sopId, title, body: text, createdAt: new Date().toISOString(), createdBy: identity });
-      await cloudStore.kvSetJson(SOP_LIBRARY_KEY, data);
-      return json(res, 200, { ok: true, sopId });
-    }
-    if (parsed.pathname === '/api/admin/sops/delete' && req.method === 'POST') {
-      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const body = await readJsonBody(req);
-      const sopId = String(body.sopId || '');
-      const data = await loadSopLibrary();
-      data.records = (data.records || []).filter(r => r.sopId !== sopId);
-      await cloudStore.kvSetJson(SOP_LIBRARY_KEY, data);
-      return json(res, 200, { ok: true });
-    }
     // Plain keyword-overlap relevance, not a real search index - fine at the scale of a handful
-    // to a few dozen entries. Title matches count for more than body matches. Shared by SOP
-    // Library search and Alignment search below (same shape: title + body text).
+    // to a few dozen entries. Title matches count for more than body matches.
     function keywordSearchRecords(query, records, { titleKey = 'title', bodyKey = 'body' } = {}) {
       const words = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
       if (!words.length) return [];
@@ -2659,20 +2625,14 @@ const server = http.createServer(async (req, res) => {
         return { r, score };
       }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.r);
     }
-    if (parsed.pathname === '/api/my/loftiq/sop-search' && req.method === 'GET') {
-      const query = String(parsed.searchParams.get('q') || '').trim();
-      if (!query) return json(res, 200, { ok: true, sops: [] });
-      const data = await loadSopLibrary();
-      const matched = keywordSearchRecords(query, data.records || []);
-      return json(res, 200, { ok: true, sops: matched.map(r => ({ title: r.title, body: r.body.slice(0, 1200) })) });
-    }
 
     // Alignment: the portal's own real company SOP/policy system (title + rich-text body,
-    // admin/TL-authored, employee-acknowledged) - a more official source than the pasted SOP
-    // Library above. Search covers every APPROVED alignment regardless of who it was targeted
-    // to (unlike /api/my/alignment, which only returns records assigned to the caller) since
-    // general knowledge should be available to any employee's question, not just the ones a
-    // record happened to be sent to.
+    // admin/TL-authored, employee-acknowledged) - the sole SOP source for Lotti (deliberately no
+    // separate pasted-text SOP library; that would just be a second place to keep in sync).
+    // Search covers every APPROVED alignment regardless of who it was targeted to (unlike
+    // /api/my/alignment, which only returns records assigned to the caller) since general
+    // knowledge should be available to any employee's question, not just the ones a record
+    // happened to be sent to.
     if (parsed.pathname === '/api/my/loftiq/alignment-search' && req.method === 'GET') {
       const query = String(parsed.searchParams.get('q') || '').trim();
       if (!query) return json(res, 200, { ok: true, alignments: [] });
@@ -2680,6 +2640,18 @@ const server = http.createServer(async (req, res) => {
       const approved = (data.records || []).filter(r => r.status === 'APPROVED').map(r => ({ ...r, bodyText: stripArticleHtml(r.body) }));
       const matched = keywordSearchRecords(query, approved, { bodyKey: 'bodyText' });
       return json(res, 200, { ok: true, alignments: matched.map(r => ({ title: r.title, category: r.category, body: r.bodyText.slice(0, 1200) })) });
+    }
+
+    // Full text (not the 1200-char search snippet above) of every APPROVED alignment, for the
+    // admin "check for contradictions" review - that comparison needs the complete SOP text to
+    // judge conflicts correctly, not a truncated excerpt. Admin-only: this is a company-wide
+    // oversight tool, not something every employee's Lotti question needs.
+    if (parsed.pathname === '/api/admin/alignment/all-approved' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadAlignment();
+      const approved = (data.records || []).filter(r => r.status === 'APPROVED')
+        .map(r => ({ alignmentId: r.alignmentId, title: r.title, category: r.category, body: stripArticleHtml(r.body) }));
+      return json(res, 200, { ok: true, alignments: approved });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
