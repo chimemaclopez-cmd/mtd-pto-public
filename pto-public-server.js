@@ -107,11 +107,12 @@ const SERVICE_RECOVERY_AI_CACHE_KEY = 'mtdkpi:service-recovery-ai-cache';
 // system, just one more field on the same getMyNotifications() response.
 const LOFTIQ_CONVERSATIONS_KEY = 'mtdkpi:loftiq-conversations';
 const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
+const SOP_LIBRARY_KEY = 'mtdkpi:sop-library';
 
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.37.0';
+const PORTAL_VERSION = '1.39.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2555,6 +2556,92 @@ const server = http.createServer(async (req, res) => {
       lastViewed[identity] = new Date().toISOString();
       await cloudStore.kvSetJson(LOFTIQ_LAST_VIEWED_KEY, lastViewed);
       return json(res, 200, { ok: true });
+    }
+
+    // Lofty's own public product help center (help.lofty.com, a Zendesk Guide instance backed
+    // by chimecrm.zendesk.com) - separate from this company's internal support Zendesk that
+    // zendesk-proxy.js talks to. Its search API is public with no auth, and (unlike tsr-bot)
+    // reachable fine from this server, so this is a normal server-side fetch, not a
+    // browser-only call. Confirmed live: /api/v2/help_center/articles/search.json returns real
+    // results with no token. Body comes back as article HTML - stripped to plain text here so
+    // it doesn't bloat the prompt with markup the model was told not to use anyway.
+    function stripArticleHtml(html) {
+      return String(html || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ').trim();
+    }
+    if (parsed.pathname === '/api/my/loftiq/help-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim().slice(0, 200);
+      if (!query) return json(res, 200, { ok: true, articles: [] });
+      try {
+        const url = `https://help.lofty.com/api/v2/help_center/articles/search.json?locale=en-us&per_page=3&query=${encodeURIComponent(query)}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return json(res, 200, { ok: true, articles: [] });
+        const data = await r.json();
+        const articles = (data.results || []).slice(0, 3).map(a => ({ title: a.title, url: a.html_url, snippet: stripArticleHtml(a.body).slice(0, 900) }));
+        return json(res, 200, { ok: true, articles });
+      } catch {
+        // Help center being slow/unreachable should never break the rest of Lotti's answer -
+        // same "degrade gracefully" approach as every other optional context source here.
+        return json(res, 200, { ok: true, articles: [] });
+      }
+    }
+
+    // SOP library: internal knowledge admins paste in (title + body text, no file upload/
+    // parsing - this app has zero backend npm dependencies today and pasted text keeps it that
+    // way). Read/search is open to any signed-in employee since every Lotti conversation should
+    // be able to draw on it; only adding/removing entries is admin-gated.
+    async function loadSopLibrary() { return cloudStore.kvGetJson(SOP_LIBRARY_KEY, { records: [] }); }
+    if (parsed.pathname === '/api/admin/sops' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadSopLibrary();
+      return json(res, 200, { ok: true, records: (data.records || []).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
+    }
+    if (parsed.pathname === '/api/admin/sops' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim().slice(0, 200);
+      const text = String(body.body || '').trim().slice(0, 20000);
+      if (!title || !text) return json(res, 400, { ok: false, error: 'Title and body are required.' });
+      const data = await loadSopLibrary();
+      data.records = data.records || [];
+      const sopId = `SOP-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      data.records.push({ sopId, title, body: text, createdAt: new Date().toISOString(), createdBy: identity });
+      await cloudStore.kvSetJson(SOP_LIBRARY_KEY, data);
+      return json(res, 200, { ok: true, sopId });
+    }
+    if (parsed.pathname === '/api/admin/sops/delete' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const sopId = String(body.sopId || '');
+      const data = await loadSopLibrary();
+      data.records = (data.records || []).filter(r => r.sopId !== sopId);
+      await cloudStore.kvSetJson(SOP_LIBRARY_KEY, data);
+      return json(res, 200, { ok: true });
+    }
+    // Plain keyword-overlap relevance, not a real search index - fine at the scale of a handful
+    // to a few dozen pasted SOPs. Title matches count for more than body matches.
+    if (parsed.pathname === '/api/my/loftiq/sop-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim().toLowerCase();
+      if (!query) return json(res, 200, { ok: true, sops: [] });
+      const words = query.split(/\W+/).filter(w => w.length > 2);
+      if (!words.length) return json(res, 200, { ok: true, sops: [] });
+      const data = await loadSopLibrary();
+      const scored = (data.records || []).map(r => {
+        const titleLower = r.title.toLowerCase(), bodyLower = r.body.toLowerCase();
+        let score = 0;
+        for (const w of words) {
+          // Naive plural/singular check (drop/add a trailing "s") - a plain substring match on
+          // "birthdays" otherwise misses a SOP body that only says "birthday", which is common
+          // enough in practice to be worth this cheap a fix without a real stemming library.
+          const variants = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`];
+          if (variants.some(v => titleLower.includes(v))) score += 3;
+          if (variants.some(v => bodyLower.includes(v))) score += 1;
+        }
+        return { r, score };
+      }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+      return json(res, 200, { ok: true, sops: scored.map(x => ({ title: x.r.title, body: x.r.body.slice(0, 1200) })) });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
