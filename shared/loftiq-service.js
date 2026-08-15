@@ -85,8 +85,20 @@ export function isLoftIqFalseNoDataClaim(text){
   return /\b(no|not|wasn'?t|weren'?t|isn'?t|don'?t|doesn'?t|can'?t|couldn'?t|didn'?t)\b[^.!?]{0,60}\b(data|information)\b[^.!?]{0,40}\b(provided|given|included|shared|available)\b/i.test(t);
 }
 
+// A third flaky failure mode, observed live testing this on the production site: Copilot
+// deflects with a generic "what would you like to check next?" prompt instead of answering the
+// specific question actually asked (e.g. asked "how many PTO days do I have left?", got back
+// "I'm here - what would you like to check next? Could be PTO, schedule..."). An identical retry
+// answered correctly. Keyed on the distinctive idle-chat opener/phrasing real data-driven answers
+// don't use, not on length alone, so a genuine short answer isn't mistaken for this.
+export function isLoftIqDeflection(text){
+  const t=(text||'').trim();
+  if(!t||t.length>220)return false;
+  return /^i'?m here\b/i.test(t)||/what would you like (to (check|know|see)|me to (check|help))/i.test(t);
+}
+
 export function isLoftIqBadAnswer(text){
-  return isLoftIqMetaResponse(text)||isLoftIqFalseNoDataClaim(text);
+  return isLoftIqMetaResponse(text)||isLoftIqFalseNoDataClaim(text)||isLoftIqDeflection(text);
 }
 
 // Builds the actual Copilot prompt: real data context (from loadLoftIqContext, gathered
