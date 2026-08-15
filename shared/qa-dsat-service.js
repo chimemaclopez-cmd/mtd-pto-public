@@ -14,7 +14,7 @@ export const disconnectCopilot=()=>api('/api/admin/copilot/disconnect',{method:'
 // (send-code/verify) and the actual chat call happen directly from whichever browser is doing
 // them, same as Team_Mac_Daily_Operations_Dashboard.html already does successfully.
 const COPILOT_BASE='https://tsr-bot.d.chime.me/api/v1';
-const COPILOT_CLIENT_VERSION='2.4.0';
+const COPILOT_CLIENT_VERSION='2.4.2';
 async function copilotDirectFetch(path,opts={}){
   let r;
   try{r=await fetch(`${COPILOT_BASE}${path}`,{...opts,headers:{Accept:'application/json','X-Client-Version':COPILOT_CLIENT_VERSION,...(opts.headers||{})}})}
