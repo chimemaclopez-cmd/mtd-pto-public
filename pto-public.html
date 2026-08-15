@@ -43,6 +43,16 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .chatMsg .who{font-size:11px;font-weight:800;opacity:.7;margin-bottom:2px}
 .chatMsg .when{font-size:10px;opacity:.6;margin-top:3px;text-align:right}
 .chatDateSeparator{text-align:center;font-size:11px;color:var(--muted);margin:6px 0;text-transform:uppercase;letter-spacing:.4px}
+.loftiqHeader{margin-bottom:12px}
+.loftiqTitle{font-size:22px;font-weight:850}
+.loftiqLive{color:#19ab63;font-size:13px;font-weight:800;letter-spacing:.4px}
+.loftiqScopeBanner{background:#eef0f5;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:12px}
+.loftiqScopeBanner a{font-weight:700}
+.loftiqQuickActions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.loftiqMessages{flex:none;height:340px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px}
+.loftiqCapabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+.loftiqCapCard{border:1px solid var(--line);border-radius:10px;padding:14px}
+.loftiqCapIcon{font-size:22px;margin-bottom:6px}
 .chatDelete{cursor:pointer;text-decoration:underline;opacity:.85}
 .chatDelete:hover{opacity:1}
 .chatReconnect{background:#fff2cc;color:#7a4a05;font-size:11px;text-align:center;padding:4px;font-weight:700}
@@ -121,8 +131,9 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <section id="maintenanceView" class="panel noPrint" hidden style="text-align:center;padding:36px 24px"><div style="font-size:40px;margin-bottom:6px">🛠️</div><div class="sectionTitle">We'll be right back</div><div class="sub" style="margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto">The portal is temporarily unavailable for maintenance. This usually clears up on its own within a few minutes — please check back shortly.</div><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn primary" type="button" id="maintenanceRetryBtn">Try Again</button></div><div class="sub" style="margin-top:18px;font-style:italic">Thank you for your patience — Mac</div></section>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
 <div class="noPrint" id="viewAsBanner" hidden style="background:#fff2cc;color:#8a5a00;padding:8px 16px;font-weight:700;text-align:center">Previewing as <span id="viewAsBannerRole"></span> (read-only preview — approvals/decisions stay disabled)</div>
-<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="seniorJira" id="seniorJiraTabBtn" hidden>Jira Activity</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="training" id="trainingTabBtn" hidden>New Hires</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="serviceRecovery" id="serviceRecoveryTabBtn" hidden>Service Recovery</button><button class="btn" data-tab="mbrReport" id="mbrReportTabBtn" hidden>Generate MBR</button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="leaderPto" id="leaderPtoTabBtn" hidden>Leadership PTO Calendar</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="rewards">Rewards</button></div>
+<div class="ptoTabs noPrint" id="tabs" hidden><button class="btn primary" data-tab="profile">Profile</button><button class="btn" data-tab="loftiq" id="loftiqTabBtn">🤖 LoftIQ<span id="loftiqBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="kpi">KPI Scores</button><button class="btn" data-tab="seniorJira" id="seniorJiraTabBtn" hidden>Jira Activity</button><button class="btn" data-tab="siteMetrics">Site KPI</button><button class="btn" data-tab="schedule">My Schedule</button><button class="btn" data-tab="attendance">My Attendance</button><button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden>Team Attendance</button><button class="btn" data-tab="teamRoster" id="teamRosterTabBtn" hidden>Team Roster</button><button class="btn" data-tab="training" id="trainingTabBtn" hidden>New Hires</button><button class="btn" data-tab="coaching" id="coachingTabBtn">Coaching<span id="coachingBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="siteCoaching" id="siteCoachingTabBtn" hidden>All Coaching</button><button class="btn" data-tab="disciplinary" id="disciplinaryTabBtn">Disciplinary<span id="disciplinaryBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="alignment" id="alignmentTabBtn">Alignment</button><button class="btn" data-tab="serviceRecovery" id="serviceRecoveryTabBtn" hidden>Service Recovery</button><button class="btn" data-tab="mbrReport" id="mbrReportTabBtn" hidden>Generate MBR</button><button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden>DSAT Review</button><button class="btn" data-tab="pto">PTO Requests</button><button class="btn" data-tab="leaderPto" id="leaderPtoTabBtn" hidden>Leadership PTO Calendar</button><button class="btn" data-tab="announcements">Announcements<span id="announcementsBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="rewards">Rewards</button></div>
 <section id="profileCard" class="panel noPrint" hidden></section>
+<section id="loftiqView" hidden><div class="loftiqHeader"><div class="loftiqTitle">🤖 LoftIQ · <span class="loftiqLive">LIVE</span></div><div class="sub">LoftIQ, Lofty Support Portal's own bot — KPI, schedule, PTO, and coaching lookups. Ask and carry on, we'll notify you when it's ready.</div></div><div class="message error" id="loftiqCopilotWarning" hidden>Copilot is not connected - connect it from the Profile page first.</div><div class="loftiqScopeBanner" id="loftiqScopeBanner" hidden></div><div class="loftiqQuickActions" id="loftiqQuickActions"></div><div class="chatMessages loftiqMessages" id="loftiqMessages"></div><form id="loftiqForm" class="chatInputRow"><input id="loftiqInput" autocomplete="off" placeholder="Ask LoftIQ…" maxlength="2000"><button class="btn primary" type="submit" id="loftiqAskBtn">Ask</button></form><div class="sectionTitle" style="margin-top:24px">What LoftIQ can do</div><div class="loftiqCapabilities"><div class="loftiqCapCard"><div class="loftiqCapIcon">📊</div><b>KPI & Performance</b><div class="sub">Why your score moved, what's dragging it, and what to fix.</div></div><div class="loftiqCapCard"><div class="loftiqCapIcon">🗓️</div><b>Schedule & PTO</b><div class="sub">Remaining PTO balance, request status, upcoming shifts.</div></div><div class="loftiqCapCard"><div class="loftiqCapIcon">🎯</div><b>Coaching & Disputes</b><div class="sub">Follow-up dates, session history, DSAT dispute status.</div></div></div></section>
 <section id="adminCopilotView" class="panel noPrint" hidden><div class="sectionTitle" style="font-size:14px">Copilot Connection</div><div class="sub">Connects the company's internal Copilot AI service - shared by every BQA reviewer for DSAT Review's AI triage once connected here. Admin-only.</div><div id="adminCopilotBar" class="copilotBar" style="margin-top:10px"><span id="adminCopilotStatusText"></span><span id="adminCopilotControls" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="adminCopilotEmailInput" type="email" placeholder="you@lofty.com" style="max-width:180px"><button class="btn compact" id="adminCopilotSendCodeBtn" type="button">Send Code</button><input id="adminCopilotCodeInput" placeholder="Code" style="max-width:90px"><button class="btn compact primary" id="adminCopilotVerifyBtn" type="button">Verify</button><button class="btn compact danger" id="adminCopilotDisconnectBtn" type="button" hidden>Disconnect</button></span></div></section>
 <section id="kpiView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="kpiPeriod"></select></div></div><div id="teamKpiSection" hidden><div class="sectionTitle">My Team KPI Scores</div><div class="cards" id="teamKpiCards"></div><div class="teamGoalGrid"><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team CSAT Goal</div><div class="teamGoalTarget">Target: at least 90%</div></div><div class="teamGoalStats" id="teamCsatGoalStats"></div></div><div class="teamGoalBlock"><div class="teamGoalHead"><div class="teamGoalTitle">Team Long Call Goal</div><div class="teamGoalTarget">Target: below 5%</div></div><div class="teamGoalStats" id="teamLcrGoalStats"></div></div></div><div class="repGoalPanel"><div class="repGoalHead"><div><div class="repGoalTitle">Rep Goal Tracker</div><div class="sub">Individual CSAT and long-call targets</div></div><div class="sub">CSAT ≥ 90% · Long calls &lt; 5%</div></div><div class="repGoalGrid" id="repGoalGrid"></div></div><div class="sub" id="teamKpiMeta"></div><div class="tableWrap" style="margin-top:10px"><table class="teamKpiTable"><thead><tr><th>Team Member</th><th>KPI Type</th><th>Eligible Workdays</th><th>CSAT</th><th>Productivity / Calls</th><th>LCR</th><th>Tickets</th><th>FRT</th><th>Team Metric</th><th>Updated Tickets</th><th>Bonus</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="teamKpiBody"></tbody></table></div></div><div class="sectionTitle" id="myKpiTitle">My KPI Score</div><div class="cards" id="kpiCards"></div><div class="sub" id="kpiMeta"></div><div class="tableWrap" id="kpiBreakdownWrap"><table><thead><tr><th>Metric</th><th>Actual</th><th>Points</th><th>Status</th></tr></thead><tbody id="kpiBreakdownBody"></tbody></table></div><div class="sectionTitle" id="kpiHistoryTitle" hidden>History</div><div class="tableWrap" id="kpiHistoryWrap" hidden><table><thead><tr><th>Period</th><th>Base KPI</th><th>Final KPI</th><th>Performance</th><th>Data Status</th></tr></thead><tbody id="kpiHistoryBody"></tbody></table></div></section>
 <section id="seniorJiraView" hidden>
@@ -160,7 +171,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <section id="teamAttendanceView" hidden><div class="sub">Enter attendance for your direct reports here — it flows straight into their KPI numbers on the next refresh. Dates already covered by an approved PTO request are locked and can't be changed here.</div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Reporting Month</label><input type="month" id="teamAttendanceMonth"></div><div class="field"><label>MTD End Date</label><input type="date" id="teamAttendanceEndDate"></div><button class="btn primary" id="teamAttendanceLoadBtn">Load</button><button class="btn compact" id="teamAttendanceThisMonthBtn" type="button">This Month</button><button class="btn compact" id="teamAttendanceLastMonthBtn" type="button">Last Month</button><button class="btn" id="teamAttendanceSaveBtn" disabled>Save Changes</button></div><div id="teamAttendanceMessage" class="message" hidden></div><div class="tableWrap"><table><thead id="teamAttendanceHead"></thead><tbody id="teamAttendanceBody"></tbody></table></div><input type="file" id="teamAttendanceAttachInput" hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx"></section>
 <section id="teamRosterView" hidden><div class="sub">Manage full profile information for your direct reports here.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Employee</th><th>Email</th><th>Employee ID</th><th>Channel</th><th>KPI Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="teamRosterBody"></tbody></table></div></section>
 <section id="mbrReportView" hidden><div class="sub">Generates a Monthly Business Review deck for your team - Team Overview, Attendance, Productivity, CSAT, Coaching, and Pending/Reminders, with a few insight lines drafted by Copilot and fact-checked against your team's actual numbers by Groq. Schedule Adherence and completed Performance Evaluations aren't included yet - there's no reliable structured data for either in this portal.</div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Reporting Month</label><input type="month" id="mbrReportMonth"></div><button class="btn compact" id="mbrReportLastMonthBtn" type="button">Last Month</button><button class="btn primary" id="mbrReportGenerateBtn">Generate MBR</button><button class="btn" id="mbrExecReportGenerateBtn">Executive Report (PDF)</button></div><div id="mbrReportMessage" class="message" hidden></div></section>
-<section id="serviceRecoveryView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="serviceRecoveryPeriod"></select></div></div><div class="sectionTitle">Service Recovery — Your Team</div><div class="sub">Bad CSATs your reports received this period. "Contacted" is detected automatically once that employee's own Team Lead or assigned Senior TSR replies on the ticket after the survey - "Recovered" means the customer replied back after that.</div><div class="cards" id="serviceRecoveryCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Survey Date</th><th>Status</th><th>Contacted</th><th>Employee</th><th>Ticket</th><th>Comment</th></tr></thead><tbody id="serviceRecoveryBody"></tbody></table></div><div class="sectionTitle" style="margin-top:28px">Service Recovery Leaderboard</div><div class="sub">24-hour follow-up, 7-day bad→good conversion, and customer response rate, by team lead, company-wide.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Rank</th><th>Team Leader</th><th>24h Follow-up Rate</th><th>7d Bad→Good Rate</th><th>Customer Response Rate</th></tr></thead><tbody id="serviceRecoveryLeaderboardBody"></tbody><tfoot id="serviceRecoveryLeaderboardFoot"></tfoot></table></div></section>
+<section id="serviceRecoveryView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="serviceRecoveryPeriod"></select></div></div><div class="sectionTitle">Service Recovery — Your Team</div><div class="sub">Bad CSATs your reports received this period. "Contacted" is detected automatically once that employee's own Team Lead or assigned Senior TSR replies on the ticket after the survey - "Recovered" means the customer replied back after that.</div><div class="cards" id="serviceRecoveryCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Survey Date</th><th>Status</th><th>Contacted</th><th>AI Triage</th><th>Employee</th><th>Ticket</th><th>Comment</th></tr></thead><tbody id="serviceRecoveryBody"></tbody></table></div><div class="sectionTitle" style="margin-top:28px">Service Recovery Leaderboard</div><div class="sub">24-hour follow-up, 7-day bad→good conversion, and customer response rate, by team lead, company-wide.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Rank</th><th>Team Leader</th><th>24h Follow-up Rate</th><th>7d Bad→Good Rate</th><th>Customer Response Rate</th></tr></thead><tbody id="serviceRecoveryLeaderboardBody"></tbody><tfoot id="serviceRecoveryLeaderboardFoot"></tfoot></table></div></section>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -209,6 +220,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
 <button type="button" class="btn" id="coachingPreviewPdfBtn">Preview PDF</button>
+<button type="button" class="btn" id="coachingAskLoftIqBtn" hidden>🤖 Ask LoftIQ about this</button>
 <button type="button" class="btn" id="coachingSignClose">Close</button>
 <button type="button" class="btn primary" id="coachingSignSubmit" hidden>Sign &amp; Acknowledge</button>
 </div>
@@ -493,7 +505,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="modal" id="detailsModal" hidden><div class="dialog"><div class="title">PTO Request Details</div><div id="detailsContent" class="details" style="margin:12px 0"></div><div class="actions" style="justify-content:flex-end"><button class="btn" id="detailsClose">Close</button></div></div></div>
 <div class="modal" id="teamPtoDecisionModal" hidden><div class="dialog" style="max-width:560px"><div class="title" id="teamPtoDecisionTitle">PTO Review</div><div class="details" id="teamPtoDecisionDetails" style="margin:12px 0"></div><div class="field"><label>Review Notes</label><textarea id="teamPtoDecisionNotes" placeholder="Add context for the final approver"></textarea></div><div id="teamPtoDecisionError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="teamPtoDecisionCancel">Cancel</button><button class="btn primary" id="teamPtoDecisionConfirm">Confirm</button></div></div></div>
 <div class="modal" id="contactModal" hidden><form class="dialog" id="contactForm" role="dialog" aria-modal="true"><div class="title">Edit Contact Information</div><div class="formGrid" style="margin-top:12px"><div class="field"><label>Birthday</label><input name="birthday" type="date"></div><div class="field"><label>Contact Number</label><div class="phoneField"><select name="contactNumberCode" class="phoneCode"></select><input name="contactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field"><label>Contact Email</label><input name="contactEmail" type="email" placeholder="name@example.com"></div><div class="field"><label>Emergency Contact Name</label><input name="emergencyContactName" placeholder="Full Name"></div><div class="field"><label>Emergency Contact Relationship</label><select name="emergencyContactRelationship"><option value="">—</option><option>Spouse</option><option>Parent</option><option>Sibling</option><option>Child</option><option>Relative</option><option>Friend</option><option>Other</option></select></div><div class="field" id="emergencyContactRelationshipOtherField" hidden><label>Specify Relationship</label><input name="emergencyContactRelationshipOther" placeholder="e.g. Cousin, Guardian"></div><div class="field"><label>Emergency Contact Number</label><div class="phoneField"><select name="emergencyContactNumberCode" class="phoneCode"></select><input name="emergencyContactNumberLocal" class="phoneLocal" inputmode="numeric" autocomplete="off" placeholder="9XX XXX XXXX" maxlength="12"></div></div><div class="field" style="grid-column:1/-1"><label>Current Residence</label><textarea name="currentResidence" placeholder="Street, Barangay, City, Province, ZIP"></textarea></div></div><div id="contactError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="contactCancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div>
-<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px" id="notifMyDisciplinaryTitle" hidden>My Disciplinary Cases Awaiting My Signature</div><div id="notifMyDisciplinaryPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryPreReviewTitle" hidden>Disciplinary Cases Awaiting Pre-Review</div><div id="notifDisciplinaryPreReviewPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryDecisionTitle" hidden>Disciplinary Cases Awaiting Final Decision</div><div id="notifDisciplinaryDecisionPending"></div><div class="sectionTitle" style="font-size:14px">My Coaching Follow-Ups</div><div id="notifMyCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Team Coaching Follow-Ups</div><div id="notifTeamCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
+<div class="modal" id="notifModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Notifications</div><div class="sub" id="notifAsOf"></div><div id="notifPendingApprovals" class="message" hidden></div><div class="sectionTitle" style="margin-top:14px;font-size:14px" id="notifLoftIqTitle" hidden>🤖 LoftIQ</div><div id="notifLoftIq"></div><div class="sectionTitle" style="font-size:14px" id="notifMyDisciplinaryTitle" hidden>My Disciplinary Cases Awaiting My Signature</div><div id="notifMyDisciplinaryPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryPreReviewTitle" hidden>Disciplinary Cases Awaiting Pre-Review</div><div id="notifDisciplinaryPreReviewPending"></div><div class="sectionTitle" style="font-size:14px" id="notifDisciplinaryDecisionTitle" hidden>Disciplinary Cases Awaiting Final Decision</div><div id="notifDisciplinaryDecisionPending"></div><div class="sectionTitle" style="font-size:14px">My Coaching Follow-Ups</div><div id="notifMyCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Team Coaching Follow-Ups</div><div id="notifTeamCoachingFollowUps"></div><div class="sectionTitle" style="font-size:14px">Regularization Decisions Due</div><div id="notifRegularizations"></div><div class="sectionTitle" style="font-size:14px">KPI Performance Alerts</div><div id="notifKpiAlerts"></div><div class="sectionTitle" style="font-size:14px">Attendance Red Flags</div><div id="notifAttendanceFlags"></div><div class="sectionTitle" style="font-size:14px">Birthdays</div><div id="notifBirthdays"></div><div class="sectionTitle" style="font-size:14px">Work Anniversaries</div><div id="notifAnniversaries"></div><div class="sectionTitle" style="font-size:14px">Monthly Evaluations Due (Probationary — Month 1–4)</div><div id="notifEvaluations"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="notifClose">Close</button></div></div></div>
+<div class="modal" id="suggestReplyModal" hidden><div class="dialog" role="dialog" aria-modal="true"><div class="title">Suggested Reply</div><div class="sub" id="suggestReplySubject"></div><div class="sub">Copilot-drafted from the ticket subject and comment available in this portal - review and personalize before sending; there's no send action here, copy it into Zendesk yourself.</div><div id="suggestReplyStatus" class="message" hidden></div><textarea id="suggestReplyText" rows="10" style="width:100%;margin-top:10px;resize:vertical" placeholder="Drafting…"></textarea><div class="actions" style="justify-content:flex-end;margin-top:14px;gap:8px"><button class="btn" type="button" id="suggestReplyRegenBtn">Regenerate</button><button class="btn primary" type="button" id="suggestReplyCopyBtn">Copy to Clipboard</button><button class="btn" type="button" id="suggestReplyClose">Close</button></div></div></div>
 <div class="modal" id="changePasswordModal" hidden><form class="dialog" id="changePasswordForm" role="dialog" aria-modal="true"><div class="title" id="changePasswordTitle">Change Password</div><div class="sub" id="changePasswordHint" hidden>Your temporary password must be changed before you can file or edit requests.</div><div class="formGrid" style="grid-template-columns:1fr;margin-top:12px"><div class="field"><label>Current Password</label><div class="pwField"><input name="currentPassword" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>New Password</label><div class="pwField"><input name="newPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div><div class="field"><label>Confirm New Password</label><div class="pwField"><input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="changePasswordError" class="message error" hidden></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="changePasswordCancel">Cancel</button><button class="btn primary" type="submit">Change Password</button></div></form></div>
 <div class="modal" id="metricDetailModal" hidden><div class="dialog" style="max-width:420px"><div class="title" id="metricDetailTitle">Metric Detail</div><div id="metricDetailBody" style="margin-top:12px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="metricDetailClose">Close</button></div></div></div>
 <div class="modal" id="csatDetailModal" hidden><div class="dialog" style="max-width:680px"><div class="title">CSAT Ticket Detail</div><div class="sub" id="csatDetailMeta"></div><div class="csatDetailCols"><div><div class="sectionTitle" style="margin-top:12px;color:var(--green)">Good (<span id="csatGoodCount">0</span>)</div><div id="csatGoodList" class="csatTicketList"></div></div><div><div class="sectionTitle" style="margin-top:12px;color:var(--red)">Bad (<span id="csatBadCount">0</span>)</div><div id="csatBadList" class="csatTicketList"></div></div></div><div class="sub" style="margin-top:12px">If you believe a rating doesn't reflect the interaction, share the ticket number with your Team Lead to file a dispute.</div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="csatDetailClose">Close</button></div></div></div>
@@ -509,7 +522,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="chatPanel" class="chatPanel" hidden><div class="chatPanelHeader"><div><b>Team Chat</b><div class="sub" id="chatOnlineCount">0 online</div></div><button type="button" id="chatCloseBtn" class="chatCloseBtn" aria-label="Close chat">✕</button></div><div class="chatPanelBody"><div class="chatReconnect" id="chatReconnect" hidden>Reconnecting…</div><div class="chatOnlineStrip" id="chatOnlineList"></div><div id="chatMessages" class="chatMessages"></div><form id="chatForm" class="chatInputRow"><input id="chatInput" autocomplete="off" placeholder="Message the team…" maxlength="2000"><button class="btn primary" type="submit">Send</button></form></div></div>
 </div>
 <script type="module">
-import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySeniorJiraActivity,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChat} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary} from './shared/service-recovery-service.js';
+import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySeniorJiraActivity,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChat} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,LOFTIQ_QUICK_ACTIONS,buildLoftIqPrompt} from './shared/loftiq-service.js';
 import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
@@ -517,7 +530,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor90(good,bad){const needed=9*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.33.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='1.34.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -905,6 +918,8 @@ function renderNotifModal(){
   if(notifPendingApprovals){$('notifPendingApprovals').textContent=`${notifPendingApprovals} PTO request${notifPendingApprovals===1?'':'s'} awaiting your review — see PTO Requests.`;$('notifPendingApprovals').classList.add('notifClickable')}
   const followUpPill=f=>f.daysUntil<0?`Overdue by ${-f.daysUntil} day${-f.daysUntil===1?'':'s'}`:f.daysUntil===0?'Due today':f.daysUntil===1?'Due tomorrow':`Due in ${f.daysUntil} days`;
   const followUpClass=f=>f.daysUntil<=0?'status-failed':f.daysUntil<=3?'status-pending':'status-ready';
+  $('notifLoftIqTitle').hidden=!notifLoftIqUnread;
+  $('notifLoftIq').innerHTML=notifLoftIqUnread?notifRow('LoftIQ',`${notifLoftIqUnread} new answer${notifLoftIqUnread===1?'':'s'} waiting for you`,'View','status-pending',{tab:'loftiq'}):'';
   $('notifMyDisciplinaryTitle').hidden=!notifMyDisciplinaryPending.length;
   $('notifMyDisciplinaryPending').innerHTML=notifMyDisciplinaryPending.map(d=>notifRow(d.category,`${tierLabel(d.finalTier)} · ${d.finalSanction}`,'Awaiting your signature','status-failed',{tab:'disciplinary',kind:'disciplinary',id:d.violationId})).join('');
   $('notifDisciplinaryPreReviewTitle').hidden=!notifDisciplinaryPreReviewPending.length;
@@ -942,15 +957,17 @@ function renderNotifModal(){
     return notifRow(e.employeeName,`Month ${e.evalMonth} eval · Hired ${fmt(e.hireDate)}`,pillText,pillClass);
   }).join(''):'<div class="sub">No probationary evaluations due.</div>';
 }
+function renderLoftIqBadge(){$('loftiqBadge').hidden=!notifLoftIqUnread;$('loftiqBadge').textContent=notifLoftIqUnread>9?'9+':String(notifLoftIqUnread)}
 function updateNotifBadge(){
-  const hasAnything=isTeamLeader||notifMyCoachingFollowUps.length>0||notifMyDisciplinaryPending.length>0||notifDisciplinaryPreReviewPending.length>0||notifDisciplinaryDecisionPending.length>0;
+  renderLoftIqBadge();
+  const hasAnything=isTeamLeader||notifMyCoachingFollowUps.length>0||notifMyDisciplinaryPending.length>0||notifDisciplinaryPreReviewPending.length>0||notifDisciplinaryDecisionPending.length>0||notifLoftIqUnread>0;
   $('notifBtn').hidden=!hasAnything;
   if(!hasAnything)return;
-  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals+notifMyCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifTeamCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifMyDisciplinaryPending.length+notifDisciplinaryPreReviewPending.length+notifDisciplinaryDecisionPending.length;
+  const urgent=notifBirthdays.filter(b=>b.isToday||b.daysUntil<=3).length+notifEvaluations.filter(e=>e.daysUntilDue<=3).length+notifAnniversaries.filter(a=>a.isToday||a.daysUntil<=3).length+notifRegularizations.length+notifKpiAlerts.length+notifAttendanceFlags.length+notifPendingApprovals+notifMyCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifTeamCoachingFollowUps.filter(f=>f.daysUntil<=3).length+notifMyDisciplinaryPending.length+notifDisciplinaryPreReviewPending.length+notifDisciplinaryDecisionPending.length+notifLoftIqUnread;
   $('notifBadge').hidden=!urgent;
   $('notifBadge').textContent=urgent>9?'9+':String(urgent);
 }
-async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifPendingApprovalIds=result.pendingApprovalIds||[];notifMyCoachingFollowUps=result.myCoachingFollowUps||[];notifTeamCoachingFollowUps=result.teamCoachingFollowUps||[];notifMyDisciplinaryPending=result.myDisciplinaryPending||[];notifDisciplinaryPreReviewPending=result.disciplinaryPreReviewPending||[];notifDisciplinaryDecisionPending=result.disciplinaryDecisionPending||[];notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
+async function loadNotifications(){try{const result=await getMyNotifications();notifBirthdays=result.birthdays||[];notifEvaluations=result.evaluations||[];notifAnniversaries=result.anniversaries||[];notifRegularizations=result.regularizations||[];notifKpiAlerts=result.kpiAlerts||[];notifAttendanceFlags=result.attendanceFlags||[];notifPendingApprovals=result.pendingApprovals||0;notifPendingApprovalIds=result.pendingApprovalIds||[];notifMyCoachingFollowUps=result.myCoachingFollowUps||[];notifTeamCoachingFollowUps=result.teamCoachingFollowUps||[];notifMyDisciplinaryPending=result.myDisciplinaryPending||[];notifDisciplinaryPreReviewPending=result.disciplinaryPreReviewPending||[];notifDisciplinaryDecisionPending=result.disciplinaryDecisionPending||[];notifLoftIqUnread=result.loftIqUnread||0;notifAsOf=result.asOfDate||'';updateNotifBadge()}catch(_){/* non-critical, silently skip */}}
 let audioCtx=null,chatInitialized=false;
 function ensureAudioContext(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch{return null}}if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx}
 function playChatNotificationSound(){const ctx=audioCtx;if(!ctx||ctx.state!=='running')return;const now=ctx.currentTime;[880,1175].forEach((freq,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain(),start=now+i*0.12;osc.type='sine';osc.frequency.value=freq;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(0.18,start+0.02);gain.gain.exponentialRampToValueAtTime(0.001,start+0.18);osc.connect(gain).connect(ctx.destination);osc.start(start);osc.stop(start+0.2)})}
@@ -1083,7 +1100,7 @@ $('announcementList').addEventListener('click',async event=>{
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('trainingView').hidden=next!=='training';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='training')loadTrainingTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();}
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('trainingView').hidden=next!=='training';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='coaching')loadCoachingTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='training')loadTrainingTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();}
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>setTab(btn.dataset.tab));
 // A step's target may exist in the DOM but be hidden by role (Team Attendance for a
 // non-lead, every rep-facing tab for HR/SOM, etc.) - offsetParent is null for any element
@@ -1180,7 +1197,8 @@ const CHANGELOG=[
   {version:'1.30.4',items:['Save confirmations for Team Attendance, Coaching, Disciplinary, Alignment, and Generate MBR now pop up above the page instead of appearing as an inline banner in the page content, where they were easy to miss.']},
   {version:'1.31.0',items:['Generate MBR deck expanded from 11 to 15 slides: new Attendance %, Productivity (calls/tickets), and Coaching-by-category charts, a "Definitions & Methodology" slide, and Copilot-drafted insight lines on the Attendance, Productivity, and Coaching slides (previously only Team Overview and CSAT had one).','Executive Report (PDF) now includes hand-drawn charts (Performance Tier and CSAT pies, Attendance % and call/ticket volume bar charts), a "Definitions & Methodology" section, and a deeper narrative (4-6 sentences per section instead of 2-4).']},
   {version:'1.32.0',items:['New "Service Recovery" tab for Team Leads: every bad CSAT your reports received this period, with a 24-hour follow-up reminder - mark a ticket Contacted and it tracks whether the customer replied back afterward automatically.','A new company-wide Service Recovery Leaderboard ranks every team lead on 24-hour follow-up rate, 7-day bad-to-good conversion, and customer response rate, visible to every team lead the same way Site KPI already is.']},
-  {version:'1.33.0',items:['Service Recovery no longer needs a manual "Mark Contacted" step - it now detects automatically whether Mac or Prince replied to a bad-CSAT ticket after the survey (and whether the customer replied back), straight from Zendesk\'s own record of the conversation.','Generate MBR and Executive Report (PDF) now include a Service Recovery section - your team\'s bad-CSAT follow-up detail alongside the 24h/7d/response rates.','Reorganized the tab bar into logical groups (personal, team management, coaching/HR, reporting, leave, company-wide) instead of tabs simply being appended in the order they were built.']}
+  {version:'1.33.0',items:['Service Recovery no longer needs a manual "Mark Contacted" step - it now detects automatically whether Mac or Prince replied to a bad-CSAT ticket after the survey (and whether the customer replied back), straight from Zendesk\'s own record of the conversation.','Generate MBR and Executive Report (PDF) now include a Service Recovery section - your team\'s bad-CSAT follow-up detail alongside the 24h/7d/response rates.','Reorganized the tab bar into logical groups (personal, team management, coaching/HR, reporting, leave, company-wide) instead of tabs simply being appended in the order they were built.']},
+  {version:'1.34.0',items:['New 🤖 LoftIQ tab - ask it about your KPI, schedule, PTO, or coaching history in plain English. Answers only ever use your own real data (never the "View As" preview role), and you can switch tabs while it thinks - the bell icon notifies you when it\'s ready.','DSAT Review and Service Recovery tickets now show an AI risk badge (sentiment, risk flag, patience score, and a quoted excerpt) plus a per-employee composite Risk score, powered by the same shared Copilot connection as AI Triage.','New "Suggest Reply" button on DSAT Review and Service Recovery tickets drafts a reply with Copilot for you to review, edit, and copy - it never sends anything on its own.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -1264,8 +1282,8 @@ function showLogin(){stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling
   // handful of the oldest ones here (a pre-existing gap this list keeps growing into), so
   // whichever tab happened to be open at logout could stay visible underneath the login form
   // instead of actually being replaced by it - exactly what showed up with the Training tab.
-  $('disciplinaryView').hidden=true;$('alignmentView').hidden=true;$('dsatReviewView').hidden=true;$('siteCoachingView').hidden=true;$('siteMetricsView').hidden=true;$('teamAttendanceView').hidden=true;$('teamRosterView').hidden=true;$('trainingView').hidden=true;$('rewardsView').hidden=true;$('adminCopilotView').hidden=true;$('viewAsBanner').hidden=true;
-  myCoachingRecords=[];teamCoachingRecords=[];$('coachingBadge').hidden=true;sessionUser=null;loading.dismiss();setMessage('')}
+  $('disciplinaryView').hidden=true;$('alignmentView').hidden=true;$('dsatReviewView').hidden=true;$('siteCoachingView').hidden=true;$('siteMetricsView').hidden=true;$('teamAttendanceView').hidden=true;$('teamRosterView').hidden=true;$('trainingView').hidden=true;$('rewardsView').hidden=true;$('adminCopilotView').hidden=true;$('viewAsBanner').hidden=true;$('loftiqView').hidden=true;
+  myCoachingRecords=[];teamCoachingRecords=[];$('coachingBadge').hidden=true;notifLoftIqUnread=0;$('loftiqBadge').hidden=true;loftIqScopeType='general';loftIqScopeId='';loftIqThreadMessages=[];loftIqContext=null;sessionUser=null;loading.dismiss();setMessage('')}
 function openChangePassword(forced){$('changePasswordForm').reset();$('changePasswordError').hidden=true;$('changePasswordHint').hidden=!forced;$('changePasswordCancel').hidden=forced;$('changePasswordModal').dataset.forced=forced?'1':'';$('changePasswordModal').hidden=false}
 async function loadAttendanceMonth(month,endDate=''){const attendanceResult=await getMyAttendance(month,endDate);attendanceDays=attendanceResult.days||[];renderAttendance()}
 function teamAttendanceCodeOptions(selected){return`<option value=""${selected?'':' selected'}>—</option>`+Object.keys(ATTENDANCE_LABELS).map(code=>`<option value="${code}"${code===selected?' selected':''}>${esc(ATTENDANCE_LABELS[code])}</option>`).join('')}
@@ -2087,20 +2105,18 @@ function renderDsatReviewBody(){
       }
     }
     if(t.employeeEmail&&(!t.dispute||t.dispute.status==='REJECTED')){
-      actions+=`<button class="btn compact" data-dsat-coach="${esc(String(t.ticketId))}" data-dsat-coach-email="${esc(t.employeeEmail)}">Create Coaching Log</button>`;
+      actions+=`<button class="btn compact" data-dsat-coach="${esc(String(t.ticketId))}" data-dsat-coach-email="${esc(t.employeeEmail)}">Create Coaching Log</button> `;
     }
+    actions+=`<button class="btn compact" data-dsat-suggest-reply="${esc(String(t.ticketId))}">Suggest Reply</button>`;
     const ticketLink=t.ticketId!=null?`<a href="https://${ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${encodeURIComponent(t.ticketId)}" target="_blank" rel="noopener noreferrer">#${esc(String(t.ticketId))}</a>`:'#—';
-    return`<tr><td>${esc(t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'—')}</td><td>${statusHtml}${notes}</td><td>${actions}</td><td>${dsatAiTriageHtml(t)}</td><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span></td><td>${ticketLink}<br><span class="muted">${esc(t.subject||'')}</span></td><td>${esc(t.comment||'—')}</td></tr>`;
+    const employeeTickets=dsatReviewTickets.filter(x=>x.employeeEmail===t.employeeEmail);
+    const riskScore=employeeRiskScoreHtml(employeeTickets,dsatAiCache);
+    return`<tr><td>${esc(t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'—')}</td><td>${statusHtml}${notes}</td><td>${actions}</td><td>${dsatAiTriageHtml(t)}</td><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span>${riskScore?`<br>${riskScore}`:''}</td><td>${ticketLink}<br><span class="muted">${esc(t.subject||'')}</span></td><td>${esc(t.comment||'—')}</td></tr>`;
   }).join('')||'<tr><td colspan="7">No bad CSAT tickets for this period.</td></tr>';
 }
 function dsatAiTriageHtml(t){
   if(!copilotConnected)return'<span class="muted">—</span>';
-  const ai=dsatAiCache.get(String(t.ticketId));
-  if(!ai)return'<span class="muted">—</span>';
-  if(ai.pending)return'<span class="muted">Analyzing…</span>';
-  if(ai.error)return'<span class="muted">Unavailable</span>';
-  const riskClass=ai.risk==='High'?'status-failed':ai.risk==='Medium'?'status-pending':ai.risk==='Low'?'status-ready':'status-no-data';
-  return`<span class="pill ${riskClass}">${esc(ai.risk||'Unknown')} risk</span><div class="muted" style="margin-top:4px;font-size:11px;max-width:200px">${esc(ai.summary||'')}</div>`;
+  return riskTaggingBadgeHtml(dsatAiCache.get(String(t.ticketId)));
 }
 function copilotStatusMessage(){
   if(copilotConnected)return`Copilot connected${copilotConnectedEmail?` as ${copilotConnectedEmail}`:''} - AI triage is running below.`;
@@ -2155,12 +2171,10 @@ async function runDsatAiTriage(){
     dsatAiCache.set(key,{pending:true});
     renderDsatReviewBody();
     try{
-      const prompt=`You are assisting a Quality Assurance reviewer triaging a bad customer-satisfaction survey for a support ticket. Reply with ONLY a JSON object, no other text and no markdown formatting, in exactly this shape: {"sentiment":"Positive|Neutral|Negative","risk":"Low|Medium|High","summary":"one short sentence on why, referencing the specific complaint"}.\n\nTicket subject: ${t.subject||'(none)'}\nCustomer comment: ${t.comment||'(no comment left)'}`;
+      const prompt=buildRiskTaggingPrompt({subject:t.subject,comment:t.comment});
       const result=await copilotChat(copilotToken,prompt);
-      const raw=copilotResponseText(result);
-      let parsedAnalysis;
-      try{parsedAnalysis=JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0]||raw)}catch{parsedAnalysis={sentiment:'Unknown',risk:'Unknown',summary:raw.slice(0,200)}}
-      const saved=await saveDsatAnalysis(t.ticketId,t.period,{sentiment:parsedAnalysis.sentiment||'Unknown',risk:parsedAnalysis.risk||'Unknown',summary:parsedAnalysis.summary||''});
+      const parsedAnalysis=parseRiskTaggingResponse(copilotResponseText(result));
+      const saved=await saveDsatAnalysis(t.ticketId,t.period,parsedAnalysis);
       dsatAiCache.set(key,saved.analysis);
     }catch(error){
       if(error.copilotCode||/401|unauthor|invalid.*token|token.*invalid|expired/i.test(error.message)){copilotConnected=false;dsatAiCache.delete(key);renderCopilotBar();renderDsatReviewBody();break}
@@ -2169,6 +2183,164 @@ async function runDsatAiTriage(){
     renderDsatReviewBody();
   }
 }
+// Mirrors runDsatAiTriage() exactly (same shared prompt/parse contract, same one Copilot
+// connection) but for Service Recovery, which had no AI triage before Step 2.
+async function runServiceRecoveryAiTriage(){
+  if(!copilotConnected||!copilotToken)return;
+  for(const t of serviceRecoveryTickets){
+    if(!copilotConnected)break;
+    const key=String(t.ticketId);
+    if(serviceRecoveryAiCache.has(key))continue;
+    serviceRecoveryAiCache.set(key,{pending:true});
+    renderServiceRecoveryBody();
+    try{
+      const prompt=buildRiskTaggingPrompt({subject:t.subject,comment:t.comment});
+      const result=await copilotChat(copilotToken,prompt);
+      const parsedAnalysis=parseRiskTaggingResponse(copilotResponseText(result));
+      const saved=await saveServiceRecoveryAnalysis(t.ticketId,selectedServiceRecoveryPeriod,parsedAnalysis);
+      serviceRecoveryAiCache.set(key,saved.analysis);
+    }catch(error){
+      if(error.copilotCode||/401|unauthor|invalid.*token|token.*invalid|expired/i.test(error.message)){copilotConnected=false;serviceRecoveryAiCache.delete(key);renderCopilotBar();renderServiceRecoveryBody();break}
+      serviceRecoveryAiCache.set(key,{error:true});
+    }
+    renderServiceRecoveryBody();
+  }
+}
+// Shared by DSAT Review and Service Recovery - one badge shape for the AI risk-tagging result,
+// so both queues read the same way. Not just a sentiment label: the composite score below (shown
+// separately, per employee) is derived from exactly the fields rendered here.
+function riskTaggingBadgeHtml(ai){
+  if(!ai)return'<span class="muted">—</span>';
+  if(ai.pending)return'<span class="muted">Analyzing…</span>';
+  if(ai.error)return'<span class="muted">Unavailable</span>';
+  const emoji=ai.sentiment==='Angry'?'😠':ai.sentiment==='Frustrated'?'😟':ai.sentiment==='Calm'?'🙂':'❔';
+  const riskClass=ai.risk==='critical'?'status-failed':ai.risk==='high_risk'?'status-pending':'status-ready';
+  const riskLabel=ai.risk==='critical'?'Critical':ai.risk==='high_risk'?'High Risk':'No Flag';
+  const rows=[`<span class="pill ${riskClass}">${emoji} ${esc(ai.sentiment||'Unknown')} · ${esc(riskLabel)}</span>`];
+  if(ai.patience!=null)rows.push(`<div class="muted" style="margin-top:4px;font-size:11px">Patience ${ai.patience}/100</div>`);
+  if(ai.evidence)rows.push(`<div class="muted" style="margin-top:2px;font-size:11px;max-width:220px;font-style:italic">"${esc(ai.evidence.slice(0,140))}"</div>`);
+  return rows.join('');
+}
+// Composite risk score is per employee (both queues are organized by rep, not by an external
+// customer id we don't currently track) - computed client-side from whatever's already been
+// AI-tagged for that employee in the current view, using the shared, explicitly-tunable formula.
+function employeeRiskScoreHtml(ticketsForEmployee,aiCache){
+  const tagged=ticketsForEmployee.map(t=>aiCache.get(String(t.ticketId))).filter(ai=>ai&&!ai.pending&&!ai.error);
+  if(!tagged.length)return'';
+  const score=computeCompositeRiskScore(tagged);
+  const cls=score.composite>=70?'status-failed':score.composite>=40?'status-pending':'status-ready';
+  return `<span class="pill ${cls}" title="${tagged.length} AI-tagged ticket(s) this view">Risk ${score.composite}/100</span>`;
+}
+// Suggest Reply: shared by DSAT Review and Service Recovery ticket rows. There is no send action
+// anywhere in this portal (no Zendesk write access from the browser) - copy-to-clipboard only,
+// so a draft can never be auto-sent by construction, not merely by policy.
+async function openSuggestReply(ticket){
+  suggestReplyTarget=ticket;
+  $('suggestReplyModal').hidden=false;
+  $('suggestReplySubject').textContent=`#${ticket.ticketId ?? '—'} — ${ticket.subject||'(no subject)'}`;
+  $('suggestReplyText').value='';
+  await generateSuggestedReply();
+}
+async function generateSuggestedReply(){
+  if(!suggestReplyTarget||suggestReplyLoading)return;
+  if(!copilotConnected||!copilotToken){
+    $('suggestReplyStatus').hidden=false;$('suggestReplyStatus').className='message error';
+    $('suggestReplyStatus').textContent='Copilot is not connected - connect it from the Profile page first.';
+    return;
+  }
+  suggestReplyLoading=true;
+  $('suggestReplyRegenBtn').disabled=true;
+  $('suggestReplyText').placeholder='Drafting…';
+  $('suggestReplyText').value='';
+  $('suggestReplyStatus').hidden=true;
+  try{
+    const prompt=buildDraftReplyPrompt({subject:suggestReplyTarget.subject,comment:suggestReplyTarget.comment,employeeName:suggestReplyTarget.employeeName});
+    const result=await copilotChat(copilotToken,prompt);
+    suggestReplyDraft=copilotResponseText(result).trim();
+    $('suggestReplyText').value=suggestReplyDraft;
+  }catch(error){
+    $('suggestReplyStatus').hidden=false;$('suggestReplyStatus').className='message error';
+    $('suggestReplyStatus').textContent=`Could not draft a reply. ${error.message}`;
+  }finally{
+    suggestReplyLoading=false;
+    $('suggestReplyRegenBtn').disabled=false;
+  }
+}
+$('suggestReplyRegenBtn').onclick=generateSuggestedReply;
+$('suggestReplyCopyBtn').onclick=async()=>{
+  try{await navigator.clipboard.writeText($('suggestReplyText').value);setMessage('Copied to clipboard.','ok')}
+  catch{setMessage('Could not copy automatically - select the text and copy it manually.','error')}
+};
+$('suggestReplyClose').onclick=()=>{$('suggestReplyModal').hidden=true;suggestReplyTarget=null;suggestReplyDraft=''};
+// LoftIQ: the portal's own Copilot-backed Q&A bot, mirroring TSR Workbench's "Rex" admin-bot UI.
+// Reuses the single shared Copilot connection (copilotChat/copilotResponseText, same as DSAT
+// Review/Service Recovery triage above) and the existing notification bell - no parallel
+// integrations. Data access is always scoped to the real signed-in identity server-side
+// (/api/my/loftiq/context keys off `identity`, never the "View As" preview role), so LoftIQ can
+// never leak another rep's data through the admin preview.
+function renderLoftIqScopeBanner(){
+  const banner=$('loftiqScopeBanner');
+  if(loftIqScopeType==='general'){banner.hidden=true;return}
+  const labels={dsat:'DSAT ticket',serviceRecovery:'Service Recovery ticket'};
+  const label=`${labels[loftIqScopeType]||loftIqScopeType} #${loftIqScopeId}`;
+  banner.hidden=false;
+  banner.innerHTML=`Scoped to ${esc(label)} — <a href="#" id="loftiqBackToGeneral">back to general questions</a>`;
+  $('loftiqBackToGeneral').onclick=event=>{event.preventDefault();loftIqScopeType='general';loftIqScopeId='';loadLoftIqTab()};
+}
+function renderLoftIqQuickActions(){
+  $('loftiqQuickActions').innerHTML=LOFTIQ_QUICK_ACTIONS.map((q,i)=>`<button type="button" class="btn compact" data-loftiq-quick="${i}">${esc(q)}</button>`).join('');
+  $('loftiqQuickActions').querySelectorAll('[data-loftiq-quick]').forEach(btn=>btn.onclick=()=>askLoftIq(LOFTIQ_QUICK_ACTIONS[Number(btn.dataset.loftiqQuick)]));
+}
+function renderLoftIqMessages(){
+  const wrap=$('loftiqMessages');
+  const name=(sessionUser?.employeeName||'').split(' ')[0]||'there';
+  const greeting=`<div class="chatMsg"><div class="who">LoftIQ</div><div>Hi ${esc(name)} 👋 I'm LoftIQ. Ask me about your KPI, schedule, PTO, or coaching history.</div></div>`;
+  const rendered=loftIqThreadMessages.map(m=>`<div class="chatMsg${m.role==='user'?' mine':''}">${m.role==='user'?'':'<div class="who">LoftIQ</div>'}<div>${esc(m.content)}</div></div>`).join('');
+  const pending=loftIqAsking?`<div class="chatMsg mine">${esc(loftIqPendingQuestion)}</div><div class="chatMsg"><div class="who">LoftIQ</div><div class="muted">Thinking… you can switch tabs, we'll keep this here.</div></div>`:'';
+  wrap.innerHTML=greeting+rendered+pending;
+  wrap.scrollTop=wrap.scrollHeight;
+}
+async function loadLoftIqTab(){
+  renderLoftIqScopeBanner();
+  renderLoftIqQuickActions();
+  await loadCopilotStatus();
+  $('loftiqCopilotWarning').hidden=copilotConnected;
+  $('loftiqMessages').innerHTML='<div class="muted" style="padding:12px">Loading…</div>';
+  try{
+    const[contextResult,threadResult]=await Promise.all([loadLoftIqContext(),loadLoftIqThread(loftIqScopeType,loftIqScopeId)]);
+    loftIqContext=contextResult.context||null;
+    loftIqThreadMessages=threadResult.thread?.messages||[];
+  }catch{
+    loftIqContext=null;loftIqThreadMessages=[];
+  }
+  renderLoftIqMessages();
+  markLoftIqViewed().then(()=>{notifLoftIqUnread=0;updateNotifBadge()}).catch(()=>{});
+}
+async function askLoftIq(question){
+  question=(question||'').trim();
+  if(!question||loftIqAsking)return;
+  if(!copilotConnected||!copilotToken){$('loftiqCopilotWarning').hidden=false;return}
+  loftIqAsking=true;loftIqPendingQuestion=question;
+  $('loftiqAskBtn').disabled=true;$('loftiqInput').value='';
+  renderLoftIqMessages();
+  try{
+    const prompt=buildLoftIqPrompt({context:loftIqContext,priorMessages:loftIqThreadMessages,question});
+    const result=await copilotChat(copilotToken,prompt);
+    const answer=copilotResponseText(result).trim();
+    const saved=await saveLoftIqExchange(loftIqScopeType,loftIqScopeId,question,answer);
+    loftIqThreadMessages=saved.thread.messages||[];
+  }catch(error){
+    if(isCopilotAuthError(error)){copilotConnected=false;renderCopilotBar();$('loftiqCopilotWarning').hidden=false}
+    setMessage(`Could not get an answer from LoftIQ. ${error.message}`,'error');
+  }finally{
+    loftIqAsking=false;loftIqPendingQuestion='';
+    $('loftiqAskBtn').disabled=false;
+    renderLoftIqMessages();
+  }
+}
+$('loftiqForm').onsubmit=event=>{event.preventDefault();askLoftIq($('loftiqInput').value)};
+$('loftiqTabBtn').onclick=()=>{loftIqScopeType='general';loftIqScopeId='';setTab('loftiq')};
+function openLoftIqScoped(scopeType,scopeId){loftIqScopeType=scopeType;loftIqScopeId=String(scopeId);setTab('loftiq')}
 $('copilotSendCodeBtn').onclick=async()=>{
   const email=$('copilotEmailInput').value.trim();
   if(!email.endsWith('@lofty.com'))return setMessage('Use your @lofty.com email.','error');
@@ -2190,14 +2362,17 @@ $('copilotVerifyBtn').onclick=async()=>{
     $('copilotCodeInput').value='';
     await loadCopilotStatus();
     dsatAiCache.clear();
+    serviceRecoveryAiCache.clear();
     renderDsatReviewBody();
+    renderServiceRecoveryBody();
     runDsatAiTriage();
+    runServiceRecoveryAiTriage();
   }catch(error){setMessage(error.response?.error||error.message,'error')}
   finally{$('copilotVerifyBtn').disabled=false}
 };
 $('copilotDisconnectBtn').onclick=async()=>{
   if(!confirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.'))return;
-  try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();renderCopilotBar();renderAdminCopilotBar();renderDsatReviewBody();setMessage('Copilot disconnected.','ok')}
+  try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();serviceRecoveryAiCache.clear();renderCopilotBar();renderAdminCopilotBar();renderDsatReviewBody();renderServiceRecoveryBody();setMessage('Copilot disconnected.','ok')}
   catch(error){setMessage(error.response?.error||error.message,'error')}
 };
 $('adminCopilotSendCodeBtn').onclick=async()=>{
@@ -2225,7 +2400,7 @@ $('adminCopilotVerifyBtn').onclick=async()=>{
 };
 $('adminCopilotDisconnectBtn').onclick=async()=>{
   if(!confirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.'))return;
-  try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();renderCopilotBar();renderAdminCopilotBar();setMessage('Copilot disconnected.','ok')}
+  try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();serviceRecoveryAiCache.clear();renderCopilotBar();renderAdminCopilotBar();setMessage('Copilot disconnected.','ok')}
   catch(error){setMessage(error.response?.error||error.message,'error')}
 };
 function monthLabel(m){
@@ -2470,13 +2645,25 @@ function renderServiceRecoveryCards(){
   const overdue=serviceRecoveryTickets.filter(t=>!t.contactedAt&&(Date.now()-new Date(t.surveyDate).getTime())/3600000>24).length;
   $('serviceRecoveryCards').innerHTML=[['Bad CSATs This Period',total],['Contacted',contacted],['Contacted Within 24h',within24h],['Overdue',overdue]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
 }
+function serviceRecoveryAiTriageHtml(t){
+  if(!copilotConnected)return'<span class="muted">—</span>';
+  return riskTaggingBadgeHtml(serviceRecoveryAiCache.get(String(t.ticketId)));
+}
 function renderServiceRecoveryBody(){
   $('serviceRecoveryBody').innerHTML=serviceRecoveryTickets.map(t=>{
     const ticketLink=t.ticketId!=null?`<a href="https://${ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${encodeURIComponent(t.ticketId)}" target="_blank" rel="noopener noreferrer">#${esc(String(t.ticketId))}</a>`:'#—';
     const contacted=t.contactedAt?`${esc(new Date(t.contactedAt).toLocaleString())}${t.contactedByName?`<br><span class="muted">by ${esc(t.contactedByName)}</span>`:''}`:'<span class="muted">Not yet</span>';
-    return`<tr><td>${esc(t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'—')}</td><td>${serviceRecoverySlaPill(t)}</td><td>${contacted}</td><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span></td><td>${ticketLink}<br><span class="muted">${esc(t.subject||'')}</span></td><td>${esc(t.comment||'—')}</td></tr>`;
-  }).join('')||'<tr><td colspan="6">No bad CSAT tickets for this period. Nice work.</td></tr>';
+    const employeeTickets=serviceRecoveryTickets.filter(x=>x.employeeEmail===t.employeeEmail);
+    const riskScore=employeeRiskScoreHtml(employeeTickets,serviceRecoveryAiCache);
+    return`<tr><td>${esc(t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'—')}</td><td>${serviceRecoverySlaPill(t)}</td><td>${contacted}</td><td>${serviceRecoveryAiTriageHtml(t)}</td><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span>${riskScore?`<br>${riskScore}`:''}</td><td>${ticketLink}<br><span class="muted">${esc(t.subject||'')}</span></td><td>${esc(t.comment||'—')}<br><button class="btn compact" style="margin-top:6px" data-sr-suggest-reply="${esc(String(t.ticketId))}">Suggest Reply</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7">No bad CSAT tickets for this period. Nice work.</td></tr>';
 }
+$('serviceRecoveryBody').addEventListener('click',event=>{
+  const ticketId=event.target.dataset.srSuggestReply;
+  if(!ticketId)return;
+  const ticket=serviceRecoveryTickets.find(t=>String(t.ticketId)===ticketId);
+  if(ticket)openSuggestReply(ticket);
+});
 function fmtSrRate(rate,count,total){return rate==null?'N/A':`${rate.toFixed(1)}% (${count}/${total})`}
 function renderServiceRecoveryLeaderboard(){
   $('serviceRecoveryLeaderboardBody').innerHTML=serviceRecoveryLeaderboardRows.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.teamLeadName)}</td><td>${fmtSrRate(r.followUp24hRate,r.followUp24hCount,r.total)}</td><td>${fmtSrRate(r.recovered7dRate,r.recovered7dCount,r.total)}</td><td>${fmtSrRate(r.customerResponseRate,r.customerResponseCount,r.total)}</td></tr>`).join('')||'<tr><td colspan="5">No bad CSAT tickets for this period.</td></tr>';
@@ -2491,7 +2678,12 @@ async function loadServiceRecoveryTab(period=''){
     selectedServiceRecoveryPeriod=mine.period||selectedServiceRecoveryPeriod||serviceRecoveryAvailablePeriods[0]||'';
     serviceRecoveryLeaderboardRows=summary.rows||[];
     serviceRecoveryOverall=summary.overall||null;
+    // Pick up analyses another team lead's browser already ran and cached server-side, same
+    // reuse-across-reviewers logic DSAT Review already applies.
+    serviceRecoveryTickets.forEach(t=>{if(t.aiAnalysis)serviceRecoveryAiCache.set(String(t.ticketId),t.aiAnalysis)});
     renderServiceRecoveryPeriodOptions();renderServiceRecoveryCards();renderServiceRecoveryBody();renderServiceRecoveryLeaderboard();
+    await loadCopilotStatus();
+    runServiceRecoveryAiTriage();
   }catch(error){
     setMessage(`Service Recovery could not be loaded. ${error.response?.error||error.message}`,'error');
   }
@@ -2639,7 +2831,12 @@ $('trainingRejectBtn').onclick=async()=>{
   }catch(error){setMessage(error.response?.error||error.message,'error')}
 };
 $('dsatReviewBody').addEventListener('click',async event=>{
-  const approveTicket=event.target.dataset.dsatApprove,rejectDisputeId=event.target.dataset.dsatReject,coachTicket=event.target.dataset.dsatCoach;
+  const approveTicket=event.target.dataset.dsatApprove,rejectDisputeId=event.target.dataset.dsatReject,coachTicket=event.target.dataset.dsatCoach,suggestReplyTicket=event.target.dataset.dsatSuggestReply;
+  if(suggestReplyTicket){
+    const ticket=dsatReviewTickets.find(t=>String(t.ticketId)===suggestReplyTicket);
+    if(ticket)openSuggestReply(ticket);
+    return;
+  }
   if(approveTicket){
     const email=event.target.dataset.dsatEmail,disputeId=event.target.dataset.dsatDispute||undefined;
     const notes=prompt('Notes for this decision (optional):')||'';
@@ -2885,8 +3082,14 @@ function openCoachingViewModal(record,allowSign){
   $('coachingFollowUpInput').value=record.targetFollowUpDate||'';
   $('coachingRepCommentsInput').value='';$('coachingSignedNameInput').value='';
   $('coachingSignError').hidden=true;
+  $('coachingAskLoftIqBtn').hidden=!allowSign;
   $('coachingSignModal').hidden=false;
 }
+$('coachingAskLoftIqBtn').onclick=()=>{
+  if(!signingCoachingRecord)return;
+  $('coachingSignModal').hidden=true;
+  openLoftIqScoped('coaching',signingCoachingRecord.coachingId);
+};
 $('myCoachingBody').addEventListener('click',event=>{
   const id=event.target.dataset.viewCoaching;
   if(!id)return;

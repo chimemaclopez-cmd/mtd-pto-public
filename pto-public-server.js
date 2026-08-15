@@ -92,12 +92,26 @@ const COPILOT_AUTH_KEY = 'mtdkpi:copilot-auth';
 async function loadCopilotAuth() { return cloudStore.kvGetJson(COPILOT_AUTH_KEY, null); }
 async function saveCopilotAuth(auth) { return cloudStore.kvSetJson(COPILOT_AUTH_KEY, auth); }
 async function clearCopilotAuth() { return cloudStore.kvSetJson(COPILOT_AUTH_KEY, null); }
-const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache';
+// Bumped to v2 when the AI triage shape changed (sentiment Positive/Neutral/Negative -> Angry/
+// Frustrated/Calm, risk Low/Medium/High -> high_risk/critical/none, plus new patience/evidence
+// fields) - old cached entries are a different, incompatible shape, so this starts fresh rather
+// than rendering stale values under the new badge logic.
+const DSAT_AI_CACHE_KEY = 'mtdkpi:dsat-ai-cache-v2';
+const SERVICE_RECOVERY_AI_CACHE_KEY = 'mtdkpi:service-recovery-ai-cache';
+// LoftIQ: the portal's own Copilot-backed Q&A bot (see /api/my/loftiq/* below). Threads are keyed
+// per employee, then per "scope" (a specific record a question was asked about - a DSAT ticket, a
+// coaching log, a PTO request - or 'general' for the main LoftIQ tab with no record in view) so
+// questions asked while looking at the same record share one running conversation, same as
+// Workbench's own "Rex" bot being ticket-scoped. lastViewed is separate (own tiny map) purely to
+// compute an "unread answers" count for the existing notification bell - no new notification
+// system, just one more field on the same getMyNotifications() response.
+const LOFTIQ_CONVERSATIONS_KEY = 'mtdkpi:loftiq-conversations';
+const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.33.0';
+const PORTAL_VERSION = '1.34.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -178,7 +192,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
@@ -1748,9 +1762,42 @@ const server = http.createServer(async (req, res) => {
       if (!ticket) return json(res, 404, { ok: false, error: 'That ticket was not found among the bad-rated CSAT tickets for this period.' });
       const commentHash = crypto.createHash('sha1').update(`${ticket.subject || ''}|${ticket.comment || ''}`).digest('hex');
       const cache = await cloudStore.kvGetJson(DSAT_AI_CACHE_KEY, {});
-      const saved = { sentiment: String(analysis.sentiment || 'Unknown').slice(0, 40), risk: String(analysis.risk || 'Unknown').slice(0, 40), summary: String(analysis.summary || '').slice(0, 400), commentHash, analyzedAt: new Date().toISOString() };
+      const patienceNum = Number(analysis.patience);
+      const saved = {
+        sentiment: String(analysis.sentiment || 'Unknown').slice(0, 40), risk: String(analysis.risk || 'none').slice(0, 40),
+        patience: Number.isFinite(patienceNum) ? Math.max(0, Math.min(100, Math.round(patienceNum))) : null,
+        evidence: String(analysis.evidence || '').slice(0, 300),
+        summary: String(analysis.summary || '').slice(0, 400), commentHash, analyzedAt: new Date().toISOString()
+      };
       cache[ticketId] = saved;
       await cloudStore.kvSetJson(DSAT_AI_CACHE_KEY, cache);
+      return json(res, 200, { ok: true, analysis: saved });
+    }
+
+    // Same caching contract as DSAT Review's save-analysis above (content-hash keyed, so a
+    // re-triage is only wasted if the ticket text actually changed) but for Service Recovery,
+    // which didn't have AI triage before this - any team lead can save an analysis for their own
+    // team's ticket, gated the same way GET /api/my/service-recovery already is.
+    if (parsed.pathname === '/api/my/service-recovery/save-analysis' && req.method === 'POST') {
+      if (!(await hasDirectReports(identity, session.employeeName))) return json(res, 403, { ok: false, error: 'Only a team lead can save a Service Recovery analysis.' });
+      const body = await readJsonBody(req);
+      const ticketId = String(body.ticketId || '').trim();
+      const period = String(body.period || '').trim();
+      const analysis = body.analysis || {};
+      if (!ticketId || !period) return json(res, 400, { ok: false, error: 'ticketId and period are required.' });
+      const { tickets } = await loadServiceRecoveryPeriodData(period);
+      const ticket = tickets.find(t => String(t.ticketId) === ticketId);
+      if (!ticket) return json(res, 404, { ok: false, error: 'That ticket was not found among this period\'s Service Recovery tickets.' });
+      const commentHash = crypto.createHash('sha1').update(`${ticket.subject || ''}|${ticket.comment || ''}`).digest('hex');
+      const cache = await cloudStore.kvGetJson(SERVICE_RECOVERY_AI_CACHE_KEY, {});
+      const patienceNum = Number(analysis.patience);
+      const saved = {
+        sentiment: String(analysis.sentiment || 'Unknown').slice(0, 40), risk: String(analysis.risk || 'none').slice(0, 40),
+        patience: Number.isFinite(patienceNum) ? Math.max(0, Math.min(100, Math.round(patienceNum))) : null,
+        evidence: String(analysis.evidence || '').slice(0, 300), commentHash, analyzedAt: new Date().toISOString()
+      };
+      cache[ticketId] = saved;
+      await cloudStore.kvSetJson(SERVICE_RECOVERY_AI_CACHE_KEY, cache);
       return json(res, 200, { ok: true, analysis: saved });
     }
 
@@ -1787,7 +1834,10 @@ const server = http.createServer(async (req, res) => {
       const { period, availablePeriods, tickets } = await loadServiceRecoveryPeriodData(String(parsed.searchParams.get('period') || ''));
       const roster = await loadRosterSnapshot();
       const myTeamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
-      const myTickets = tickets.filter(t => myTeamEmails.has(ptoLogic.cleanEmail(t.employeeEmail))).sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
+      const aiCache = await cloudStore.kvGetJson(SERVICE_RECOVERY_AI_CACHE_KEY, {});
+      const myTickets = tickets.filter(t => myTeamEmails.has(ptoLogic.cleanEmail(t.employeeEmail)))
+        .map(t => ({ ...t, aiAnalysis: aiCache[String(t.ticketId)] || null }))
+        .sort((a, b) => (b.surveyDate || '').localeCompare(a.surveyDate || ''));
       return json(res, 200, { ok: true, period, availablePeriods, tickets: myTickets });
     }
 
@@ -2282,7 +2332,86 @@ const server = http.createServer(async (req, res) => {
           .sort((a, b) => a.infractionDate.localeCompare(b.infractionDate))
         : [];
 
-      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, pendingApprovalIds, myCoachingFollowUps, teamCoachingFollowUps, myDisciplinaryPending, disciplinaryPreReviewPending, disciplinaryDecisionPending });
+      // LoftIQ unread: same "unread since last viewed" idea as lastSeenVersion already uses for
+      // the changelog, just scoped per employee instead of per portal version - counts every
+      // assistant answer across all of this employee's own scoped threads that landed after they
+      // last opened the LoftIQ tab. No new notification system, just one more field here.
+      const [loftIqConversations, loftIqLastViewedMap] = await Promise.all([loadLoftIqConversations(), cloudStore.kvGetJson(LOFTIQ_LAST_VIEWED_KEY, {})]);
+      const myLoftIqThreads = loftIqConversations[identity] || {};
+      const loftIqLastViewed = loftIqLastViewedMap[identity] || '';
+      const loftIqUnread = Object.values(myLoftIqThreads).reduce((sum, thread) => sum + (thread.messages || []).filter(m => m.role === 'assistant' && m.at > loftIqLastViewed).length, 0);
+
+      return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, asOfDate: today, birthdays, evaluations, regularizations, anniversaries, kpiAlerts, attendanceFlags, pendingApprovals, pendingApprovalIds, myCoachingFollowUps, teamCoachingFollowUps, myDisciplinaryPending, disciplinaryPreReviewPending, disciplinaryDecisionPending, loftIqUnread });
+    }
+
+    // --- LoftIQ: the portal's own Copilot-backed Q&A bot. Copilot itself is only reachable from
+    // a browser on Lofty's network (see qa-dsat-service.js's copilotDirectFetch), so exactly like
+    // DSAT Review's AI triage, the actual chat call happens client-side - this server's job is
+    // (1) assembling a real-data context to ground the answer, strictly scoped to the REAL
+    // identity (never effectiveViewAsRole - "View As" must never change what LoftIQ can see), and
+    // (2) persisting the resulting exchange so a record-scoped conversation survives a reload.
+    async function loadLoftIqConversations() { return cloudStore.kvGetJson(LOFTIQ_CONVERSATIONS_KEY, {}); }
+    function loftIqScopeKey(scopeType, scopeId) { return `${scopeType || 'general'}:${scopeId || ''}`; }
+
+    if (parsed.pathname === '/api/my/loftiq/context' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const [kpiResults, pto, coaching, disputes] = await Promise.all([
+        loadKpiResultsSnapshot(), loadPto(), loadCoaching(), cloudStore.kvGetJson(DISPUTES_KEY, [])
+      ]);
+      const periodsSorted = Object.keys(kpiResults.periods || {}).sort((a, b) => b.localeCompare(a));
+      const myKpiRows = periodsSorted.map(p => (kpiResults.periods[p] || []).find(r => ptoLogic.cleanEmail(r.employeeEmail) === identity)).filter(Boolean);
+      const latestKpi = myKpiRows[0] || null;
+      const myPtoRequests = (pto.requests || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status !== 'DRAFT');
+      const myCoaching = (coaching.records || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity && r.status !== 'DRAFT');
+      const myDisputes = disputes.filter(d => ptoLogic.cleanEmail(d.employeeEmail) === identity);
+      const context = {
+        employeeName: me?.employeeName || session.employeeName || '',
+        kpiType: me?.kpiType || '',
+        latestKpi: latestKpi ? { period: latestKpi.period, finalKpi: latestKpi.finalKpi, performanceStatus: latestKpi.performanceStatus, csat: latestKpi.csat || null, calls: latestKpi.calls || null, tickets: latestKpi.tickets || null, lcr: latestKpi.lcr || null } : null,
+        ptoRequests: myPtoRequests.map(r => ({ requestId: r.requestId, status: r.status, requestType: r.requestType, date: r.date, reason: r.reason })),
+        coachingSessions: myCoaching.map(r => ({ coachingId: r.coachingId, category: r.category, status: r.status, coachingDate: r.coachingDate, targetFollowUpDate: r.targetFollowUpDate || null })),
+        dsatDisputes: myDisputes.map(d => ({ id: d.id, ticketId: d.ticketId, status: d.status, period: d.period }))
+      };
+      return json(res, 200, { ok: true, context });
+    }
+
+    if (parsed.pathname === '/api/my/loftiq/thread' && req.method === 'GET') {
+      const scopeType = String(parsed.searchParams.get('scopeType') || 'general');
+      const scopeId = String(parsed.searchParams.get('scopeId') || '');
+      const all = await loadLoftIqConversations();
+      const mine = all[identity] || {};
+      const thread = mine[loftIqScopeKey(scopeType, scopeId)] || { scopeType, scopeId, messages: [] };
+      return json(res, 200, { ok: true, thread });
+    }
+
+    if (parsed.pathname === '/api/my/loftiq/save-exchange' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const scopeType = String(body.scopeType || 'general').slice(0, 40);
+      const scopeId = String(body.scopeId || '').slice(0, 80);
+      const question = String(body.question || '').trim().slice(0, 2000);
+      const answer = String(body.answer || '').trim().slice(0, 6000);
+      if (!question || !answer) return json(res, 400, { ok: false, error: 'question and answer are required.' });
+      const all = await loadLoftIqConversations();
+      if (!all[identity]) all[identity] = {};
+      const key = loftIqScopeKey(scopeType, scopeId);
+      if (!all[identity][key]) all[identity][key] = { scopeType, scopeId, messages: [] };
+      const now = new Date().toISOString();
+      all[identity][key].messages.push({ role: 'user', content: question, at: now });
+      all[identity][key].messages.push({ role: 'assistant', content: answer, at: now });
+      all[identity][key].updatedAt = now;
+      // Keep each scoped thread bounded rather than growing forever - the most recent exchanges
+      // are what both the AI context-stuffing and the UI actually need.
+      if (all[identity][key].messages.length > 40) all[identity][key].messages = all[identity][key].messages.slice(-40);
+      await cloudStore.kvSetJson(LOFTIQ_CONVERSATIONS_KEY, all);
+      return json(res, 200, { ok: true, thread: all[identity][key] });
+    }
+
+    if (parsed.pathname === '/api/my/loftiq/mark-viewed' && req.method === 'POST') {
+      const lastViewed = await cloudStore.kvGetJson(LOFTIQ_LAST_VIEWED_KEY, {});
+      lastViewed[identity] = new Date().toISOString();
+      await cloudStore.kvSetJson(LOFTIQ_LAST_VIEWED_KEY, lastViewed);
+      return json(res, 200, { ok: true });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
