@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.45.1';
+const PORTAL_VERSION = '1.46.0';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -699,6 +699,15 @@ async function appendAlignmentAudit(alignmentId, action, { user = 'Team Lead', n
   data.events.push({ auditId: `ALIGN-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, alignmentId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveAlignmentAudit(data);
 }
+// Lotti Knowledge: admin-authored reference content Lotti draws on to answer ANY employee's
+// question, distinct from Alignment (also searched by Lotti - see /api/my/loftiq/alignment-
+// search below) because some reference material - an internal contact directory, for example -
+// isn't something employees are assigned to read and e-sign, just something Lotti should know.
+// No due date, no targeting, no quiz, no approval workflow - admin-only to view/manage, but
+// searchable by Lotti for everyone.
+const LOTTI_KNOWLEDGE_KEY = 'mtdkpi:lotti-knowledge-records';
+async function loadLottiKnowledge() { return cloudStore.kvGetJson(LOTTI_KNOWLEDGE_KEY, []); }
+async function saveLottiKnowledge(list) { return cloudStore.kvSetJson(LOTTI_KNOWLEDGE_KEY, list); }
 // Snapshot of the employee's standing at the moment a coaching record is created - frozen
 // at creation time (never recomputed later), so the record stays an honest account of what
 // was true when the conversation happened, same principle as a PTO request's approvedDates.
@@ -2652,6 +2661,57 @@ const server = http.createServer(async (req, res) => {
       const approved = (data.records || []).filter(r => r.status === 'APPROVED')
         .map(r => ({ alignmentId: r.alignmentId, title: r.title, category: r.category, body: stripArticleHtml(r.body) }));
       return json(res, 200, { ok: true, alignments: approved });
+    }
+
+    if (parsed.pathname === '/api/admin/lotti-knowledge' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const list = await loadLottiKnowledge();
+      return json(res, 200, { ok: true, items: list.slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')), categories: ALIGNMENT_CATEGORY_OPTIONS });
+    }
+
+    if (parsed.pathname === '/api/admin/lotti-knowledge' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim(), category = String(body.category || '').trim(), contentHtml = String(body.body || '').trim();
+      if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and content are required.' });
+      const now = new Date().toISOString();
+      const item = { id: `LOTTIKB-${Date.now()}`, title, category, body: contentHtml, active: body.active !== false, createdBy: identity, createdAt: now, updatedAt: now };
+      const list = await loadLottiKnowledge();
+      list.push(item);
+      await saveLottiKnowledge(list);
+      return json(res, 201, { ok: true, item });
+    }
+
+    const lottiKnowledgeMatch = parsed.pathname.match(/^\/api\/admin\/lotti-knowledge\/([^/]+)$/);
+    if (lottiKnowledgeMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const id = decodeURIComponent(lottiKnowledgeMatch[1]);
+      const list = await loadLottiKnowledge();
+      const index = list.findIndex(x => x.id === id);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Item not found.' });
+      if (req.method === 'DELETE') {
+        list.splice(index, 1);
+        await saveLottiKnowledge(list);
+        return json(res, 200, { ok: true, deleted: id });
+      }
+      const body = await readJsonBody(req), current = list[index];
+      const title = String(body.title ?? current.title).trim(), category = String(body.category ?? current.category).trim(), contentHtml = String(body.body ?? current.body).trim();
+      if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and content are required.' });
+      list[index] = { ...current, title, category, body: contentHtml, active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
+      await saveLottiKnowledge(list);
+      return json(res, 200, { ok: true, item: list[index] });
+    }
+
+    // Lotti's search over the admin-only knowledge base above - any signed-in employee's Lotti
+    // question can trigger this (same reach as alignment-search), even though only admins can
+    // see/manage the content itself via the Lotti Knowledge tab.
+    if (parsed.pathname === '/api/my/loftiq/knowledge-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim();
+      if (!query) return json(res, 200, { ok: true, items: [] });
+      const list = await loadLottiKnowledge();
+      const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
+      const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
+      return json(res, 200, { ok: true, items: matched.map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) })) });
     }
 
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {

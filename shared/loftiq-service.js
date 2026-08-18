@@ -25,6 +25,16 @@ export const searchLoftIqAlignments=(query)=>api(`/api/my/loftiq/alignment-searc
 // admin-only, unlike the search above which any signed-in employee's Lotti question can trigger.
 export const loadAllApprovedAlignments=()=>api('/api/admin/alignment/all-approved');
 
+// Lotti Knowledge: admin-authored reference content (managed on its own admin-only tab, never
+// shown in the employee-facing Alignment tabs) that Lotti also draws on for ANY employee's
+// question - same reach as searchLoftIqAlignments above, just a separate content source for
+// things nobody needs to be assigned to read/acknowledge.
+export const searchLoftIqKnowledge=(query)=>api(`/api/my/loftiq/knowledge-search?q=${encodeURIComponent(query)}`);
+export const loadLottiKnowledge=()=>api('/api/admin/lotti-knowledge');
+export const createLottiKnowledge=(payload)=>api('/api/admin/lotti-knowledge',{method:'POST',body:JSON.stringify(payload)});
+export const updateLottiKnowledge=(id,payload)=>api(`/api/admin/lotti-knowledge/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(payload)});
+export const deleteLottiKnowledge=(id)=>api(`/api/admin/lotti-knowledge/${encodeURIComponent(id)}`,{method:'DELETE'});
+
 // Builds the Copilot prompt for the admin "check Alignments for contradictions" review - a
 // company-wide oversight tool, separate from LoftIQ's own per-question prompt above but reusing
 // the same Copilot connection (copilotChat/copilotResponseText).
