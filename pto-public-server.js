@@ -1025,19 +1025,26 @@ function trainingManagerIdentity() { return [...TRAINING_MANAGER_EMAILS][0] || '
 // 'Trainee') only, never a coworker who happens to name-match her for some unrelated reason.
 // allowViewAs=false on write paths - an admin previewing as TRAINING must never get write
 // access to Mae's trainees, only a real TRAINING identity's own real trainees do.
-function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs = true) {
+function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs = true, includeInactive = false) {
+  const inScope = employee => includeInactive || employee.active !== false;
   const viewingAsTraining = allowViewAs && effectiveViewAsRole(identity, session) === 'TRAINING';
   const isRealTraining = portalRoleFor(identity) === 'TRAINING';
   if (viewingAsTraining || isRealTraining) {
     const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : identity;
-    return (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+    return (roster.records || []).filter(x => inScope(x) && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
   }
   if (allowViewAs && isCompanyWideOverseer(identity, session)) {
-    return (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
+    return (roster.records || []).filter(x => inScope(x) && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
   }
   const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
   const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
-  return (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || (leaderName && String(x.teamLeadName || '').trim() === leaderName)));
+  return (roster.records || []).filter(x => inScope(x) && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || (leaderName && String(x.teamLeadName || '').trim() === leaderName)));
+}
+function employmentStateOnDate(employee, date) {
+  if (employee?.hireDate && date < employee.hireDate) return { outsideEmployment: true, employmentState: 'PRE_HIRE', employmentLabel: 'Not Yet Hired' };
+  if (employee?.separationDate && date > employee.separationDate) return { outsideEmployment: true, employmentState: 'SEPARATED', employmentLabel: 'Separated' };
+  if (!employee?.separationDate && (employee?.active === false || ['Resigned', 'Terminated', 'Inactive'].includes(employee?.employmentStatus))) return { outsideEmployment: true, employmentState: 'INACTIVE', employmentLabel: 'Inactive' };
+  return { outsideEmployment: false, employmentState: 'EMPLOYED', employmentLabel: '' };
 }
 async function appendDisciplinaryAudit(violationId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
   const data = await loadDisciplinaryAudit();
@@ -1467,7 +1474,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/team-roster' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
-      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, true, true);
       return json(res, 200, { ok: true, isTeamLeader: assignedMembers.length > 0, members: assignedMembers });
     }
 
@@ -2811,6 +2818,8 @@ const server = http.createServer(async (req, res) => {
       const members = assignedMembers.map(emp => {
         const email = ptoLogic.cleanEmail(emp.employeeEmail);
         const days = dates.map(date => {
+          const employment = employmentStateOnDate(emp, date);
+          if (employment.outsideEmployment) return { date, eligible: false, locked: true, code: '', minutesLate: null, reason: '', location: '', displayLabel: employment.employmentLabel, ...employment };
           const resolved = ptoLogic.scheduleForDate(schedules, email, date);
           const eligible = !resolved.missingSchedule && Boolean(resolved.template) && !resolved.template.off;
           const auto = attendance.autoEntries?.[email]?.[date] || null;
@@ -2818,7 +2827,7 @@ const server = http.createServer(async (req, res) => {
           const minutesLate = ptoLogic.attendanceMinutesLateOnDate(attendance, email, date);
           const reason = ptoLogic.attendanceReasonOnDate(attendance, email, date);
           const location = ptoLogic.attendanceLocationOnDate(attendance, email, date);
-          return { date, eligible, locked: Boolean(auto), code, minutesLate, reason, location, displayLabel: auto?.displayLabel || '' };
+          return { date, eligible, missingSchedule: Boolean(resolved.missingSchedule), off: Boolean(resolved.template?.off), locked: Boolean(auto), code, minutesLate, reason, location, displayLabel: auto?.displayLabel || '', ...employment };
         });
         return { employeeEmail: email, employeeName: emp.employeeName, days };
       });
@@ -2831,17 +2840,19 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
       if (!body.entries || typeof body.entries !== 'object') return json(res, 400, { ok: false, error: 'Attendance entries are required.' });
       const roster = await loadRosterSnapshot();
-      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, false).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
-      if (!memberEmails.size) return json(res, 403, { ok: false, error: 'You do not have any direct reports.' });
+      const scopedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, false, true);
+      const memberByEmail = new Map(scopedMembers.map(x => [ptoLogic.cleanEmail(x.employeeEmail), x]));
+      if (!memberByEmail.size) return json(res, 403, { ok: false, error: 'You do not have any direct reports.' });
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
       const accepted = {}, skipped = [];
       for (const [rawEmail, byDate] of Object.entries(body.entries)) {
         const email = ptoLogic.cleanEmail(rawEmail);
-        if (!memberEmails.has(email)) { skipped.push({ employeeEmail: email, reason: 'Not your direct report.' }); continue; }
+        if (!memberByEmail.has(email)) { skipped.push({ employeeEmail: email, reason: 'Not your direct report.' }); continue; }
         for (const [date, rawValue] of Object.entries(byDate || {})) {
           const isObj = rawValue && typeof rawValue === 'object';
           const code = String((isObj ? rawValue.code : rawValue) || '').trim().toUpperCase();
           if (!ptoLogic.validDate(date) || !date.startsWith(month)) { skipped.push({ employeeEmail: email, date, reason: 'Date outside the selected month.' }); continue; }
+          if (employmentStateOnDate(memberByEmail.get(email), date).outsideEmployment) { skipped.push({ employeeEmail: email, date, reason: 'Date is outside the employee employment period.' }); continue; }
           if (code && !ATTENDANCE_CODES.includes(code)) { skipped.push({ employeeEmail: email, date, reason: 'Invalid attendance code.' }); continue; }
           if (attendance.autoEntries?.[email]?.[date]) { skipped.push({ employeeEmail: email, date, reason: 'Protected by an approved PTO request.' }); continue; }
           const resolved = ptoLogic.scheduleForDate(schedules, email, date);

@@ -43,3 +43,4 @@ tbody tr{transition:background-color .12s}tbody tr:nth-child(even) td{background
 .richContent p{margin:0 0 10px}.richContent p:last-child{margin-bottom:0}
 .richContent ul,.richContent ol{margin:0 0 10px;padding-left:22px}
 .richContent h1,.richContent h2,.richContent h3,.richContent h4{margin:12px 0 8px}
+.att-OUTSIDE{background:#f1f3f7;color:#697184;text-align:center}.att-OUTSIDE .pill{white-space:nowrap}

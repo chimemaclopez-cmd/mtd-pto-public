@@ -1367,8 +1367,11 @@ function renderTeamAttendance(){
       const minutesLate=dirty?dirty.minutesLate:day.minutesLate;
       const reason=dirty?dirty.reason:day.reason;
       const location=dirty?dirty.location:day.location;
+      if(day.outsideEmployment)return`<td class="att-OUTSIDE" title="Excluded from attendance and eligible-workday calculations"><span class="pill status-no-data">${esc(day.employmentLabel||'Outside Employment')}</span></td>`;
       if(day.locked)return`<td class="att-PTO" title="Protected by an approved PTO request">${esc(day.displayLabel||'PTO')}</td>`;
-      if(!day.eligible)return`<td class="att-RD">RD</td>`;
+      if(day.missingSchedule)return`<td class="att-OUTSIDE"><span class="pill status-missing-attendance">Missing Schedule</span></td>`;
+      if(day.off)return`<td class="att-RD"><span class="pill status-no-data">RD</span></td>`;
+      if(!day.eligible)return`<td class="att-OUTSIDE"><span class="pill status-no-data">Not Scheduled</span></td>`;
       const canAttach=!dirty&&['SL','EL','SL-HD','EL-HD'].includes(day.code);
       const attachBtn=canAttach?`<button type="button" class="att-attach-btn" data-attach-email="${esc(m.employeeEmail)}" data-attach-date="${day.date}" title="Attach a supporting document for this ${esc(day.code)} day">📎</button>`:(dirty&&['SL','EL','SL-HD','EL-HD'].includes(current)?'<span class="att-attach-hint" title="Save this change first, then you can attach a document">📎</span>':'');
       const minutesLateInput=current==='LATE'?`<input type="number" min="1" max="600" class="att-minutes-late" data-minutes-email="${esc(m.employeeEmail)}" data-minutes-date="${day.date}" placeholder="mins" value="${minutesLate!=null?minutesLate:''}">`:'';
