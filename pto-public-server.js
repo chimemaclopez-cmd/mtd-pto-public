@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.46.4';
+const PORTAL_VERSION = '1.46.5';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -3139,11 +3139,34 @@ const server = http.createServer(async (req, res) => {
         if (r.coachingDate > rep.lastCoachingDate) rep.lastCoachingDate = r.coachingDate;
       }
       const site = { total: records.length, sent: records.filter(r => r.status === 'SENT').length, acknowledged: records.filter(r => r.status === 'ACKNOWLEDGED').length };
+
+      // Company-wide CSAT rollup, by team lead and by employee - SOM previously had no summary
+      // view for this (only one aggregate rate on Site KPI, and DSAT Review's per-ticket detail
+      // is BQA-only), even though KPI/Attendance were already fully company-wide for her.
+      const kpiResults = await loadKpiResultsSnapshot();
+      const kpiPeriods = kpiResults.periods || {};
+      const latestKpiKey = currentPeriodKeys(Object.keys(kpiPeriods)).sort((a, b) => b.localeCompare(a))[0] || '';
+      const latestKpiRows = (kpiPeriods[latestKpiKey] || []).filter(r => r.csat && r.csat.sourceReady !== false);
+      const csatByTeam = new Map();
+      const csatByRep = latestKpiRows.map(r => {
+        const teamKey = r.teamLeadName || 'Unassigned';
+        if (!csatByTeam.has(teamKey)) csatByTeam.set(teamKey, { teamLeadName: teamKey, good: 0, bad: 0 });
+        const team = csatByTeam.get(teamKey);
+        team.good += Number(r.csat.good || 0); team.bad += Number(r.csat.bad || 0);
+        return { employeeEmail: r.employeeEmail, employeeName: r.employeeName, teamLeadName: teamKey, good: Number(r.csat.good || 0), bad: Number(r.csat.bad || 0), rate: r.csat.rate ?? null };
+      });
+      const rateOf = (good, bad) => (good + bad) > 0 ? Math.round((good / (good + bad)) * 1000) / 10 : null;
+      const csatSiteTotals = latestKpiRows.reduce((acc, r) => ({ good: acc.good + Number(r.csat.good || 0), bad: acc.bad + Number(r.csat.bad || 0) }), { good: 0, bad: 0 });
+
       return json(res, 200, {
         ok: true, site,
         byTeam: [...byTeam.values()].sort((a, b) => b.total - a.total),
         byRep: [...byRep.values()].sort((a, b) => b.total - a.total),
-        records
+        records,
+        csatPeriod: latestKpiKey,
+        csatSite: { ...csatSiteTotals, rate: rateOf(csatSiteTotals.good, csatSiteTotals.bad) },
+        csatByTeam: [...csatByTeam.values()].map(t => ({ ...t, rate: rateOf(t.good, t.bad) })).sort((a, b) => (a.rate ?? -1) - (b.rate ?? -1)),
+        csatByRep: csatByRep.sort((a, b) => (a.rate ?? 101) - (b.rate ?? 101))
       });
     }
 
