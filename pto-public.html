@@ -177,7 +177,17 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="sectionTitle" style="margin-top:18px;font-size:16px">Day by Day</div>
 <div id="seniorJiraDays"></div>
 </section>
-<section id="siteMetricsView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="siteMetricsPeriod"></select></div></div><div class="sectionTitle">Company-Wide MTD KPI (8AM–8PM ET)</div><div class="cards" id="siteMetricsCards"></div><div class="sub" id="siteMetricsMeta"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Metric</th><th>Definition</th></tr></thead><tbody><tr><td>Call Completion Rate</td><td>Answered/connected inbound calls ÷ all inbound calls, 8:00 AM–8:00 PM Eastern Time only. Outbound calls are excluded.</td></tr><tr><td>Long Call Rate</td><td>Calls lasting 30 minutes or more ÷ accepted inbound calls.</td></tr><tr><td>CSAT</td><td>Good survey responses ÷ (good + bad) survey responses.</td></tr></tbody></table></div><div class="sectionTitle" style="margin-top:22px" id="siteTraineesTitle">Currently in Training</div>
+<section id="siteMetricsView" hidden><div class="filters noPrint" style="margin-bottom:12px"><div class="field"><label>Reporting Period</label><select id="siteMetricsPeriod"></select></div></div><div class="sectionTitle">Company-Wide MTD KPI (8AM–8PM ET)</div><div class="cards" id="siteMetricsCards"></div><div class="sub" id="siteMetricsMeta"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Metric</th><th>Definition</th></tr></thead><tbody><tr><td>Call Completion Rate</td><td>Answered/connected inbound calls ÷ all inbound calls, 8:00 AM–8:00 PM Eastern Time only. Outbound calls are excluded.</td></tr><tr><td>Long Call Rate</td><td>Calls lasting 30 minutes or more ÷ accepted inbound calls.</td></tr><tr><td>CSAT</td><td>Good survey responses ÷ (good + bad) survey responses.</td></tr></tbody></table></div>
+<div id="siteMetricsCsatSomSection" hidden>
+<div class="sectionTitle" style="margin-top:22px">CSAT — By Team &amp; By Rep</div>
+<div class="sub" id="siteMetricsCsatSomMeta"></div>
+<div class="cards" id="siteMetricsCsatSomCards" style="margin-top:8px"></div>
+<div class="sectionTitle" style="font-size:14px;margin-top:16px">By Team</div>
+<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Team Lead</th><th>Good</th><th>Bad</th><th>CSAT Rate</th></tr></thead><tbody id="siteMetricsCsatSomByTeamBody"></tbody></table></div>
+<div class="sectionTitle" style="font-size:14px;margin-top:16px">By Rep</div>
+<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Employee</th><th>Team Lead</th><th>Good</th><th>Bad</th><th>CSAT Rate</th></tr></thead><tbody id="siteMetricsCsatSomByRepBody"></tbody></table></div>
+</div>
+<div class="sectionTitle" style="margin-top:22px" id="siteTraineesTitle">Currently in Training</div>
 <div class="sub" id="siteTraineesEmpty" hidden>No one is currently in training.</div>
 <div class="tableWrap" style="margin-top:8px" id="siteTraineesWrap" hidden><table><thead><tr><th>Name</th><th>Reports To (Training)</th><th>Channel</th><th>Since</th></tr></thead><tbody id="siteTraineesBody"></tbody></table></div>
 <div class="sectionTitle" style="margin-top:22px">Daily EOD Report</div><div class="sub">Day-by-day snapshot to track the dip and up. Months before daily capture began show only that month's final snapshot. Onsite/WFH/Present/Out counts let you check whether a dip or improvement lines up with the day's work-setup mix or staffing gaps. Present is always Onsite + WFH; Late is shown separately since a late entry doesn't record which setup that employee was in.</div><div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Date</th><th>Call Completion Rate</th><th>Long Call Rate</th><th>CSAT</th><th>Onsite</th><th>WFH</th><th>Present</th><th>Late</th><th>Planned Out</th><th>Unplanned Out</th></tr></thead><tbody id="siteMetricsHistoryBody"></tbody></table></div></section>
@@ -550,13 +560,6 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Team Lead</th><th>Total</th><th>Awaiting Signature</th><th>Acknowledged</th></tr></thead><tbody id="siteCoachingByTeamBody"></tbody></table></div>
 <div class="sectionTitle" style="font-size:15px;margin-top:20px">By Rep</div>
 <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Employee</th><th>Team Lead</th><th>Total</th><th>Awaiting Signature</th><th>Acknowledged</th><th>Most Recent</th></tr></thead><tbody id="siteCoachingByRepBody"></tbody></table></div>
-<div class="sectionTitle" style="font-size:15px;margin-top:20px">CSAT — Company-Wide</div>
-<div class="sub" id="siteCoachingCsatMeta"></div>
-<div class="cards" id="siteCoachingCsatCards" style="margin-top:8px"></div>
-<div class="sectionTitle" style="font-size:14px;margin-top:16px">By Team</div>
-<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Team Lead</th><th>Good</th><th>Bad</th><th>CSAT Rate</th></tr></thead><tbody id="siteCoachingCsatByTeamBody"></tbody></table></div>
-<div class="sectionTitle" style="font-size:14px;margin-top:16px">By Rep</div>
-<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Employee</th><th>Team Lead</th><th>Good</th><th>Bad</th><th>CSAT Rate</th></tr></thead><tbody id="siteCoachingCsatByRepBody"></tbody></table></div>
 <div class="sectionTitle" style="font-size:15px;margin-top:20px">All Sessions</div>
 <div class="filters noPrint" style="margin:8px 0"><div class="field"><label>Team Lead</label><select id="siteCoachingTeamFilter"><option value="">All</option></select></div></div>
 <div class="tableWrap"><table><thead><tr><th>Code</th><th>Employee</th><th>Team Lead</th><th>Date</th><th>Category</th><th>Status</th></tr></thead><tbody id="siteCoachingBody"></tbody></table></div>
@@ -893,6 +896,19 @@ async function loadSiteMetricsTab(period=''){try{const result=await getSiteMetri
     $('siteTraineesWrap').hidden=!trainees.length;
     $('siteTraineesBody').innerHTML=trainees.map(t=>`<tr><td>${esc(t.employeeName)}</td><td>${esc(t.teamLeadName||'—')}</td><td>${esc(t.primaryChannel||'—')}</td><td>${esc(t.effectiveDate||'—')}</td></tr>`).join('');
   }catch(error){/* non-critical - Site KPI's own data still loaded above */}
+  if(portalRole==='SOM'||viewAsRole==='SOM'){
+    $('siteMetricsCsatSomSection').hidden=false;
+    try{
+      const overview=await loadSiteCoachingOverview();
+      const{csatPeriod,csatSite,csatByTeam,csatByRep}=overview;
+      $('siteMetricsCsatSomMeta').textContent=csatPeriod?`Period: ${esc(csatPeriod.split('|')[0])} (through ${esc(csatPeriod.split('|')[1])})`:'No KPI period available yet.';
+      $('siteMetricsCsatSomCards').innerHTML=[['Good',csatSite?.good??0],['Bad',csatSite?.bad??0],['CSAT Rate',csatSite?.rate!=null?`${csatSite.rate}%`:'—']].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${esc(String(b))}</div></div>`).join('');
+      $('siteMetricsCsatSomByTeamBody').innerHTML=(csatByTeam||[]).map(t=>`<tr><td><b>${esc(t.teamLeadName)}</b></td><td>${t.good}</td><td>${t.bad}</td><td>${t.rate!=null?`${t.rate}%`:'—'}</td></tr>`).join('')||'<tr><td colspan="4">No CSAT survey data yet.</td></tr>';
+      $('siteMetricsCsatSomByRepBody').innerHTML=(csatByRep||[]).map(r=>`<tr><td>${esc(r.employeeName)}</td><td>${esc(r.teamLeadName)}</td><td>${r.good}</td><td>${r.bad}</td><td>${r.rate!=null?`${r.rate}%`:'—'}</td></tr>`).join('')||'<tr><td colspan="5">No CSAT survey data yet.</td></tr>';
+    }catch(error){/* non-critical - Site KPI's own data still loaded above */}
+  }else{
+    $('siteMetricsCsatSomSection').hidden=true;
+  }
 }
 function applyKpiResult(result){kpiResults=result.results||[];teamKpiResults=result.teamResults||[];isTeamLeader=Boolean(result.isTeamLeader);teamKpiPeriod=result.teamPeriod||'';teamKpiAverage=result.teamAverage??null;teamKpiLeadName=result.teamLeadName||'';teamKpiSize=result.teamSize||0;teamKpiLastRefreshedAt=Date.now();kpiAvailablePeriods=result.availablePeriods||[];if(!selectedKpiPeriod)selectedKpiPeriod=kpiResults[0]?.period||teamKpiPeriod||kpiAvailablePeriods[0]||'';renderKpiPeriodOptions();renderKpi()}
 async function refreshKpiOnly(){if(!sessionUser||kpiRefreshing||loading.isActive)return;kpiRefreshing=true;try{applyKpiResult(await getMyKpi())}catch(error){if(activeTab==='kpi')setMessage(`KPI scores could not be refreshed. ${error.response?.error||error.message}`,'error')}finally{kpiRefreshing=false}}
@@ -1277,7 +1293,7 @@ const CHANGELOG=[
   {version:'1.46.2',items:['Team Attendance now has an "Export (.xlsx)" button next to Save Changes, for Team Leads and the SOM.']},
   {version:'1.46.3',items:['Lotti now tells apart a "who do I contact for X" question from a "how do I handle X" question, and matches on meaning instead of shared wording - so a dedicated contact-directory entry answers the first even if a separate process SOP mentions the topic more often.']},
   {version:'1.46.4',items:['The Jira Activity tab (Senior TSRs) now has a "Summary of All Senior TSRs" table - Calls Accepted, Zendesk Tickets Updated, and JIRA Tickets Updated for every active Senior TSR company-wide, not just your own numbers.']},
-  {version:'1.46.5',items:['All Coaching (SOM) now includes a company-wide CSAT summary - good/bad/rate by team lead and by rep - alongside the existing coaching rollup.']}
+  {version:'1.46.5',items:['Site KPI now includes a company-wide CSAT summary for SOM - good/bad/rate by team lead and by rep - visible only to SOM; everyone else still just sees the one aggregate rate.']}
 ];
 function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
 function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
@@ -1738,14 +1754,10 @@ async function loadCoachingTab(){
 }
 function renderSiteCoaching(){
   if(!siteCoachingOverview)return;
-  const{site,byTeam,byRep,records,csatPeriod,csatSite,csatByTeam,csatByRep}=siteCoachingOverview;
+  const{site,byTeam,byRep,records}=siteCoachingOverview;
   $('siteCoachingCards').innerHTML=[['Total Sessions',site.total],['Awaiting Signature',site.sent],['Acknowledged',site.acknowledged]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
   $('siteCoachingByTeamBody').innerHTML=byTeam.map(t=>`<tr><td><b>${esc(t.teamLeadName)}</b></td><td>${t.total}</td><td>${t.sent}</td><td>${t.acknowledged}</td></tr>`).join('')||'<tr><td colspan="4">No coaching sessions filed yet.</td></tr>';
   $('siteCoachingByRepBody').innerHTML=byRep.map(r=>`<tr><td>${esc(r.employeeName)}</td><td>${esc(r.teamLeadName)}</td><td>${r.total}</td><td>${r.sent}</td><td>${r.acknowledged}</td><td>${esc(r.lastCoachingDate||'—')}</td></tr>`).join('')||'<tr><td colspan="6">No coaching sessions filed yet.</td></tr>';
-  $('siteCoachingCsatMeta').textContent=csatPeriod?`Period: ${esc(csatPeriod.split('|')[0])} (through ${esc(csatPeriod.split('|')[1])})`:'No KPI period available yet.';
-  $('siteCoachingCsatCards').innerHTML=[['Good',csatSite?.good??0],['Bad',csatSite?.bad??0],['CSAT Rate',csatSite?.rate!=null?`${csatSite.rate}%`:'—']].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${esc(String(b))}</div></div>`).join('');
-  $('siteCoachingCsatByTeamBody').innerHTML=(csatByTeam||[]).map(t=>`<tr><td><b>${esc(t.teamLeadName)}</b></td><td>${t.good}</td><td>${t.bad}</td><td>${t.rate!=null?`${t.rate}%`:'—'}</td></tr>`).join('')||'<tr><td colspan="4">No CSAT survey data yet.</td></tr>';
-  $('siteCoachingCsatByRepBody').innerHTML=(csatByRep||[]).map(r=>`<tr><td>${esc(r.employeeName)}</td><td>${esc(r.teamLeadName)}</td><td>${r.good}</td><td>${r.bad}</td><td>${r.rate!=null?`${r.rate}%`:'—'}</td></tr>`).join('')||'<tr><td colspan="5">No CSAT survey data yet.</td></tr>';
   const teamNames=[...new Set(byTeam.map(t=>t.teamLeadName))].sort();
   $('siteCoachingTeamFilter').innerHTML='<option value="">All</option>'+teamNames.map(n=>`<option value="${esc(n)}"${n===siteCoachingTeamFilterValue?' selected':''}>${esc(n)}</option>`).join('');
   const filtered=siteCoachingTeamFilterValue?records.filter(r=>(r.teamLeadName||'Unassigned')===siteCoachingTeamFilterValue):records;
@@ -3665,7 +3677,7 @@ $('viewAsSelect').onchange=async()=>{
     // right call during normal tab-to-tab navigation - but switching preview roles needs a
     // forced refresh, or a second preview in the same session would show the first role's
     // stale leftovers instead of this one's real data.
-    dsatReviewAvailablePeriods=[];siteCoachingOverview=null;trainingNewHires=[];trainingScoresByEmail=new Map();expandedTraineeEmail=null;
+    dsatReviewAvailablePeriods=[];siteCoachingOverview=null;trainingNewHires=[];trainingScoresByEmail=new Map();expandedTraineeEmail=null;siteMetricsData=null;siteMetricsAvailablePeriods=[];
     applyPortalRoleView();setTab(activeTab);
   }catch(error){setMessage(error.response?.error||error.message,'error');$('viewAsSelect').value=viewAsRole}
 };
