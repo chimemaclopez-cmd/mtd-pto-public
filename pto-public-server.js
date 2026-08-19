@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.46.5';
+const PORTAL_VERSION = '1.46.6';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2224,18 +2224,30 @@ const server = http.createServer(async (req, res) => {
         // a negative delta here means the stored MTD snapshot for this day (or the one before
         // it) is inconsistent with the other, e.g. a refresh ran before the labeled day had
         // fully elapsed, or Zendesk's own data changed between the two snapshots being
-        // captured. Subtracting two negatives previously produced a false "100%" on
-        // 2026-08-08 (1220 total that day vs. 1244 the day before) - fall back to the day's
+        // captured (e.g. late-arriving CSAT survey responses backfilled an earlier day's
+        // snapshot after a later day's had already been captured and never got a matching
+        // re-refresh). Subtracting two negatives previously produced a false "100%" on
+        // 2026-08-08 (1220 total that day vs. 1244 the day before) - fall back to that day's
         // own raw cumulative rather than trust arithmetic on numbers that can't both be right.
-        // Every component needs its own check, not just the three used above: checking only
-        // totalInbound/accepted/(good+bad) still lets e.g. completedInbound or bad go negative
-        // on its own (good absorbing the swing) and produce a >100% or negative rate undetected.
-        if (totalInbound < 0 || completedInbound < 0 || accepted < 0 || longCalls < 0 || good < 0 || bad < 0) return { ...row, isDailyIsolated: false };
+        // Each of the 3 metrics is checked and falls back independently - a CSAT-only staleness
+        // issue (confirmed live on 2026-08-15: good/bad went 307/27 -> 305/26 day-over-day)
+        // otherwise blanked out an unrelated, perfectly valid Call Completion/Long Call Rate
+        // isolation for that same day.
+        const callCompletionOk = totalInbound >= 0 && completedInbound >= 0;
+        const longCallRateOk = accepted >= 0 && longCalls >= 0;
+        const csatOk = good >= 0 && bad >= 0;
         return {
-          period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated, isDailyIsolated: true,
-          callCompletion: { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null },
-          longCallRate: { accepted, longCalls, rate: accepted ? longCalls / accepted * 100 : null },
-          csat: { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
+          period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated,
+          isDailyIsolated: callCompletionOk && longCallRateOk && csatOk,
+          callCompletion: callCompletionOk
+            ? { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null }
+            : row.callCompletion,
+          longCallRate: longCallRateOk
+            ? { accepted, longCalls, rate: accepted ? longCalls / accepted * 100 : null }
+            : row.longCallRate,
+          csat: csatOk
+            ? { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
+            : row.csat
         };
       });
       // Onsite/WFH/Present headcount per day, so a dip or improvement in the metrics above can
