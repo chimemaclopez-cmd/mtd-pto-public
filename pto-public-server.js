@@ -111,7 +111,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '1.46.1';
+const PORTAL_VERSION = '1.46.4';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2127,6 +2127,54 @@ const server = http.createServer(async (req, res) => {
         totals,
         days: dayKeys.map(day => ({ day, ...days[day] }))
       });
+    }
+
+    // Company-wide MTD summary across every active Senior TSR, regardless of team lead (the
+    // 4 Senior TSRs each sit under a different team lead, so no team-scoped view shows all of
+    // them together). Calls Accepted and Zendesk Tickets Updated come from the same KPI result
+    // fields already computed for each Senior TSR's own score (bonus.accepted, tickets.unique);
+    // JIRA Tickets Updated is a fresh dedupe of touched+commented ticket keys across the month,
+    // since the Jira activity snapshot only stores per-day event lists, not a precomputed total.
+    if (parsed.pathname === '/api/my/senior-tsr-summary' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
+      const previewingSeniorTsr = effectiveViewAsRole(identity, session) === 'SENIOR TSR';
+      if ((!me || me.kpiType !== 'Senior TSR') && !previewingSeniorTsr) return json(res, 403, { ok: false, error: 'This view is only available to Senior TSRs.' });
+
+      const seniorTsrs = (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Senior TSR');
+
+      const kpiResults = await loadKpiResultsSnapshot();
+      const kpiPeriods = kpiResults.periods || {};
+      const latestKpiKey = currentPeriodKeys(Object.keys(kpiPeriods)).sort((a, b) => b.localeCompare(a))[0] || '';
+      const latestKpiRows = kpiPeriods[latestKpiKey] || [];
+      const kpiByEmail = new Map(latestKpiRows.map(r => [ptoLogic.cleanEmail(r.employeeEmail), r]));
+
+      const jiraSnapshot = await loadSeniorJiraActivitySnapshot();
+      const jiraPeriods = jiraSnapshot.periods || {};
+      const jiraMonths = Object.keys(jiraPeriods).sort((a, b) => b.localeCompare(a));
+      const requestedMonth = String(parsed.searchParams.get('month') || '');
+      const jiraMonth = (requestedMonth && jiraPeriods[requestedMonth]) ? requestedMonth : (jiraMonths[0] || '');
+      const jiraPeriod = jiraPeriods[jiraMonth] || { sourceAvailable: false, byEmail: {} };
+
+      const rows = seniorTsrs.map(emp => {
+        const email = ptoLogic.cleanEmail(emp.employeeEmail);
+        const kpiRow = kpiByEmail.get(email) || null;
+        const days = jiraPeriod.byEmail?.[email] || {};
+        const jiraTicketKeys = new Set();
+        for (const day of Object.values(days)) {
+          for (const t of (day.touched || [])) if (t.ticketKey) jiraTicketKeys.add(t.ticketKey);
+          for (const c of (day.commented || [])) if (c.ticketKey) jiraTicketKeys.add(c.ticketKey);
+        }
+        return {
+          employeeEmail: email,
+          employeeName: emp.employeeName,
+          callsAccepted: kpiRow?.bonus?.accepted ?? null,
+          zendeskTicketsUpdated: kpiRow?.tickets?.unique ?? null,
+          jiraTicketsUpdated: jiraPeriod.sourceAvailable === false ? null : jiraTicketKeys.size
+        };
+      }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+
+      return json(res, 200, { ok: true, kpiPeriod: latestKpiKey, jiraMonth, sourceAvailable: Boolean(jiraPeriod.sourceAvailable), rows });
     }
 
     // Company-wide "who's currently in training" - visible to any signed-in user, not just the
