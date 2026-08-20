@@ -356,6 +356,44 @@ const STATUS_WALL_ATTENDANCE_AWAY_LABELS = {
   'EL-HD': 'Emergency Leave (Half Day)', NCNS: 'No Call No Show', A: 'Absent',
   BL: 'Bereavement Leave', SUSPENDED: 'Suspended'
 };
+// Mirrors zendesk-proxy.js's QUEUE_CALL_ACTIVITY_IDS/QUEUE_TICKET_ACTIVITY_IDS - the same
+// split it uses to decide whether a scheduled activity is one that should show a live signal
+// (Talk call, or recent Zendesk/Jira ticket touch) versus a planned offline block (break,
+// lunch, meeting, etc.) that has nothing to check against.
+const STATUS_WALL_QUEUE_CALL_ACTIVITY_IDS = new Set(['CALL', 'SENIOR_TSR']);
+const STATUS_WALL_QUEUE_TICKET_ACTIVITY_IDS = new Set(['CHAT', 'EMAIL', 'EMAIL_CHAT', 'LEAD_IMPORT']);
+const STATUS_WALL_SCHEDULE_ACTIVITY_LABELS = {
+  CALL: 'Call', CHAT: 'Chat', EMAIL: 'Email', EMAIL_CHAT: 'Email / Chat', LEAD_IMPORT: 'Lead Import',
+  SENIOR_TSR: 'Senior TSR', SHORT_BREAK: 'Short Break', LUNCH: 'Lunch', COACHING: 'Coaching',
+  TRAINING: 'Training', TEAM_HUDDLE: 'Team Huddle', ONE_ON_ONE: '1:1 Session', QA_REVIEW: 'QA Review',
+  MEETING: 'Meeting', CALIBRATION: 'Calibration', SIDE_BY_SIDE: 'Side-by-Side', PROJECT_WORK: 'Project Work',
+  ADMIN: 'Admin', DOCUMENTATION: 'Documentation', CASE_REVIEW: 'Case Review', SYSTEM_DOWNTIME: 'System Downtime',
+  OTHER_OFFLINE: 'Other Offline Task', OFFLINE: 'Offline', PTO: 'PTO', RD: 'RD'
+};
+function statusWallClockOf(minutes) {
+  const value = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+}
+// Ported from zendesk-proxy.js's resolveCurrentActivity - resolves what a rep's schedule says
+// they should be doing at this exact minute (an exact-time override block if one is set for
+// today, else the 30-minute assignment grid), so the wall can tell "scheduled for Call/Chat
+// but showing no live signal" apart from a generic "Not Reported" with no queue context.
+function statusWallResolveScheduledActivity(resolved, nowMinutes, shiftStart, shiftEnd, overnight) {
+  if (resolved.missingSchedule) return { activityId: null };
+  let effectiveNow = nowMinutes;
+  if (overnight && effectiveNow < shiftStart) effectiveNow += 1440;
+  if (!resolved.override && resolved.record?.exactActivities?.[resolved.weekday]) {
+    for (const exact of resolved.record.exactActivities[resolved.weekday]) {
+      let s = ptoLogic.minutesOf(exact.startTime), e = ptoLogic.minutesOf(exact.endTime);
+      if (s < shiftStart && shiftEnd > 1440) s += 1440;
+      if (e <= s) e += 1440;
+      if (effectiveNow >= s && effectiveNow < e) return { activityId: String(exact.activityId ?? '').trim() || null };
+    }
+  }
+  const slotClock = statusWallClockOf(Math.floor(effectiveNow / 30) * 30 % 1440);
+  const assignment = resolved.template?.assignments?.[slotClock];
+  return { activityId: assignment ? String(assignment).trim() || null : null };
+}
 async function computeStatusWall() {
   const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR', 'Database Agent'].includes(x.kpiType));
   const schedules = await loadScheduleSnapshot();
@@ -416,7 +454,13 @@ async function computeStatusWall() {
     const wentOnlineAnyway = !scheduledToday && (selfReportedQueue || liveOnline || recentZendeskWork || recentJiraWork);
     if (!scheduledToday && !wentOnlineAnyway) continue; // not supposed to be on shift and didn't go online - leave off the wall
 
-    let statusLabel, statusCode = 'OTHER', statusDetail = '', sinceIso = null, capMinutes = null, lateFlag = false;
+    const currentActivity = onShiftNow ? statusWallResolveScheduledActivity(resolved, nowMinutes, shiftStart, shiftEnd, t?.overnight) : { activityId: null };
+    const scheduledActivity = currentActivity.activityId ? (STATUS_WALL_SCHEDULE_ACTIVITY_LABELS[currentActivity.activityId] || currentActivity.activityId) : '';
+    const scheduledQueueType = currentActivity.activityId
+      ? (STATUS_WALL_QUEUE_CALL_ACTIVITY_IDS.has(currentActivity.activityId) ? 'call' : STATUS_WALL_QUEUE_TICKET_ACTIVITY_IDS.has(currentActivity.activityId) ? 'ticket' : null)
+      : null;
+
+    let statusLabel, statusCode = 'OTHER', statusDetail = '', sinceIso = null, capMinutes = null, lateFlag = false, flagReason = '';
     if (liveOnCall) {
       statusLabel = 'On Call';
       statusCode = 'ON_CALL';
@@ -480,7 +524,19 @@ async function computeStatusWall() {
       statusCode = 'ON_LEAVE';
       sinceIso = null;
     } else if (onShiftNow) {
-      statusLabel = 'Not Reported'; lateFlag = true;
+      // No live signal, no self-report, nothing on file - this is the one bucket where knowing
+      // the schedule matters: if this half-hour is a Call/Chat queue block, say so plainly
+      // instead of a generic "Not Reported" that gives a team lead no idea what was missed.
+      lateFlag = true;
+      if (scheduledQueueType) {
+        statusLabel = 'Off Queue';
+        statusCode = 'OFF_QUEUE';
+        statusDetail = `Scheduled: ${scheduledActivity}`;
+        flagReason = 'Off Queue';
+      } else {
+        statusLabel = 'Not Reported';
+        flagReason = 'Late Login';
+      }
       const shiftStartMs = easternEpochMs(todayDate, shiftStart);
       sinceIso = new Date(updatedAtMs != null && updatedAtMs > shiftStartMs ? updatedAtMs : shiftStartMs).toISOString();
     } else {
@@ -492,12 +548,14 @@ async function computeStatusWall() {
       teamLeadName: emp.teamLeadName,
       kpiType: emp.kpiType,
       workLocation,
+      scheduledActivity,
       statusLabel,
       statusCode,
       statusDetail,
       sinceIso,
       capMinutes,
       lateFlag,
+      flagReason,
       online: ['AVAIL', 'ON_CALL', 'ON_CHAT'].includes(statusCode)
     });
   }

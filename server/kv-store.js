@@ -46,6 +46,12 @@ function command(args) {
         try { resolve(JSON.parse(data)); } catch (error) { reject(new Error(`Upstash returned invalid JSON: ${error.message}`)); }
       });
     });
+    // Without this, a request that hangs mid-flight during a network blip (DNS drop,
+    // connection reset) never resolves or rejects - it just leaks. Since callers fire
+    // this every ~30s on a timer, leaked requests pile up silently and the whole sync
+    // loop can look "stuck" even after the network recovers (confirmed live: signal
+    // publishing froze for 15+ minutes after a burst of ECONNRESET/ENOTFOUND errors).
+    req.setTimeout(10000, () => req.destroy(new Error('Upstash request timed out after 10s')));
     req.on('error', reject);
     req.write(body);
     req.end();
