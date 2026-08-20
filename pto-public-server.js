@@ -470,7 +470,9 @@ async function computeStatusWall() {
     if (liveOnCall) {
       statusLabel = 'On Call';
       statusCode = 'ON_CALL';
-      statusDetail = signal.callTicketId ? `#${signal.callTicketId}` : '';
+      // Zendesk call ticket is the primary reference; fall back to a Jira ticket if the call
+      // signal itself didn't carry one (e.g. Talk hasn't linked a ticket yet).
+      statusDetail = signal.callTicketId ? `#${signal.callTicketId}` : (signal.jiraIssueKey || '');
       sinceIso = signal.callStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (liveOnChat) {
       // Email/chat availability rarely carries its own ticket_id/started-at the way a call
