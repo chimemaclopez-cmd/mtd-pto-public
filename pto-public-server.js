@@ -347,9 +347,19 @@ function easternEpochMs(dateStr, minutesSinceMidnight) {
   const represented = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
   return guess - (represented - guess);
 }
+// Codes where Team Attendance already explains why someone isn't online - the Status Wall
+// should show that reason instead of guessing "Not Reported"/Late Login. ONSITE/WFH/LATE/
+// PARTIAL_PTO are deliberately excluded: those still expect the person online for some or
+// all of the shift, so a missing live signal there is still worth flagging as normal.
+const STATUS_WALL_ATTENDANCE_AWAY_LABELS = {
+  PTO: 'PTO', SL: 'Sick Leave', 'SL-HD': 'Sick Leave (Half Day)', EL: 'Emergency Leave',
+  'EL-HD': 'Emergency Leave (Half Day)', NCNS: 'No Call No Show', A: 'Absent',
+  BL: 'Bereavement Leave', SUSPENDED: 'Suspended'
+};
 async function computeStatusWall() {
   const roster = (await loadRosterSnapshot()).records.filter(x => x.active && ['Voice Jr TSR', 'Non-Voice Jr TSR', 'Senior TSR', 'Database Agent'].includes(x.kpiType));
   const schedules = await loadScheduleSnapshot();
+  const attendance = await loadAttendanceSnapshot();
   const repStatusData = await loadRepStatus();
   const statusSignals = await loadStatusSignalsSnapshot();
   const signalsFresh = Date.now() - new Date(statusSignals.generatedAt || 0).getTime() <= 2 * 60 * 1000;
@@ -385,6 +395,7 @@ async function computeStatusWall() {
     const manualStatusIsNewer = manualNonQueue && updatedAtMs > latestWorkMs;
     const selfReportedQueue = hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
     const scheduledToday = !resolved.missingSchedule && Boolean(t) && !t.off;
+    const attendanceAwayLabel = STATUS_WALL_ATTENDANCE_AWAY_LABELS[ptoLogic.attendanceCodeOnDate(attendance, email, todayDate)] || '';
 
     let shiftStart = 0, shiftEnd = 0, onShiftNow = false;
     if (scheduledToday) {
@@ -453,6 +464,14 @@ async function computeStatusWall() {
     } else if (clockedInTodayFlag) {
       statusLabel = 'Clocked In';
       sinceIso = entry.clockedInAt;
+    } else if (onShiftNow && attendanceAwayLabel) {
+      // Team Attendance already has an explicit reason on file for today - follow it instead
+      // of flagging a false "Not Reported"/Late Login for someone who was never expected
+      // online in the first place (confirmed live: an approved Sick Leave/PTO/etc. day showed
+      // up here as a late-login flag with no way to tell the two apart).
+      statusLabel = attendanceAwayLabel;
+      statusCode = 'ON_LEAVE';
+      sinceIso = null;
     } else if (onShiftNow) {
       statusLabel = 'Not Reported'; lateFlag = true;
       const shiftStartMs = easternEpochMs(todayDate, shiftStart);
