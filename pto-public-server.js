@@ -173,6 +173,12 @@ const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
 // server has no local filesystem access to write schedules.json directly, so zendesk-proxy.js's
 // syncScheduleOverrideUpdatesFromCloud() drains this queue on its next cloud-sync tick.
 const SCHEDULE_OVERRIDE_UPDATES_KEY = 'mtdkpi:schedule-override-updates';
+// Team leads correcting a direct report's PERMANENT weekly pattern (not just one day) queue
+// their weekday-template edit here instead - same no-local-filesystem-access reasoning as
+// SCHEDULE_OVERRIDE_UPDATES_KEY above. zendesk-proxy.js's syncScheduleTemplateUpdatesFromCloud()
+// drains this queue, editing the employee's active schedules.json record in place (preserving
+// the prior state in data.history first), not creating a new effective-dated period.
+const SCHEDULE_TEMPLATE_UPDATES_KEY = 'mtdkpi:schedule-template-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
 const MAX_ATTACHMENT_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB original file, base64-encoded
@@ -525,7 +531,11 @@ async function computeStatusWall() {
       sinceIso = new Date(updatedAtMs).toISOString();
       if (activityId === 'SHORT_BREAK') capMinutes = STATUS_WALL_BREAK_MAX_MINUTES;
       else if (activityId === 'LUNCH') capMinutes = STATUS_WALL_LUNCH_MAX_MINUTES;
-    } else if (liveOnline || selfReportedQueue) {
+    } else if ((liveOnline || selfReportedQueue) && emp.primaryChannel !== 'Email / Chat') {
+      // "Avail" means "waiting for the next call" - meaningful for phone-capable reps (Voice,
+      // Multi-channel), but a non-voice Email/Chat rep with no active ticket isn't "available"
+      // in that sense, they're just between tickets - fall through so Off Queue/Not Reported
+      // reflects that instead of a misleading green Avail pill.
       statusLabel = 'Avail';
       statusCode = 'AVAIL';
       sinceIso = signal?.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
@@ -3167,6 +3177,67 @@ const server = http.createServer(async (req, res) => {
       await cloudStore.kvSetJson('mtdkpi:snapshot:schedules', schedules);
       snapshotCache.set('mtdkpi:snapshot:schedules', { value: schedules, at: Date.now() });
       return json(res, 200, { ok: true, override: mirroredOverride });
+    }
+
+    if (parsed.pathname === '/api/my/team-schedule-template' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const weekday = String(body.weekday || '');
+      const roster = await loadRosterSnapshot();
+      const scopedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, false, true);
+      if (!scopedMembers.some(x => ptoLogic.cleanEmail(x.employeeEmail) === email)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      if (!['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(weekday)) return json(res, 400, { ok: false, error: 'A valid weekday is required.' });
+      const off = Boolean(body.off);
+      const assignments = {};
+      if (!off) {
+        for (const [time, rawActivityId] of Object.entries(body.assignments || {})) {
+          const activityId = String(rawActivityId || '').trim().toUpperCase();
+          if (!ptoLogic.validTime(time) || (activityId && !Object.prototype.hasOwnProperty.call(STATUS_WALL_SCHEDULE_ACTIVITY_LABELS, activityId))) {
+            return json(res, 400, { ok: false, error: `${rawActivityId} is not a valid schedule assignment at ${time}.` });
+          }
+          assignments[time] = activityId;
+        }
+      }
+      const exactActivities = [];
+      if (!off) {
+        const exactRanges = [];
+        for (const block of (Array.isArray(body.exactActivities) ? body.exactActivities : [])) {
+          const startTime = String(block?.startTime || ''), endTime = String(block?.endTime || ''), activityId = String(block?.activityId || '').trim().toUpperCase();
+          if (!TEAM_SCHEDULE_EXACT_TIME_RE.test(startTime) || !TEAM_SCHEDULE_EXACT_TIME_RE.test(endTime) || !Object.prototype.hasOwnProperty.call(STATUS_WALL_SCHEDULE_ACTIVITY_LABELS, activityId)) {
+            return json(res, 400, { ok: false, error: 'Exact activity blocks require a valid start time, end time, and activity.' });
+          }
+          let start = ptoLogic.minutesOf(startTime), end = ptoLogic.minutesOf(endTime);
+          if (end <= start) end += 1440;
+          exactRanges.push({ start, end });
+          exactActivities.push({ startTime, endTime, activityId });
+        }
+        exactRanges.sort((a, b) => a.start - b.start);
+        for (let i = 1; i < exactRanges.length; i++) if (exactRanges[i].start < exactRanges[i - 1].end) return json(res, 400, { ok: false, error: 'Exact activity blocks cannot overlap.' });
+      }
+      const shiftStartEastern = off ? null : String(body.shiftStartEastern || '');
+      const shiftEndEastern = off ? null : String(body.shiftEndEastern || '');
+      if (!off && (!ptoLogic.validTime(shiftStartEastern) || !ptoLogic.validTime(shiftEndEastern))) {
+        return json(res, 400, { ok: false, error: 'A valid shift start and end time (30-minute increments) are required.' });
+      }
+      const now = new Date().toISOString();
+      const schedules = await loadScheduleSnapshot();
+      const record = (schedules.schedules || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === email && x.active).sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+      if (!record) return json(res, 400, { ok: false, error: 'This team member has no active schedule record yet - ask an admin to create one first.' });
+      const queuedTemplate = { employeeEmail: email, weekday, off, shiftStartEastern, shiftEndEastern, assignments, exactActivities, updatedBy: identity, updatedAt: now };
+      const pending = await cloudStore.kvGetJson(SCHEDULE_TEMPLATE_UPDATES_KEY, []);
+      pending.push(queuedTemplate);
+      await cloudStore.kvSetJson(SCHEDULE_TEMPLATE_UPDATES_KEY, pending);
+      // Optimistic local reflection, same reasoning as the day-override POST above.
+      record.weekly[weekday] = { off, shiftStartEastern, shiftEndEastern, overnight: record.weekly?.[weekday]?.overnight || false, assignments, defaultAssignment: record.weekly?.[weekday]?.defaultAssignment || '' };
+      if (!off) {
+        record.exactActivities = record.exactActivities || {};
+        record.exactActivities[weekday] = exactActivities;
+      } else if (record.exactActivities) {
+        delete record.exactActivities[weekday];
+      }
+      await cloudStore.kvSetJson('mtdkpi:snapshot:schedules', schedules);
+      snapshotCache.set('mtdkpi:snapshot:schedules', { value: schedules, at: Date.now() });
+      return json(res, 200, { ok: true });
     }
 
     if (parsed.pathname === '/api/my/team-attendance/attachment' && req.method === 'POST') {
