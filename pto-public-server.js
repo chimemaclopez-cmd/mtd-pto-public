@@ -423,6 +423,10 @@ async function computeStatusWall() {
     const liveOnCall = Boolean(signal?.onCall);
     const liveOnChat = Boolean(signal?.onChat);
     const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat);
+    // Senior TSRs work a flexible schedule and are not held to shift/queue adherence - only
+    // surface them on the wall when they're actively taking a call to help the queue, never as
+    // "Not Reported"/"Off Queue"/"Off Shift" for schedule blocks they aren't bound to.
+    if (emp.kpiType === 'Senior TSR' && !liveOnCall) continue;
     const zendeskActivityMs = signal?.zendeskActivityAt ? new Date(signal.zendeskActivityAt).getTime() : 0;
     const jiraActivityMs = signal?.jiraActivityAt ? new Date(signal.jiraActivityAt).getTime() : 0;
     const activityCutoffMs = Date.now() - workActivityMaxMinutes * 60 * 1000;
@@ -454,7 +458,9 @@ async function computeStatusWall() {
     const wentOnlineAnyway = !scheduledToday && (selfReportedQueue || liveOnline || recentZendeskWork || recentJiraWork);
     if (!scheduledToday && !wentOnlineAnyway) continue; // not supposed to be on shift and didn't go online - leave off the wall
 
-    const currentActivity = onShiftNow ? statusWallResolveScheduledActivity(resolved, nowMinutes, shiftStart, shiftEnd, t?.overnight) : { activityId: null };
+    // Senior TSRs are exempt from schedule adherence entirely (flexible hours) - never resolve
+    // or display a scheduled activity for them, even on the rare tick where they're on shift.
+    const currentActivity = (onShiftNow && emp.kpiType !== 'Senior TSR') ? statusWallResolveScheduledActivity(resolved, nowMinutes, shiftStart, shiftEnd, t?.overnight) : { activityId: null };
     const scheduledActivity = currentActivity.activityId ? (STATUS_WALL_SCHEDULE_ACTIVITY_LABELS[currentActivity.activityId] || currentActivity.activityId) : '';
     const scheduledQueueType = currentActivity.activityId
       ? (STATUS_WALL_QUEUE_CALL_ACTIVITY_IDS.has(currentActivity.activityId) ? 'call' : STATUS_WALL_QUEUE_TICKET_ACTIVITY_IDS.has(currentActivity.activityId) ? 'ticket' : null)
