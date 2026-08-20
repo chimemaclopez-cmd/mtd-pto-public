@@ -395,7 +395,14 @@ async function computeStatusWall() {
     const manualStatusIsNewer = manualNonQueue && updatedAtMs > latestWorkMs;
     const selfReportedQueue = hasActivityToday && STATUS_WALL_QUEUE_IDS.has(activityId);
     const scheduledToday = !resolved.missingSchedule && Boolean(t) && !t.off;
-    const attendanceAwayLabel = STATUS_WALL_ATTENDANCE_AWAY_LABELS[ptoLogic.attendanceCodeOnDate(attendance, email, todayDate)] || '';
+    const todaysAttendanceCode = ptoLogic.attendanceCodeOnDate(attendance, email, todayDate);
+    const attendanceAwayLabel = STATUS_WALL_ATTENDANCE_AWAY_LABELS[todaysAttendanceCode] || '';
+    // attendanceLocationOnDate only reads the extra `location` field a LATE entry can carry -
+    // a bare ONSITE/WFH code IS the location itself, so check the code directly for those.
+    const workLocation = todaysAttendanceCode === 'ONSITE' ? 'Onsite'
+      : todaysAttendanceCode === 'WFH' ? 'WFH'
+      : todaysAttendanceCode === 'LATE' ? (ptoLogic.attendanceLocationOnDate(attendance, email, todayDate) === 'WFH' ? 'WFH' : 'Onsite')
+      : '';
 
     let shiftStart = 0, shiftEnd = 0, onShiftNow = false;
     if (scheduledToday) {
@@ -484,6 +491,7 @@ async function computeStatusWall() {
       employeeName: emp.employeeName,
       teamLeadName: emp.teamLeadName,
       kpiType: emp.kpiType,
+      workLocation,
       statusLabel,
       statusCode,
       statusDetail,

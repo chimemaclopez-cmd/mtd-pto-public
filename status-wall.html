@@ -18,7 +18,7 @@
 <header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Status Wall</div><div class="sub">Live availability, calls, chats, and recent Zendesk/Jira work · flagged for late login, break over 15 min, or lunch over 60 min · America/New_York</div></div></header>
 <div class="wallMeta"><div class="statRow" id="cards"></div><div class="sub" id="meta"></div></div>
 <div id="message" class="message" hidden></div>
-<div class="tableWrap"><table><thead><tr><th>Employee</th><th>Status</th><th>Duration</th><th>Flag</th></tr></thead><tbody id="wallBody"></tbody></table></div>
+<div class="tableWrap"><table><thead><tr><th>Employee</th><th>Onsite or WFH</th><th>Status</th><th>Duration</th><th>Flag</th></tr></thead><tbody id="wallBody"></tbody></table></div>
 </div>
 <script type="module">
 const params=new URLSearchParams(location.search);
@@ -57,8 +57,8 @@ function tick(){
   document.getElementById('wallBody').innerHTML=computed.map(c=>{
     const r=c.row,durationText=c.elapsedSec!=null?formatDuration(c.elapsedSec):'—';
     const longCall=r.statusCode==='ON_CALL'&&c.elapsedSec!=null&&c.elapsedSec/60>15;
-    return`<tr class="${c.flagged?'flaggedRow':longCall?'longCallRow':''}"><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.teamLeadName)}</span></td><td><span class="statusPill status-${esc(r.statusCode||'OTHER')}">${esc(r.statusLabel)}</span>${r.statusDetail?`<span class="statusDetail">${esc(r.statusDetail)}</span>`:''}</td><td class="durationCell">${durationText}</td><td class="flagReasonCell">${esc(c.flagReason||(longCall?'Long Call':''))}</td></tr>`;
-  }).join('')||'<tr><td colspan="4">No reps are currently on shift or reporting in.</td></tr>';
+    return`<tr class="${c.flagged?'flaggedRow':longCall?'longCallRow':''}"><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.teamLeadName)}</span></td><td>${esc(r.workLocation||'—')}</td><td><span class="statusPill status-${esc(r.statusCode||'OTHER')}">${esc(r.statusLabel)}</span>${r.statusDetail?`<span class="statusDetail">${esc(r.statusDetail)}</span>`:''}</td><td class="durationCell">${durationText}</td><td class="flagReasonCell">${esc(c.flagReason||(longCall?'Long Call':''))}</td></tr>`;
+  }).join('')||'<tr><td colspan="5">No reps are currently on shift or reporting in.</td></tr>';
   const flaggedCount=computed.filter(c=>c.flagged).length;
   const count=code=>rows.filter(row=>row.statusCode===code).length;
   document.getElementById('cards').innerHTML=[['Avail',count('AVAIL')],['On Call',count('ON_CALL')],['On Chat',count('ON_CHAT')],['Tickets',count('ZENDESK_TICKET')+count('JIRA_TICKET')],['Flagged',flaggedCount]].map(([a,b])=>`<div class="stat"><b>${b}</b>${a}</div>`).join('');
