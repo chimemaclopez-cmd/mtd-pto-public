@@ -405,10 +405,31 @@ async function computeStatusWall() {
       statusDetail = signal.callTicketId ? `#${signal.callTicketId}` : '';
       sinceIso = signal.callStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (liveOnChat) {
+      // Email/chat availability rarely carries its own ticket_id/started-at the way a call
+      // does, which previously left this falling back to availabilityUpdatedAt/clockedInAt -
+      // timestamps from whenever they last went online or clocked in, not when this specific
+      // chat/email actually started (confirmed live: a 20+ hour "duration" from a stale
+      // clock-in). Show the same real Zendesk/Jira ticket reference the ZENDESK_TICKET/
+      // JIRA_TICKET branches below already use, with ITS reliable activity timestamp, instead
+      // of guessing at when the chat/email itself began.
       statusLabel = 'On Chat/Email';
       statusCode = 'ON_CHAT';
-      statusDetail = signal.chatTicketId ? `#${signal.chatTicketId}` : '';
-      sinceIso = signal.chatStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
+      if (signal.chatTicketId) {
+        statusDetail = `#${signal.chatTicketId}`;
+        sinceIso = signal.chatStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
+      } else if (signal.zendeskTicketId && zendeskActivityMs >= jiraActivityMs) {
+        statusDetail = `#${signal.zendeskTicketId}`;
+        sinceIso = signal.zendeskActivityAt;
+      } else if (signal.jiraIssueKey) {
+        statusDetail = signal.jiraIssueKey;
+        sinceIso = signal.jiraActivityAt;
+      } else {
+        // No chat ticket and no recent Zendesk/Jira activity either - nothing real to anchor a
+        // duration to. Showing "-" is more honest than falling back to availabilityUpdatedAt/
+        // clockedInAt, which is exactly the stale-timestamp chain that produced the original bug.
+        statusDetail = '';
+        sinceIso = null;
+      }
     } else if (!manualStatusIsNewer && recentZendeskWork && zendeskActivityMs >= jiraActivityMs) {
       statusLabel = 'Zendesk Ticket';
       statusCode = 'ZENDESK_TICKET';
