@@ -167,6 +167,12 @@ function buildDsatKpiAdjustment(row, notValidDsatCount) {
   return adjustment;
 }
 const ATTENDANCE_UPDATES_KEY = 'mtdkpi:attendance-updates';
+// Team leads correcting a direct report's schedule for one specific day (e.g. so the Status
+// Wall stops flagging an "Off Queue" rep whose schedule just doesn't match reality) queue their
+// single-day override here, the same request-queue pattern ATTENDANCE_UPDATES_KEY uses - this
+// server has no local filesystem access to write schedules.json directly, so zendesk-proxy.js's
+// syncScheduleOverrideUpdatesFromCloud() drains this queue on its next cloud-sync tick.
+const SCHEDULE_OVERRIDE_UPDATES_KEY = 'mtdkpi:schedule-override-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
 const MAX_ATTACHMENT_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB original file, base64-encoded
@@ -370,6 +376,9 @@ const STATUS_WALL_SCHEDULE_ACTIVITY_LABELS = {
   ADMIN: 'Admin', DOCUMENTATION: 'Documentation', CASE_REVIEW: 'Case Review', SYSTEM_DOWNTIME: 'System Downtime',
   OTHER_OFFLINE: 'Other Offline Task', OFFLINE: 'Offline', PTO: 'PTO', RD: 'RD'
 };
+// Mirrors zendesk-proxy.js's validExactTime - Team Schedule's day-override exactActivities
+// blocks use minute-precision start/end times, unlike the 30-minute-only assignment grid.
+const TEAM_SCHEDULE_EXACT_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 function statusWallClockOf(minutes) {
   const value = ((minutes % 1440) + 1440) % 1440;
   return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -3058,6 +3067,106 @@ const server = http.createServer(async (req, res) => {
         snapshotCache.set('mtdkpi:snapshot:attendance', { value: attendance, at: Date.now() });
       }
       return json(res, 200, { ok: true, accepted, skipped });
+    }
+
+    if (parsed.pathname === '/api/my/team-schedule' && req.method === 'GET') {
+      const startDate = parsed.searchParams.get('startDate') || '', endDate = parsed.searchParams.get('endDate') || '';
+      if (!ptoLogic.validDate(startDate) || !ptoLogic.validDate(endDate) || startDate > endDate) {
+        return json(res, 400, { ok: false, error: 'A valid startDate/endDate range is required.' });
+      }
+      const dates = ptoLogic.dateRange(startDate, endDate);
+      if (dates.length > 31) return json(res, 400, { ok: false, error: 'Date range cannot exceed 31 days.' });
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      if (!assignedMembers.length) return json(res, 200, { ok: true, isTeamLeader: false, startDate, endDate, members: [] });
+      const schedules = await loadScheduleSnapshot();
+      const members = assignedMembers.map(emp => {
+        const email = ptoLogic.cleanEmail(emp.employeeEmail);
+        const days = dates.map(date => {
+          const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+          const t = resolved.template;
+          return {
+            date,
+            weekday: resolved.weekday,
+            missingSchedule: resolved.missingSchedule,
+            off: t ? Boolean(t.off) : null,
+            shiftStartEastern: t?.off ? null : (t?.shiftStartEastern || null),
+            shiftEndEastern: t?.off ? null : (t?.shiftEndEastern || null),
+            overnight: Boolean(t?.overnight),
+            assignments: t && !t.off ? (t.assignments || {}) : {},
+            exactActivities: t?.off ? [] : (resolved.override ? (resolved.override.exactActivities || []) : (resolved.record?.exactActivities?.[resolved.weekday] || [])),
+            defaultActivityId: serverDefaultAssignmentFor(emp) || t?.defaultAssignment || resolved.record?.defaultAssignment || 'CALL'
+          };
+        });
+        return { employeeEmail: email, employeeName: emp.employeeName, days };
+      });
+      return json(res, 200, { ok: true, isTeamLeader: true, startDate, endDate, members });
+    }
+
+    if (parsed.pathname === '/api/my/team-schedule' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const date = String(body.date || '');
+      const roster = await loadRosterSnapshot();
+      const scopedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, false, true);
+      if (!scopedMembers.some(x => ptoLogic.cleanEmail(x.employeeEmail) === email)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      if (!ptoLogic.validDate(date)) return json(res, 400, { ok: false, error: 'A valid override date is required.' });
+      const off = Boolean(body.off);
+      const assignments = {};
+      if (!off) {
+        for (const [time, rawActivityId] of Object.entries(body.assignments || {})) {
+          const activityId = String(rawActivityId || '').trim().toUpperCase();
+          if (!ptoLogic.validTime(time) || (activityId && !Object.prototype.hasOwnProperty.call(STATUS_WALL_SCHEDULE_ACTIVITY_LABELS, activityId))) {
+            return json(res, 400, { ok: false, error: `${rawActivityId} is not a valid schedule assignment at ${time}.` });
+          }
+          assignments[time] = activityId;
+        }
+      }
+      const exactActivities = [];
+      if (!off) {
+        const exactRanges = [];
+        for (const block of (Array.isArray(body.exactActivities) ? body.exactActivities : [])) {
+          const startTime = String(block?.startTime || ''), endTime = String(block?.endTime || ''), activityId = String(block?.activityId || '').trim().toUpperCase();
+          if (!TEAM_SCHEDULE_EXACT_TIME_RE.test(startTime) || !TEAM_SCHEDULE_EXACT_TIME_RE.test(endTime) || !Object.prototype.hasOwnProperty.call(STATUS_WALL_SCHEDULE_ACTIVITY_LABELS, activityId)) {
+            return json(res, 400, { ok: false, error: 'Exact activity blocks require a valid start time, end time, and activity.' });
+          }
+          let start = ptoLogic.minutesOf(startTime), end = ptoLogic.minutesOf(endTime);
+          if (end <= start) end += 1440;
+          exactRanges.push({ start, end });
+          exactActivities.push({ startTime, endTime, activityId });
+        }
+        exactRanges.sort((a, b) => a.start - b.start);
+        for (let i = 1; i < exactRanges.length; i++) if (exactRanges[i].start < exactRanges[i - 1].end) return json(res, 400, { ok: false, error: 'Exact activity blocks cannot overlap.' });
+      }
+      const shiftStartEastern = off ? null : String(body.shiftStartEastern || '');
+      const shiftEndEastern = off ? null : String(body.shiftEndEastern || '');
+      if (!off && (!ptoLogic.validTime(shiftStartEastern) || !ptoLogic.validTime(shiftEndEastern))) {
+        return json(res, 400, { ok: false, error: 'A valid shift start and end time (30-minute increments) are required.' });
+      }
+      const reason = String(body.reason || '').trim().slice(0, 300);
+      const now = new Date().toISOString();
+      const queuedOverride = { employeeEmail: email, date, off, shiftStartEastern, shiftEndEastern, assignments, exactActivities, reason, updatedBy: identity, updatedAt: now };
+      const pending = await cloudStore.kvGetJson(SCHEDULE_OVERRIDE_UPDATES_KEY, []);
+      pending.push(queuedOverride);
+      await cloudStore.kvSetJson(SCHEDULE_OVERRIDE_UPDATES_KEY, pending);
+      // Optimistic local reflection so the team lead sees their own change immediately on the
+      // next GET, without waiting for zendesk-proxy's next sync tick to merge it into the
+      // canonical local schedules.json (same pattern team-attendance uses above).
+      const schedules = await loadScheduleSnapshot();
+      schedules.overrides = schedules.overrides || [];
+      const existingIndex = schedules.overrides.findIndex(x => ptoLogic.cleanEmail(x.employeeEmail) === email && x.date === date);
+      const existing = existingIndex >= 0 ? schedules.overrides[existingIndex] : null;
+      const mirroredOverride = {
+        ...(existing || {}),
+        id: existing?.id || `override-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        employeeEmail: email, date, overrideType: off ? 'scheduled_off' : 'scheduled_workday', off, reason,
+        assignments, exactActivities, shiftStartEastern, shiftEndEastern,
+        createdAt: existing?.createdAt || now, updatedAt: now
+      };
+      if (existingIndex >= 0) schedules.overrides[existingIndex] = mirroredOverride; else schedules.overrides.push(mirroredOverride);
+      await cloudStore.kvSetJson('mtdkpi:snapshot:schedules', schedules);
+      snapshotCache.set('mtdkpi:snapshot:schedules', { value: schedules, at: Date.now() });
+      return json(res, 200, { ok: true, override: mirroredOverride });
     }
 
     if (parsed.pathname === '/api/my/team-attendance/attachment' && req.method === 'POST') {
