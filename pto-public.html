@@ -217,7 +217,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Shift Start (ET)</label><input type="time" step="1800" id="teamScheduleShiftStart"></div>
 <div class="field"><label>Shift End (ET)</label><input type="time" step="1800" id="teamScheduleShiftEnd"></div>
 <div class="field"><label style="font-weight:400;display:flex;align-items:center;gap:6px;margin-top:26px"><input type="checkbox" id="teamScheduleOffToggle"> Off today (Rest Day / Leave)</label></div>
-<div class="field" style="grid-column:1/-1"><label>Reason</label><input type="text" id="teamScheduleReason" maxlength="300" placeholder="Why is this day being overridden?"></div>
+<div class="field" style="grid-column:1/-1"><label style="font-weight:400;display:flex;align-items:center;gap:6px"><input type="checkbox" id="teamScheduleRecurringToggle"> Make this the permanent schedule for every <span id="teamScheduleWeekdayLabel"></span> going forward</label></div>
+<div class="field" style="grid-column:1/-1" id="teamScheduleReasonField"><label>Reason</label><input type="text" id="teamScheduleReason" maxlength="300" placeholder="Why is this day being overridden?"></div>
 </div>
 <div class="tableWrap" id="teamScheduleBlocksWrap"><table><thead><tr><th>Start</th><th>End</th><th>Activity</th><th></th></tr></thead><tbody id="teamScheduleBlocksBody"></tbody></table></div>
 <div class="actions noPrint" style="margin-top:10px"><button class="btn compact" id="teamScheduleAddBlockBtn" type="button">Add Block</button><button class="btn primary" id="teamScheduleSaveBtn" type="button" style="margin-left:auto">Save</button></div>
@@ -597,7 +598,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="chatPanel" class="chatPanel" hidden><div class="chatPanelHeader"><div><b>Team Chat</b><div class="sub" id="chatOnlineCount">0 online</div></div><button type="button" id="chatCloseBtn" class="chatCloseBtn" aria-label="Close chat">✕</button></div><div class="chatPanelBody"><div class="chatReconnect" id="chatReconnect" hidden>Reconnecting…</div><div class="chatOnlineStrip" id="chatOnlineList"></div><div id="chatMessages" class="chatMessages"></div><form id="chatForm" class="chatInputRow"><input id="chatInput" autocomplete="off" placeholder="Message the team…" maxlength="2000"><button class="btn primary" type="submit">Send</button></form></div></div>
 </div>
 <script type="module">
-import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySeniorJiraActivity,getSeniorTsrSummary,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto,getMyTeamSchedule,saveMyTeamSchedule} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChatWithRetry,isCopilotAuthError} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,clearLoftIqThread,searchLoftIqHelp,searchLoftIqAlignments,loadAllApprovedAlignments,buildAlignmentContradictionPrompt,isLoftIqBadAnswer,LOFTIQ_QUICK_ACTIONS,LOFTIQ_LEAD_QUICK_ACTIONS,buildLoftIqPrompt,searchLoftIqKnowledge,loadLottiKnowledge,createLottiKnowledge,updateLottiKnowledge,deleteLottiKnowledge} from './shared/loftiq-service.js';
+import {$,esc,fmt,setMessage,statusPill} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySeniorJiraActivity,getSeniorTsrSummary,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto,getMyTeamSchedule,saveMyTeamSchedule,saveMyTeamScheduleTemplate} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChatWithRetry,isCopilotAuthError} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,clearLoftIqThread,searchLoftIqHelp,searchLoftIqAlignments,loadAllApprovedAlignments,buildAlignmentContradictionPrompt,isLoftIqBadAnswer,LOFTIQ_QUICK_ACTIONS,LOFTIQ_LEAD_QUICK_ACTIONS,buildLoftIqPrompt,searchLoftIqKnowledge,loadLottiKnowledge,createLottiKnowledge,updateLottiKnowledge,deleteLottiKnowledge} from './shared/loftiq-service.js';
 import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview} from './shared/coaching-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
@@ -1753,10 +1754,22 @@ function toggleTeamScheduleOff(){
   $('teamScheduleShiftStart').disabled=off;$('teamScheduleShiftEnd').disabled=off;$('teamScheduleAddBlockBtn').disabled=off;
   $('teamScheduleBlocksWrap').style.opacity=off?'0.5':'1';
 }
+// The recurring checkbox switches Save from a one-day override (saveMyTeamSchedule) to an
+// in-place edit of the underlying weekly template (saveMyTeamScheduleTemplate) - the Reason
+// field only makes sense for the former (it's a day-override audit note), so hide it here.
+const TEAM_SCHEDULE_WEEKDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function teamScheduleWeekdayFor(date){return date?TEAM_SCHEDULE_WEEKDAYS[new Date(`${date}T12:00:00Z`).getUTCDay()]:'';}
+function updateTeamScheduleWeekdayLabel(){$('teamScheduleWeekdayLabel').textContent=teamScheduleWeekdayFor($('teamScheduleDate').value);}
+function toggleTeamScheduleRecurring(){
+  const recurring=$('teamScheduleRecurringToggle').checked;
+  $('teamScheduleReason').disabled=recurring;
+  $('teamScheduleReasonField').hidden=recurring;
+}
 async function loadTeamScheduleTab(){
   if(!teamRosterMembers.length)await loadTeamRoster();
   populateTeamScheduleMemberSelect();
   if(!$('teamScheduleDate').value)$('teamScheduleDate').value=todayET();
+  updateTeamScheduleWeekdayLabel();
   if(teamScheduleSelectedEmail)loadTeamScheduleDay();
 }
 async function loadTeamScheduleDay(){
@@ -1779,6 +1792,8 @@ async function loadTeamScheduleDay(){
     $('teamScheduleShiftStart').value=day.shiftStartEastern||'08:00';
     $('teamScheduleShiftEnd').value=day.shiftEndEastern||'17:00';
     $('teamScheduleReason').value='';
+    $('teamScheduleRecurringToggle').checked=false;
+    toggleTeamScheduleRecurring();
     const defaultActivityId=day.defaultActivityId||'CALL';
     teamScheduleBlocks=consolidateScheduleBlocks({assignments:day.assignments,exactBlocks:day.exactActivities,shiftStartEastern:day.shiftStartEastern,shiftEndEastern:day.shiftEndEastern,overnight:day.overnight,defaultActivityId}).map(b=>({startTime:b.startTime,endTime:b.endTime,activityId:b.activityId}));
     renderTeamScheduleBlocks();
@@ -1789,9 +1804,10 @@ async function loadTeamScheduleDay(){
   }finally{teamScheduleLoading=false}
 }
 $('teamScheduleMemberSelect').onchange=()=>loadTeamScheduleDay();
-$('teamScheduleDate').onchange=()=>loadTeamScheduleDay();
+$('teamScheduleDate').onchange=()=>{updateTeamScheduleWeekdayLabel();loadTeamScheduleDay();};
 $('teamScheduleLoadBtn').onclick=()=>loadTeamScheduleDay();
 $('teamScheduleOffToggle').onchange=toggleTeamScheduleOff;
+$('teamScheduleRecurringToggle').onchange=toggleTeamScheduleRecurring;
 $('teamScheduleAddBlockBtn').onclick=()=>{
   const last=teamScheduleBlocks.at(-1),startTime=last?last.endTime:($('teamScheduleShiftStart').value||'08:00');
   teamScheduleBlocks.push({startTime,endTime:startTime,activityId:'CALL'});
@@ -1833,9 +1849,15 @@ $('teamScheduleSaveBtn').onclick=async()=>{
     const shiftStartEastern=$('teamScheduleShiftStart').value,shiftEndEastern=$('teamScheduleShiftEnd').value,reason=$('teamScheduleReason').value.trim();
     const exactActivities=teamScheduleBlocks.map(b=>({startTime:b.startTime,endTime:b.endTime,activityId:b.activityId}));
     const assignments=off?{}:buildTeamScheduleAssignments(shiftStartEastern,shiftEndEastern,exactActivities);
-    await saveMyTeamSchedule({employeeEmail:email,date,off,shiftStartEastern,shiftEndEastern,assignments,exactActivities:off?[]:exactActivities,reason});
+    const recurring=$('teamScheduleRecurringToggle').checked,templateWeekday=teamScheduleWeekdayFor(date);
+    if(recurring){
+      await saveMyTeamScheduleTemplate({employeeEmail:email,weekday:templateWeekday,off,shiftStartEastern,shiftEndEastern,assignments,exactActivities:off?[]:exactActivities});
+    }else{
+      await saveMyTeamSchedule({employeeEmail:email,date,off,shiftStartEastern,shiftEndEastern,assignments,exactActivities:off?[]:exactActivities,reason});
+    }
     await loadTeamScheduleDay();
-    $('teamScheduleMessage').hidden=false;$('teamScheduleMessage').className='message ok';$('teamScheduleMessage').textContent='Schedule override saved.';
+    $('teamScheduleMessage').hidden=false;$('teamScheduleMessage').className='message ok';
+    $('teamScheduleMessage').textContent=recurring?`Permanent weekly schedule updated - every future ${templateWeekday} will use this pattern.`:'Schedule override saved for this day only.';
   }catch(error){
     $('teamScheduleMessage').hidden=false;$('teamScheduleMessage').className='message error';$('teamScheduleMessage').textContent=error.response?.error||error.message;
   }finally{button.disabled=false}

@@ -20,5 +20,6 @@ export const saveMyTeamAttendance=(payload)=>api('/api/my/team-attendance',{meth
 export const uploadTeamAttendanceAttachment=(payload)=>api('/api/my/team-attendance/attachment',{method:'POST',body:JSON.stringify(payload)});
 export const getMyTeamSchedule=(startDate,endDate)=>api(`/api/my/team-schedule?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`);
 export const saveMyTeamSchedule=(payload)=>api('/api/my/team-schedule',{method:'POST',body:JSON.stringify(payload)});
+export const saveMyTeamScheduleTemplate=(payload)=>api('/api/my/team-schedule-template',{method:'POST',body:JSON.stringify(payload)});
 export const getMyTeamRoster=()=>api('/api/my/team-roster');
 export const updateTeamMemberProfile=(payload)=>api('/api/my/team-roster',{method:'PUT',body:JSON.stringify(payload)});
