@@ -438,15 +438,18 @@ async function computeStatusWall() {
     const liveOnCall = Boolean(signal?.onCall);
     const liveOnChat = Boolean(signal?.onChat);
     const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat);
-    // Senior TSRs work a flexible schedule and are not held to shift/queue adherence - only
-    // surface them on the wall when they're actively taking a call to help the queue, never as
-    // "Not Reported"/"Off Queue"/"Off Shift" for schedule blocks they aren't bound to.
-    if (emp.kpiType === 'Senior TSR' && !liveOnCall) continue;
     const zendeskActivityMs = signal?.zendeskActivityAt ? new Date(signal.zendeskActivityAt).getTime() : 0;
     const jiraActivityMs = signal?.jiraActivityAt ? new Date(signal.jiraActivityAt).getTime() : 0;
     const activityCutoffMs = Date.now() - workActivityMaxMinutes * 60 * 1000;
     const recentZendeskWork = zendeskActivityMs >= activityCutoffMs;
     const recentJiraWork = jiraActivityMs >= activityCutoffMs;
+    // Senior TSR and Database Agent (Lead Import) both work a flexible schedule and aren't held
+    // to shift/queue adherence - only surface them on the wall when they're actively doing real
+    // work (a call for Senior TSR; any live signal for Database Agent, since Lead Import work
+    // shows up as ticket/Jira activity, not a call or chat), never as "Not Reported"/"Off Queue"/
+    // "Off Shift" for schedule blocks neither role is bound to.
+    if (emp.kpiType === 'Senior TSR' && !liveOnCall) continue;
+    if (emp.kpiType === 'Database Agent' && !(liveOnCall || liveOnChat || recentZendeskWork || recentJiraWork)) continue;
     const latestWorkMs = Math.max(recentZendeskWork ? zendeskActivityMs : 0, recentJiraWork ? jiraActivityMs : 0);
     const manualNonQueue = hasActivityToday && !STATUS_WALL_QUEUE_IDS.has(activityId);
     const manualStatusIsNewer = manualNonQueue && updatedAtMs > latestWorkMs;
