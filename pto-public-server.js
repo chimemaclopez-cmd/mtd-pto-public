@@ -204,7 +204,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
@@ -802,6 +802,38 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
   const data = await loadCoachingAudit();
   data.events.push({ auditId: `COACH-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, coachingId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveCoachingAudit(data);
+}
+// Employee Performance Evaluation - Months 2/3/4 of the probationary period (Month 1 stays
+// reminder-only, no fillable form yet; Month 5 is the separate regularization decision).
+// Same DRAFT -> SENT -> ACKNOWLEDGED lifecycle and typed-name e-signature acknowledgment as
+// Coaching above, deliberately simplified: no progression-chain linking, no QA-on-behalf
+// carve-out, no frozen KPI/attendance standing snapshot - the source form doesn't ask for any
+// of that. Employee/Manager signature lines on the exported PDF stay physically blank for a
+// wet HR signature; the online acknowledgment here is a separate, faster digital record.
+const EVALUATION_KEY = 'mtdkpi:evaluation-records';
+const EVALUATION_AUDIT_KEY = 'mtdkpi:evaluation-audit';
+const EVALUATION_PERIODS = ['Month 2', 'Month 3', 'Month 4'];
+const EVALUATION_ATTRIBUTES = ['quantityOfWork', 'qualityOfWork', 'jobKnowledge', 'dependabilityAccountabilityProfessionalism', 'attendanceAndReliability', 'speedAndExecutiveAbility', 'capacityToDevelop', 'leadershipManagement'];
+async function loadEvaluations() { return cloudStore.kvGetJson(EVALUATION_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
+async function saveEvaluations(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(EVALUATION_KEY, data); return data; }
+async function loadEvaluationAudit() { return cloudStore.kvGetJson(EVALUATION_AUDIT_KEY, { version: 1, events: [] }); }
+async function saveEvaluationAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(EVALUATION_AUDIT_KEY, data); return data; }
+async function appendEvaluationAudit(evaluationId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
+  const data = await loadEvaluationAudit();
+  data.events.push({ auditId: `EVAL-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, evaluationId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
+  await saveEvaluationAudit(data);
+}
+// leadershipManagement may be left null (rendered as N/A) - the source form marks that
+// attribute "for supervisor or manager level" and there's no reliable supervisor flag in the
+// roster data to gate it automatically. Every other attribute is required, 1-5.
+function normalizeEvaluationRatings(input) {
+  const out = {};
+  for (const key of EVALUATION_ATTRIBUTES) {
+    const raw = input?.[key];
+    const num = (raw === null || raw === '' || raw === undefined) ? null : Number(raw);
+    out[key] = (num === null || (Number.isInteger(num) && num >= 1 && num <= 5)) ? num : null;
+  }
+  return out;
 }
 const ALIGNMENT_KEY = 'mtdkpi:alignment-records';
 const ALIGNMENT_AUDIT_KEY = 'mtdkpi:alignment-audit';
@@ -2447,7 +2479,11 @@ const server = http.createServer(async (req, res) => {
       const probationInfo = assignedMembers
         .map(m => { const info = probationEvalInfo(m.hireDate, today); return info ? { employeeEmail: ptoLogic.cleanEmail(m.employeeEmail), employeeName: m.employeeName, hireDate: m.hireDate, ...info } : null; })
         .filter(Boolean);
-      const evaluations = probationInfo.filter(x => x.evalMonth < 5).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+      // A Month 2/3/4 evaluation already filed (SENT or ACKNOWLEDGED) in the portal clears its
+      // own due reminder here - Month 1 has no fillable form yet, so it always stays reminder-only.
+      const filedEvaluationsData = await loadEvaluations();
+      const filedEvaluationKeys = new Set((filedEvaluationsData.records || []).filter(x => x.status !== 'DRAFT').map(x => `${ptoLogic.cleanEmail(x.employeeEmail)}|${x.evaluationPeriod}`));
+      const evaluations = probationInfo.filter(x => x.evalMonth < 5 && !filedEvaluationKeys.has(`${x.employeeEmail}|Month ${x.evalMonth}`)).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
       // Month 5 is the regularization decision itself, not just another monthly check-in -
       // called out as its own, more prominent list rather than buried in "evaluations".
       const regularizations = probationInfo.filter(x => x.evalMonth === 5).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
@@ -3422,6 +3458,134 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/coaching' && req.method === 'GET') {
       const data = await loadCoaching();
+      const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/my/team-evaluations' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const data = await loadEvaluations();
+      const records = (data.records || []).filter(x => memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, {
+        ok: true, isTeamLeader: memberEmails.size > 0, periods: EVALUATION_PERIODS,
+        members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, hireDate: x.hireDate || '', jobTitle: x.jobTitle || '' })),
+        records, lastUpdated: data.lastUpdated || ''
+      });
+    }
+
+    if (parsed.pathname === '/api/my/team-evaluations' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const email = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const evaluationPeriod = String(body.evaluationPeriod || '');
+      const evaluationDate = String(body.evaluationDate || '');
+      if (!email || !ptoLogic.validDate(evaluationDate)) return json(res, 400, { ok: false, error: 'A valid employee and evaluation date are required.' });
+      if (!EVALUATION_PERIODS.includes(evaluationPeriod)) return json(res, 400, { ok: false, error: 'A valid evaluation period is required.' });
+      const roster = await loadRosterSnapshot();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+      const isDirectReport = Boolean(employee) && scopedTeamMembers(roster, identity, session, session.employeeName, false).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+      if (!isDirectReport) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const ratings = normalizeEvaluationRatings(body.ratings);
+      const requiredAttributes = EVALUATION_ATTRIBUTES.filter(k => k !== 'leadershipManagement');
+      if (requiredAttributes.some(k => ratings[k] == null)) return json(res, 400, { ok: false, error: 'Please rate every attribute (Leadership/Management may be left as N/A).' });
+      const evaluatorComments = String(body.evaluatorComments || '').trim();
+      if (!evaluatorComments) return json(res, 400, { ok: false, error: 'Evaluator comments are required.' });
+      const businessUnit = String(body.businessUnit || '').trim();
+      const position = String(body.position || employee.jobTitle || '').trim();
+      const data = await loadEvaluations();
+      const year = evaluationDate.slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const evaluationId = `EVAL-${year}-${String(sequence).padStart(4, '0')}`;
+      const now = new Date().toISOString();
+      const status = body.status === 'SENT' ? 'SENT' : 'DRAFT';
+      const record = {
+        evaluationId, employeeEmail: email, employeeName: employee.employeeName || email, employeeId: employee.employeeId || '',
+        teamLeadEmail: identity, teamLeadName: String((roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity)?.employeeName || session.employeeName || '').trim(),
+        businessUnit, position, hireDate: employee.hireDate || '',
+        evaluationPeriod, evaluationDate, ratings, evaluatorComments,
+        employeeComments: '', status, createdAt: now, updatedAt: now, sentAt: status === 'SENT' ? now : null,
+        acknowledgment: null, createdBy: identity
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveEvaluations(data);
+      await appendEvaluationAudit(evaluationId, status === 'SENT' ? 'CREATED_AND_SENT' : 'CREATED_DRAFT', { user: identity, newValue: record });
+      return json(res, 201, { ok: true, record });
+    }
+
+    const evaluationMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?evaluations\/([^/]+)(?:\/(send|acknowledge))?$/);
+    if (evaluationMatch) {
+      const evaluationId = decodeURIComponent(evaluationMatch[1]), action = evaluationMatch[2] || '';
+      const data = await loadEvaluations();
+      const index = (data.records || []).findIndex(x => x.evaluationId === evaluationId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Evaluation record not found.' });
+      const current = data.records[index];
+      const isOwner = ptoLogic.cleanEmail(current.teamLeadEmail) === identity;
+      if (req.method === 'GET' && !action) {
+        if (!isOwner && ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'Not authorized to view this evaluation record.' });
+        if (!isOwner && current.status === 'DRAFT') return json(res, 404, { ok: false, error: 'Evaluation record not found.' });
+        return json(res, 200, { ok: true, record: current });
+      }
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      if (req.method === 'PUT' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can edit it.' });
+        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft evaluation record can be edited.' });
+        const ratings = body.ratings ? normalizeEvaluationRatings(body.ratings) : current.ratings;
+        const next = {
+          ...current,
+          evaluationPeriod: EVALUATION_PERIODS.includes(body.evaluationPeriod) ? body.evaluationPeriod : current.evaluationPeriod,
+          evaluationDate: ptoLogic.validDate(body.evaluationDate) ? body.evaluationDate : current.evaluationDate,
+          businessUnit: body.businessUnit !== undefined ? String(body.businessUnit).trim() : current.businessUnit,
+          position: body.position !== undefined ? String(body.position).trim() : current.position,
+          ratings,
+          evaluatorComments: String(body.evaluatorComments ?? current.evaluatorComments).trim(),
+          updatedAt: now
+        };
+        data.records[index] = next;
+        await saveEvaluations(data);
+        await appendEvaluationAudit(evaluationId, 'EDITED', { user: identity, previousValue: current, newValue: next });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE' && !action) {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can delete it.' });
+        if (current.status === 'ACKNOWLEDGED') return json(res, 409, { ok: false, error: 'An acknowledged evaluation record cannot be deleted.' });
+        data.records.splice(index, 1);
+        data.deletedEvaluationIds = [...new Set([...(data.deletedEvaluationIds || []), evaluationId])];
+        await saveEvaluations(data);
+        await appendEvaluationAudit(evaluationId, 'DELETED', { user: identity, previousValue: current });
+        return json(res, 200, { ok: true, deleted: evaluationId });
+      }
+      if (action === 'send') {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can send it.' });
+        if (current.status !== 'DRAFT') return json(res, 409, { ok: false, error: 'Only a draft evaluation record can be sent.' });
+        const next = { ...current, status: 'SENT', sentAt: now, updatedAt: now };
+        data.records[index] = next;
+        await saveEvaluations(data);
+        await appendEvaluationAudit(evaluationId, 'SENT', { user: identity, previousValue: current.status, newValue: 'SENT' });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (action === 'acknowledge') {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only sign your own evaluation record.' });
+        if (current.status !== 'SENT') return json(res, 409, { ok: false, error: 'Only a sent evaluation record can be acknowledged.' });
+        const signedName = String(body.signedName || '').trim();
+        if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
+        const next = {
+          ...current, status: 'ACKNOWLEDGED', updatedAt: now,
+          employeeComments: String(body.employeeComments ?? current.employeeComments ?? '').trim(),
+          acknowledgment: { signedName, signedAt: now }
+        };
+        data.records[index] = next;
+        await saveEvaluations(data);
+        await appendEvaluationAudit(evaluationId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
+        return json(res, 200, { ok: true, record: next });
+      }
+      return json(res, 404, { ok: false, error: 'Unknown evaluation action.' });
+    }
+
+    if (parsed.pathname === '/api/my/evaluations' && req.method === 'GET') {
+      const data = await loadEvaluations();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
     }
