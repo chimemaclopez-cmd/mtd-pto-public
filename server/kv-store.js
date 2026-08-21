@@ -79,4 +79,25 @@ async function kvDel(key) {
   return result;
 }
 
-module.exports = { isConfigured, kvGetJson, kvSetJson, kvDel };
+// Atomic set add - unlike a GET-modify-SET on a JSON blob, this can't lose a concurrent
+// writer's member if two calls land close together (used for alert-sent dedup memory,
+// where losing a member means the same alert can go out twice).
+async function kvSadd(key, member) {
+  const { result, error } = await command(['SADD', key, member]);
+  if (error) throw new Error(`Upstash SADD ${key} failed: ${error}`);
+  return result;
+}
+
+async function kvSmembers(key) {
+  const { result, error } = await command(['SMEMBERS', key]);
+  if (error) throw new Error(`Upstash SMEMBERS ${key} failed: ${error}`);
+  return result || [];
+}
+
+async function kvExpire(key, seconds) {
+  const { result, error } = await command(['EXPIRE', key, String(seconds)]);
+  if (error) throw new Error(`Upstash EXPIRE ${key} failed: ${error}`);
+  return result;
+}
+
+module.exports = { isConfigured, kvGetJson, kvSetJson, kvDel, kvSadd, kvSmembers, kvExpire };
