@@ -2378,7 +2378,10 @@ const server = http.createServer(async (req, res) => {
         // total already. Otherwise (e.g. the only entry captured for an older month, before
         // daily capture existed) there's no way to isolate that single day - it's really the
         // whole month's total, and isDailyIsolated:false says so for the UI to label honestly.
-        if (!sameMonthPrev) return { ...row, isDailyIsolated: row.endDate.endsWith('-01') };
+        if (!sameMonthPrev) {
+          const isolated = row.endDate.endsWith('-01');
+          return { ...row, isDailyIsolated: isolated, callCompletionIsolated: isolated, longCallRateIsolated: isolated, csatIsolated: isolated };
+        }
         const cc = row.callCompletion || {}, pcc = sameMonthPrev.callCompletion || {};
         const lcr = row.longCallRate || {}, plcr = sameMonthPrev.longCallRate || {};
         const cs = row.csat || {}, pcs = sameMonthPrev.csat || {};
@@ -2406,7 +2409,14 @@ const server = http.createServer(async (req, res) => {
         const csatOk = good >= 0 && bad >= 0;
         return {
           period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated,
+          // Kept for older clients: true only when every metric isolated cleanly. New clients
+          // should prefer the three per-metric flags below instead - a single bad metric (e.g.
+          // a late CSAT correction) shouldn't make an otherwise-valid Call Completion/Long Call
+          // Rate number for that day look like a fallback too.
           isDailyIsolated: callCompletionOk && longCallRateOk && csatOk,
+          callCompletionIsolated: callCompletionOk,
+          longCallRateIsolated: longCallRateOk,
+          csatIsolated: csatOk,
           callCompletion: callCompletionOk
             ? { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null }
             : row.callCompletion,
