@@ -3533,44 +3533,53 @@ const server = http.createServer(async (req, res) => {
         loadScheduleSnapshot(),
         loadAttendanceSnapshot()
       ]);
-      const rows = probationary.map(({ member, info }) => {
+      // One row per period 1..currentEvalMonth (not just the current period) so a Team Lead
+      // can review the full trend so far, not just whatever's in progress right now.
+      const rows = probationary.flatMap(({ member, info }) => {
         const email = ptoLogic.cleanEmail(member.employeeEmail);
-        const periodStart = info.evalMonth === 1 ? member.hireDate : addMonthsToDate(member.hireDate, info.evalMonth - 1);
-        const periodEndExclusive = addMonthsToDate(member.hireDate, info.evalMonth);
-        const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
-        const windowEnd = today < periodEndInclusive ? today : periodEndInclusive;
-        const metrics = metricsSnapshot.byEmployee?.[email] || null;
-        const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, email, periodStart, windowEnd);
-        const canChooseKind = info.evalMonth >= 4;
-        const selectedKind = productivityKindStore?.[email]?.[info.evalMonth] || metrics?.defaultProductivityKind || (canChooseKind ? 'tickets' : 'tickets');
-        const productivityRaw = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
-        const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw) : null;
-        const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
-        const csatTier = scoreCsatTierPortal(csatRate);
-        const compliancePercent = complianceStore?.[email]?.[info.evalMonth]?.percent ?? null;
-        const attendancePercent = attendanceRange?.attendancePercentage ?? null;
-        const weighted = {
-          productivity: productivityTier == null ? null : productivityTier * 0.40,
-          csat: csatTier == null ? null : csatTier * 0.30,
-          processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
-          attendance: attendancePercent == null ? null : attendancePercent * 0.15
-        };
-        const allKnown = weighted.productivity != null && weighted.csat != null && weighted.processCompliance != null && weighted.attendance != null;
-        const totalScore = allKnown ? weighted.productivity + weighted.csat + weighted.processCompliance + weighted.attendance : null;
-        return {
-          employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate,
-          periodNumber: info.evalMonth, periodStart, periodEnd: periodEndInclusive,
-          workedDays: attendanceRange?.scheduledWorkdays ?? null,
-          productivity: {
-            raw: productivityRaw, kind: selectedKind, canChooseKind,
-            ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
-            tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
-          },
-          csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
-          processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
-          attendance: { raw: attendancePercent, weighted: weighted.attendance },
-          totalScore
-        };
+        const periodsForEmployee = metricsSnapshot.byEmployee?.[email] || {};
+        const out = [];
+        for (let periodNumber = 1; periodNumber <= info.evalMonth; periodNumber++) {
+          const isCurrentPeriod = periodNumber === info.evalMonth;
+          const periodStart = periodNumber === 1 ? member.hireDate : addMonthsToDate(member.hireDate, periodNumber - 1);
+          const periodEndExclusive = addMonthsToDate(member.hireDate, periodNumber);
+          const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+          const windowEnd = isCurrentPeriod && today < periodEndInclusive ? today : periodEndInclusive;
+          const metrics = periodsForEmployee[periodNumber] || null;
+          const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, email, periodStart, windowEnd);
+          const canChooseKind = periodNumber >= 4;
+          const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
+          const productivityRaw = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
+          const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw) : null;
+          const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
+          const csatTier = scoreCsatTierPortal(csatRate);
+          const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
+          const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+          const weighted = {
+            productivity: productivityTier == null ? null : productivityTier * 0.40,
+            csat: csatTier == null ? null : csatTier * 0.30,
+            processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
+            attendance: attendancePercent == null ? null : attendancePercent * 0.15
+          };
+          const allKnown = weighted.productivity != null && weighted.csat != null && weighted.processCompliance != null && weighted.attendance != null;
+          const totalScore = allKnown ? weighted.productivity + weighted.csat + weighted.processCompliance + weighted.attendance : null;
+          out.push({
+            employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate,
+            periodNumber, periodStart, periodEnd: periodEndInclusive, isCurrentPeriod,
+            daysRemaining: isCurrentPeriod ? Math.max(0, ptoLogic.dateRange(windowEnd, periodEndInclusive).length - 1) : 0,
+            workedDays: attendanceRange?.scheduledWorkdays ?? null,
+            productivity: {
+              raw: productivityRaw, kind: selectedKind, canChooseKind,
+              ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
+              tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
+            },
+            csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
+            processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
+            attendance: { raw: attendancePercent, weighted: weighted.attendance },
+            totalScore
+          });
+        }
+        return out;
       });
       return json(res, 200, { ok: true, isTeamLeader: rows.length > 0 || assignedMembers.length > 0, rows, lastUpdated: metricsSnapshot.lastUpdated || '' });
     }

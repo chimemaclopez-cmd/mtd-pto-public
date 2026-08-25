@@ -1978,18 +1978,47 @@ function renderTeamEvaluations(){
   }).join('')||'<tr><td colspan="6">No evaluations created yet.</td></tr>';
 }
 function probationScorePercentText(v){return v==null?'—':`${v.toFixed(1)}%`}
-function probationTotalScorePill(totalScore){
-  if(totalScore==null)return'<span class="pill status-pending">Incomplete</span>';
-  const cls=totalScore>=80?'status-ready':'status-failed';
-  return`<span class="pill ${cls}"><b>${totalScore.toFixed(2)}%</b></span>`;
+// Ascending tier tables, mirrored from zendesk-proxy.js/pto-public-server.js's tier scoring -
+// used only to work the formula backwards for the "what's still achievable" projection below.
+const PROBATION_PRODUCTIVITY_TIERS=[{count:12,tier:70},{count:13,tier:80},{count:14,tier:90},{count:15,tier:100}];
+const PROBATION_CSAT_TIERS=[{pct:80,tier:70},{pct:85,tier:80},{pct:90,tier:90},{pct:95,tier:100}];
+// Two independent single-lever scenarios ("if CSAT holds, how many more tickets/calls get to
+// 80%?" and "if Productivity holds, how many more good CSATs get to 80%?"), each solving the
+// weighted-total formula backwards for the one variable being asked about. Only meaningful for
+// the period still in progress - a closed period's ticket/CSAT window can't grow anymore.
+function probationPassScenario(r){
+  if(!r.isCurrentPeriod||!r.daysRemaining||r.productivity.error)return null;
+  if(r.totalScore!=null&&r.totalScore>=80)return null;
+  if(r.processCompliance.weighted==null||r.attendance.weighted==null)return null;
+  const fixed=r.processCompliance.weighted+r.attendance.weighted,scenarios=[];
+  const prodMatch=PROBATION_PRODUCTIVITY_TIERS.find(t=>t.tier>=(80-fixed-(r.csat.weighted??0))/0.40);
+  if(prodMatch){
+    const needed=Math.max(0,prodMatch.count-(r.productivity.raw||0));
+    if(needed>0)scenarios.push(`Get ${needed} more ${r.productivity.kind==='calls'?'calls':'tickets'} this period (holding CSAT steady)`);
+  }
+  const csatMatch=PROBATION_CSAT_TIERS.find(t=>t.tier>=(80-fixed-(r.productivity.weighted??0))/0.30);
+  if(csatMatch){
+    const bad=r.csat.bad||0,good=r.csat.good||0;
+    const neededGoodTotal=Math.ceil((csatMatch.pct*bad)/(100-csatMatch.pct));
+    const needed=Math.max(0,neededGoodTotal-good);
+    if(needed>0)scenarios.push(`Get ${needed} more good CSAT rating${needed===1?'':'s'} this period (holding Productivity steady)`);
+  }
+  return scenarios.length?scenarios:null;
 }
-async function handleProbationComplianceChange(input){
+function probationTotalScorePill(r){
+  const totalScore=r.totalScore;
+  const pill=totalScore==null?'<span class="pill status-pending">Incomplete</span>':`<span class="pill ${totalScore>=80?'status-ready':'status-failed'}"><b>${totalScore.toFixed(2)}%</b></span>`;
+  const scenarios=probationPassScenario(r);
+  return pill+(scenarios?`<div class="muted" style="font-size:11px;margin-top:4px">${scenarios.map(esc).join('<br>')}</div>`:'');
+}
+async function handleProbationComplianceSave(button){
+  const input=button.previousElementSibling;
   const email=input.dataset.email,periodNumber=Number(input.dataset.period),percent=Number(input.value);
-  if(!Number.isFinite(percent)||percent<0||percent>100){input.value=input.dataset.prev||'';return}
-  input.disabled=true;
-  try{await saveProbationCompliance(email,periodNumber,percent);input.dataset.prev=String(percent);await loadProbationKpi()}
-  catch(error){alert(error.response?.error||error.message);input.value=input.dataset.prev||''}
-  finally{input.disabled=false}
+  if(input.value===''||!Number.isFinite(percent)||percent<0||percent>100)return alert('Enter a Process Compliance percent between 0 and 100.');
+  const originalLabel=button.textContent;
+  button.disabled=true;input.disabled=true;button.textContent='Saving…';
+  try{await saveProbationCompliance(email,periodNumber,percent);await loadProbationKpi()}
+  catch(error){alert(error.response?.error||error.message);button.disabled=false;input.disabled=false;button.textContent=originalLabel}
 }
 async function handleProbationKindChange(select){
   const email=select.dataset.email,periodNumber=Number(select.dataset.period),kind=select.value;
@@ -2007,9 +2036,10 @@ function renderProbationKpi(){
     const productivityLabel=r.productivity.kind==='calls'?'calls':'tickets';
     const productivityCell=r.productivity.error?`<span class="muted">${esc(r.productivity.error)}</span>`:`${r.productivity.raw??'—'} ${productivityLabel}<br><span class="muted">Tier: ${probationScorePercentText(r.productivity.tierPercent)}</span>${kindPicker?`<br>${kindPicker}`:''}`;
     const csatCell=r.csat.raw==null?'<span class="muted">No surveys yet</span>':`${probationScorePercentText(r.csat.raw)}<br><span class="muted">Tier: ${probationScorePercentText(r.csat.tierPercent)}</span>`;
-    const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:80px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" data-prev="${r.processCompliance.raw??''}" onchange="handleProbationComplianceChange(this)" placeholder="—">%`;
+    const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:70px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" placeholder="—"> <button class="btn compact" type="button" onclick="handleProbationComplianceSave(this)">Save</button>`;
     const attendanceCell=probationScorePercentText(r.attendance.raw);
-    return`<tr><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.employeeEmail)}</span></td><td>Month ${r.periodNumber}<br><span class="muted">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span></td><td>${r.workedDays??'—'}</td><td>${productivityCell}</td><td>${csatCell}</td><td>${complianceCell}</td><td>${attendanceCell}</td><td>${probationTotalScorePill(r.totalScore)}</td></tr>`;
+    const periodLabel=`Month ${r.periodNumber}${r.isCurrentPeriod?' <span class="muted">(current)</span>':''}<br><span class="muted">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span>`;
+    return`<tr><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.employeeEmail)}</span></td><td>${periodLabel}</td><td>${r.workedDays??'—'}</td><td>${productivityCell}</td><td>${csatCell}</td><td>${complianceCell}</td><td>${attendanceCell}</td><td>${probationTotalScorePill(r)}</td></tr>`;
   }).join('')||'<tr><td colspan="8">No direct reports currently within their first 5 months.</td></tr>';
 }
 async function loadProbationKpi(){
