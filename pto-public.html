@@ -2007,9 +2007,13 @@ function probationPassScenario(r){
 }
 function probationTotalScorePill(r){
   const totalScore=r.totalScore;
-  const pill=totalScore==null?'<span class="pill status-pending">Incomplete</span>':`<span class="pill ${totalScore>=80?'status-ready':'status-failed'}"><b>${totalScore.toFixed(2)}%</b></span>`;
+  let pill;
+  if(totalScore==null)pill='<span class="pill status-pending">Incomplete</span>';
+  else if(r.totalScoreProvisional)pill=`<span class="pill status-pending"><b>${totalScore.toFixed(2)}%</b> (partial)</span>`;
+  else pill=`<span class="pill ${totalScore>=80?'status-ready':'status-failed'}"><b>${totalScore.toFixed(2)}%</b></span>`;
   const scenarios=probationPassScenario(r);
-  return pill+(scenarios?`<div class="muted" style="font-size:11px;margin-top:4px">${scenarios.map(esc).join('<br>')}</div>`:'');
+  const missingNote=r.totalScoreProvisional&&r.missingComponents?.length?`<div class="muted" style="font-size:11px;margin-top:4px">Missing: ${r.missingComponents.map(esc).join(', ')}</div>`:'';
+  return pill+missingNote+(scenarios?`<div class="muted" style="font-size:11px;margin-top:4px">${scenarios.map(esc).join('<br>')}</div>`:'');
 }
 async function handleProbationComplianceSave(button){
   const input=button.previousElementSibling;
@@ -2027,16 +2031,28 @@ async function handleProbationKindChange(select){
   catch(error){alert(error.response?.error||error.message)}
   finally{select.disabled=false}
 }
+// This table is inside a <script type="module">, so top-level functions here are module-scoped,
+// not on window - inline onclick/onchange="fn(this)" HTML attributes can't see them and silently
+// no-op. Delegate through the container instead, matching how every other dynamically-rendered
+// table in this file wires up its row actions.
+$('probationKpiBody').addEventListener('click',event=>{
+  const button=event.target.closest('[data-save-compliance]');
+  if(button)handleProbationComplianceSave(button);
+});
+$('probationKpiBody').addEventListener('change',event=>{
+  const select=event.target.closest('[data-kind-select]');
+  if(select)handleProbationKindChange(select);
+});
 function renderProbationKpi(){
   $('probationKpiBody').innerHTML=probationKpiRows.map(r=>{
     // Months 1-3 are always ticket-count, no choice to make. Months 4-5 are flexible (pure
     // calls vs pure non-voice work varies by business need) - show both raw counts plus a
     // toggle for which one actually counts, defaulting to a kpiType-based guess server-side.
-    const kindPicker=r.productivity.canChooseKind?`<select data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" onchange="handleProbationKindChange(this)" style="margin-top:2px"><option value="tickets"${r.productivity.kind==='tickets'?' selected':''}>Tickets (${r.productivity.ticketsRaw??0})</option><option value="calls"${r.productivity.kind==='calls'?' selected':''}>Calls (${r.productivity.callsRaw??0})</option></select>`:'';
+    const kindPicker=r.productivity.canChooseKind?`<select data-kind-select data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" style="margin-top:2px"><option value="tickets"${r.productivity.kind==='tickets'?' selected':''}>Tickets (${r.productivity.ticketsRaw??0})</option><option value="calls"${r.productivity.kind==='calls'?' selected':''}>Calls (${r.productivity.callsRaw??0})</option></select>`:'';
     const productivityLabel=r.productivity.kind==='calls'?'calls':'tickets';
     const productivityCell=r.productivity.error?`<span class="muted">${esc(r.productivity.error)}</span>`:`${r.productivity.raw??'—'} ${productivityLabel}<br><span class="muted">Tier: ${probationScorePercentText(r.productivity.tierPercent)}</span>${kindPicker?`<br>${kindPicker}`:''}`;
     const csatCell=r.csat.raw==null?'<span class="muted">No surveys yet</span>':`${probationScorePercentText(r.csat.raw)}<br><span class="muted">Tier: ${probationScorePercentText(r.csat.tierPercent)}</span>`;
-    const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:70px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" placeholder="—"> <button class="btn compact" type="button" onclick="handleProbationComplianceSave(this)">Save</button>`;
+    const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:70px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" placeholder="—"> <button class="btn compact" type="button" data-save-compliance>Save</button>`;
     const attendanceCell=probationScorePercentText(r.attendance.raw);
     const periodLabel=`Month ${r.periodNumber}${r.isCurrentPeriod?' <span class="muted">(current)</span>':''}<br><span class="muted">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span>`;
     return`<tr><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.employeeEmail)}</span></td><td>${periodLabel}</td><td>${r.workedDays??'—'}</td><td>${productivityCell}</td><td>${csatCell}</td><td>${complianceCell}</td><td>${attendanceCell}</td><td>${probationTotalScorePill(r)}</td></tr>`;

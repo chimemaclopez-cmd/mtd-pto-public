@@ -3561,13 +3561,20 @@ const server = http.createServer(async (req, res) => {
             processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
             attendance: attendancePercent == null ? null : attendancePercent * 0.15
           };
-          const allKnown = weighted.productivity != null && weighted.csat != null && weighted.processCompliance != null && weighted.attendance != null;
-          const totalScore = allKnown ? weighted.productivity + weighted.csat + weighted.processCompliance + weighted.attendance : null;
+          // Process Compliance is manual-entry-only and often hasn't been typed in yet, but that
+          // shouldn't hide the other 3 components' progress behind a blank "Incomplete" - show a
+          // provisional total (missing pieces count as 0) so there's always something to look at,
+          // and flag it as provisional/list what's still missing so it reads as "not final yet."
+          const componentWeights = { Productivity: weighted.productivity, CSAT: weighted.csat, 'Process Compliance': weighted.processCompliance, Attendance: weighted.attendance };
+          const missingComponents = Object.entries(componentWeights).filter(([, w]) => w == null).map(([name]) => name);
+          const anyKnown = missingComponents.length < 4;
+          const totalScore = anyKnown ? Object.values(componentWeights).reduce((sum, w) => sum + (w || 0), 0) : null;
           out.push({
             employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate,
             periodNumber, periodStart, periodEnd: periodEndInclusive, isCurrentPeriod,
             daysRemaining: isCurrentPeriod ? Math.max(0, ptoLogic.dateRange(windowEnd, periodEndInclusive).length - 1) : 0,
             workedDays: attendanceRange?.scheduledWorkdays ?? null,
+            totalScoreProvisional: missingComponents.length > 0, missingComponents,
             productivity: {
               raw: productivityRaw, kind: selectedKind, canChooseKind,
               ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
