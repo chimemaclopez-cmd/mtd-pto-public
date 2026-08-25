@@ -2055,7 +2055,7 @@ function renderProbationKpi(){
     const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:70px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" placeholder="—"> <button class="btn compact" type="button" data-save-compliance>Save</button>`;
     const attendanceCell=probationScorePercentText(r.attendance.raw);
     const periodLabel=`Month ${r.periodNumber}${r.isCurrentPeriod?' <span class="muted">(current)</span>':''}<br><span class="muted">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span>`;
-    return`<tr><td><b>${esc(r.employeeName)}</b><br><span class="muted">${esc(r.employeeEmail)}</span></td><td>${periodLabel}</td><td>${r.workedDays??'—'}</td><td>${productivityCell}</td><td>${csatCell}</td><td>${complianceCell}</td><td>${attendanceCell}</td><td>${probationTotalScorePill(r)}</td></tr>`;
+    return`<tr><td><b>${esc(r.employeeName)}</b></td><td>${periodLabel}</td><td>${r.workedDays??'—'}</td><td>${productivityCell}</td><td>${csatCell}</td><td>${complianceCell}</td><td>${attendanceCell}</td><td>${probationTotalScorePill(r)}</td></tr>`;
   }).join('')||'<tr><td colspan="8">No direct reports currently within their first 5 months.</td></tr>';
 }
 async function loadProbationKpi(){
