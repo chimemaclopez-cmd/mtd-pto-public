@@ -3485,6 +3485,130 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // Probationary KPI Metrics: a running, live-computed table (Productivity/CSAT/Attendance/
+    // Process Compliance -> weighted total) for direct reports still within their first 5
+    // months, separate from the formal Month 2-4 evaluation form above. Confirmed formula
+    // (2026-08-25, cross-checked against 3 real employees' TOTAL SCORE until it matched
+    // exactly): Productivity 40% (periods 1-3 unique Lofty tickets assigned, periods 4-5
+    // incoming calls - computed in zendesk-proxy.js, the only place with Zendesk API access,
+    // synced here via mtdkpi:snapshot:probation-metrics), CSAT 30% (tiered), Attendance 15%
+    // (direct passthrough, computed here from snapshot data via ptoLogic.computeAttendanceForRange
+    // since this server has no Zendesk access but does have roster/schedule/attendance
+    // snapshots), Process Compliance 15% (manual entry only - no automated source yet).
+    const PROBATION_COMPLIANCE_KEY = 'mtdkpi:probation-compliance';
+    // Months 4-5 Productivity is flexible (pure calls vs pure non-voice work, per business
+    // need - not a fixed kpiType rule). zendesk-proxy.js computes BOTH counts for those
+    // months; this store lets a Team Lead pick which one actually applies for a given
+    // employee/period, defaulting to metrics.defaultProductivityKind (a kpiType-based guess)
+    // when no explicit choice has been made yet.
+    const PROBATION_PRODUCTIVITY_KIND_KEY = 'mtdkpi:probation-productivity-kind';
+    function scoreProductivityTierPortal(count) {
+      if (count == null) return 0;
+      if (count >= 15) return 100;
+      if (count >= 14) return 90;
+      if (count >= 13) return 80;
+      if (count >= 12) return 70;
+      return 60;
+    }
+    function scoreCsatTierPortal(pct) {
+      if (pct == null) return null;
+      if (pct >= 95) return 100;
+      if (pct >= 90) return 90;
+      if (pct >= 85) return 80;
+      if (pct >= 80) return 70;
+      return 0;
+    }
+    if (parsed.pathname === '/api/my/team-probation-kpi' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      const todayParts = easternDateParts(new Date());
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const probationary = assignedMembers
+        .map(m => ({ member: m, info: probationEvalInfo(m.hireDate, today) }))
+        .filter(x => x.info);
+      const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance] = await Promise.all([
+        getSnapshot('probation-metrics', 'mtdkpi:snapshot:probation-metrics', { byEmployee: {} }),
+        cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {}),
+        cloudStore.kvGetJson(PROBATION_PRODUCTIVITY_KIND_KEY, {}),
+        loadScheduleSnapshot(),
+        loadAttendanceSnapshot()
+      ]);
+      const rows = probationary.map(({ member, info }) => {
+        const email = ptoLogic.cleanEmail(member.employeeEmail);
+        const periodStart = info.evalMonth === 1 ? member.hireDate : addMonthsToDate(member.hireDate, info.evalMonth - 1);
+        const periodEndExclusive = addMonthsToDate(member.hireDate, info.evalMonth);
+        const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+        const windowEnd = today < periodEndInclusive ? today : periodEndInclusive;
+        const metrics = metricsSnapshot.byEmployee?.[email] || null;
+        const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, email, periodStart, windowEnd);
+        const canChooseKind = info.evalMonth >= 4;
+        const selectedKind = productivityKindStore?.[email]?.[info.evalMonth] || metrics?.defaultProductivityKind || (canChooseKind ? 'tickets' : 'tickets');
+        const productivityRaw = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
+        const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw) : null;
+        const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
+        const csatTier = scoreCsatTierPortal(csatRate);
+        const compliancePercent = complianceStore?.[email]?.[info.evalMonth]?.percent ?? null;
+        const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+        const weighted = {
+          productivity: productivityTier == null ? null : productivityTier * 0.40,
+          csat: csatTier == null ? null : csatTier * 0.30,
+          processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
+          attendance: attendancePercent == null ? null : attendancePercent * 0.15
+        };
+        const allKnown = weighted.productivity != null && weighted.csat != null && weighted.processCompliance != null && weighted.attendance != null;
+        const totalScore = allKnown ? weighted.productivity + weighted.csat + weighted.processCompliance + weighted.attendance : null;
+        return {
+          employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate,
+          periodNumber: info.evalMonth, periodStart, periodEnd: periodEndInclusive,
+          workedDays: attendanceRange?.scheduledWorkdays ?? null,
+          productivity: {
+            raw: productivityRaw, kind: selectedKind, canChooseKind,
+            ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
+            tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
+          },
+          csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
+          processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
+          attendance: { raw: attendancePercent, weighted: weighted.attendance },
+          totalScore
+        };
+      });
+      return json(res, 200, { ok: true, isTeamLeader: rows.length > 0 || assignedMembers.length > 0, rows, lastUpdated: metricsSnapshot.lastUpdated || '' });
+    }
+
+    const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);
+    if (probationComplianceMatch && req.method === 'POST') {
+      const targetEmail = ptoLogic.cleanEmail(decodeURIComponent(probationComplianceMatch[1]));
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      if (!assignedMembers.some(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const body = await readJsonBody(req);
+      const periodNumber = Number(body.periodNumber), percent = Number(body.percent);
+      if (!Number.isInteger(periodNumber) || periodNumber < 1 || periodNumber > 5) return json(res, 400, { ok: false, error: 'periodNumber must be 1-5.' });
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) return json(res, 400, { ok: false, error: 'percent must be 0-100.' });
+      const store = await cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {});
+      store[targetEmail] ??= {};
+      store[targetEmail][periodNumber] = { percent, updatedAt: new Date().toISOString(), updatedBy: identity };
+      await cloudStore.kvSetJson(PROBATION_COMPLIANCE_KEY, store);
+      return json(res, 200, { ok: true, percent });
+    }
+
+    const probationKindMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/productivity-kind$/);
+    if (probationKindMatch && req.method === 'POST') {
+      const targetEmail = ptoLogic.cleanEmail(decodeURIComponent(probationKindMatch[1]));
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      if (!assignedMembers.some(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
+      const body = await readJsonBody(req);
+      const periodNumber = Number(body.periodNumber), kind = String(body.kind || '');
+      if (!Number.isInteger(periodNumber) || periodNumber < 4 || periodNumber > 5) return json(res, 400, { ok: false, error: 'periodNumber must be 4 or 5 - months 1-3 are always ticket-count.' });
+      if (!['tickets', 'calls'].includes(kind)) return json(res, 400, { ok: false, error: "kind must be 'tickets' or 'calls'." });
+      const store = await cloudStore.kvGetJson(PROBATION_PRODUCTIVITY_KIND_KEY, {});
+      store[targetEmail] ??= {};
+      store[targetEmail][periodNumber] = kind;
+      await cloudStore.kvSetJson(PROBATION_PRODUCTIVITY_KIND_KEY, store);
+      return json(res, 200, { ok: true, kind });
+    }
+
     if (parsed.pathname === '/api/my/team-evaluations' && req.method === 'POST') {
       const body = await readJsonBody(req);
       const email = ptoLogic.cleanEmail(body.employeeEmail || '');

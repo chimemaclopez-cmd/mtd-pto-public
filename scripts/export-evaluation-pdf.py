@@ -36,6 +36,7 @@ PAGE_WIDTH = 7.1 * inch
 COL_GUTTER = 18  # points of breathing room between adjacent columns in 2-column grids
 
 PERIOD_WORD = {'Month 2': 'second', 'Month 3': 'third', 'Month 4': 'fourth'}
+PERIOD_ORDINAL = {'Month 2': '2ND', 'Month 3': '3RD', 'Month 4': '4TH'}
 
 # Verbatim from the source Word form.
 RATING_SCALE_ITEMS = [
@@ -54,22 +55,25 @@ COMMENTS_INTRO = (
     "and evaluators are strongly encouraged to include written comments."
 )
 
+# Verbatim from the source Word form, including its own grammatical quirk ("comments
+# indicate on the above section") - not cleaned up, per explicit instruction to reproduce
+# the form exactly as-is.
 ACKNOWLEDGMENT_SCRIPT = (
     "I have reviewed and discussed the contents with my supervisor. My signature means that I have been "
-    "advised of my performance and that I agree with this evaluation with my own comments indicated above."
+    "advised of my performance and that I agree with this evaluation with my own comments indicate on the above section."
 )
 
 # (key, label, description) - description text is verbatim from the source Word form, so the
 # printed HR copy shows exactly what each rating means, not just a bare attribute name.
 ATTRIBUTE_LABELS = [
-    ('quantityOfWork', 'Quantity of Work', 'The extent to which the employee accomplishes assigned work of a specified quality within a specified time period.'),
+    ('quantityOfWork', 'Quantity of Work', 'The extent to which the employee accomplishes assigned work of a specified quality within a specified time period'),
     ('qualityOfWork', 'Quality of Work', "The extent to which the employee's work is well executed, thorough, effective, accurate."),
     ('jobKnowledge', 'Job Knowledge', 'Possesses and continually updates requisite knowledge and understanding of assigned duties, responsibilities, policies, procedures and compliance requirements to perform the position. Demonstrates technical skills required for the position. Understands business needs and desired outcomes.'),
     ('dependabilityAccountabilityProfessionalism', 'Dependability / Accountability / Professionalism', 'Follows through on assignments. Takes ownership of work. Is reliable, professional and responsible. Adheres to procedures, practices, and work schedule. Work is completed in a timely manner and within established deadlines effectively using resources. Demonstrates commitment to professional development.'),
     ('attendanceAndReliability', 'Attendance and Reliability', 'The extent to which employee arrives on time and demonstrates consistent attendance; the extent to which the employee contacts supervisor on a timely basis when employee will be late or absent.'),
     ('speedAndExecutiveAbility', 'Speed and Executive Ability', 'The extent to which the employee is self-directed, and reacts quickly in meeting job objectives; consider how fast the employee follows through on assignments.'),
     ('capacityToDevelop', 'Capacity to Develop', 'The extent to which the employee demonstrates the ability and willingness to accept new/more complex duties/responsibilities.'),
-    ('leadershipManagement', 'Leadership / Management (supervisor or manager level)', 'Establishes clear vision for staff and motivates employees to achieve their best performance. Engages and motivates staff, coaching for peak performance. Makes outreach efforts and uses resources to create a diverse workforce. Leads and manages change. Builds and manages relationships across the department. Participates in company projects or programs to motivate staff to improve their performance.'),
+    ('leadershipManagement', 'Leadership / Management (supervisor or manager level)', 'Establishes clear vision for staff and motivates employees to achieve their best performance. Engages and motivates staff, coaching for peak performance. Makes outreach efforts and uses resources to create a diverse workforce. Leads and manages change. Builds and manages relationships across the department. Participate company projects or programs to motivate staff to improve their performance.'),
 ]
 
 
@@ -138,17 +142,22 @@ def identification_block(styles, record):
 
 
 def instructions_and_scale(styles, period_label):
+    # Verbatim from the source Word form (the 3rd Month template) - only the month word
+    # itself is swapped in for the Month 2/4 periods, since Lofty only has one physical
+    # template (3rd Month) and the other two periods' real forms aren't available to copy
+    # from directly; every other word is unchanged from the source.
     period_word = PERIOD_WORD.get(period_label, 'third')
     instructions = (
-        "Instructions to Evaluator: Evaluators should refer to the employee's job description when completing "
-        f"this form; the evaluation should focus on the employee's ability to perform the job duties listed in "
-        f"the job description. Employees should be evaluated at the {period_word} month. Indicate the evaluation "
-        "of the employee's job performance by writing a number between 1 to 5 in the rating column to the right "
-        "of each attribute. Use the following scale:"
+        "Instructions to Evaluator:  Evaluators should refer to the employee's job description when completing "
+        "this form; the evaluation should focus on the employee's ability to perform the job duties listed in "
+        f"the job description.  Employees should be evaluated at {period_word} month. Indicate the evaluation "
+        "of the employee's job performance by writing a number between 1 to 5 on the blank line to the right "
+        "of each attribute, in the appropriate column. Use the following scale:"
     )
     flow = [Paragraph(instructions, styles['BodyText9']), Paragraph('Rating Scale:', styles['SectionHeading'])]
     for bold_prefix, rest in RATING_SCALE_ITEMS:
         flow.append(Paragraph(f"<b>{xml_escape(bold_prefix)}</b> {xml_escape(rest)}", styles['ScaleItem']))
+    flow.append(Paragraph('See the reverse side of this form for additional comments to the evaluator and the employee.', styles['BodyText9']))
     return flow
 
 
@@ -253,11 +262,15 @@ def acknowledgement_section(styles, record):
 def build_pdf(out_path, record):
     styles = build_styles()
     doc = SimpleDocTemplate(out_path, pagesize=letter, topMargin=0.55 * inch, bottomMargin=0.55 * inch, leftMargin=0.7 * inch, rightMargin=0.7 * inch)
-    period = (record.get('evaluationPeriod') or '').upper()
+    evaluation_period = record.get('evaluationPeriod') or ''
+    ordinal = PERIOD_ORDINAL.get(evaluation_period, '3RD')
     story = [
         logo_header(),
         Spacer(1, 10),
-        Paragraph(f'EMPLOYEE PERFORMANCE EVALUATION FOR {period}', styles['FormTitle']),
+        # Verbatim source title: "EMPLOYEE PERFORMANCE EVALUATION FOR 3RD MONTH" (with the
+        # ordinal suffix superscripted, matching the Word doc's own auto-formatting), not
+        # "FOR MONTH 3" - the word order and the ordinal form both matter for an exact copy.
+        Paragraph(f'EMPLOYEE PERFORMANCE EVALUATION FOR {ordinal[:-2]}<super>{ordinal[-2:]}</super> MONTH', styles['FormTitle']),
         identification_block(styles, record),
         Spacer(1, 4),
     ]

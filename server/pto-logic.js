@@ -301,10 +301,46 @@ function applyPtoCapacityLimits(forecast, request, { settings, pto, roster }) {
   return forecast;
 }
 
+// Attendance % over an ARBITRARY date range (not a calendar month) - built for the
+// probationary KPI feature, whose evaluation periods are anchored to each employee's own
+// hire date rather than a calendar month. Mirrors the bucketing logic in
+// zendesk-proxy.js's recalculateAttendanceForEmail() line for line, just parameterized by
+// (startDate, endDate) instead of `${month}-01`..endDate, and reads attendance codes via
+// attendanceCodeOnDate() above (which already resolves the right period key per date) so
+// there's no need to separately merge same-month snapshot keys the way that function does.
+function computeAttendanceForRange(roster, schedules, attendance, email, startDate, endDate) {
+  const employee = roster.find(x => cleanEmail(x.employeeEmail) === cleanEmail(email));
+  if (!employee) return null;
+  let scheduled = 0, present = 0, presentEquivalent = 0, eligible = 0, absence = 0, pto = 0, partialPto = 0, rd = 0, missing = 0, missingSchedule = 0;
+  for (const date of dateRange(startDate, endDate)) {
+    if (!rosterActiveOn(employee, date)) continue;
+    const resolved = scheduleForDate(schedules, email, date);
+    if (resolved.missingSchedule) { missingSchedule++; continue; }
+    if (resolved.template?.off) { rd++; continue; }
+    scheduled++;
+    const code = attendanceCodeOnDate(attendance, email, date);
+    if (code === 'PTO') { pto++; continue; }
+    eligible++;
+    if (code === 'PARTIAL_PTO') { partialPto++; continue; }
+    if (!code) { missing++; continue; }
+    if (['ONSITE', 'WFH', 'LATE'].includes(code)) { present++; presentEquivalent++; }
+    else if (['SL-HD', 'EL-HD'].includes(code)) { presentEquivalent += 0.5; absence += 0.5; }
+    else absence++;
+  }
+  return {
+    employeeEmail: email, startDate, endDate,
+    scheduledWorkdays: scheduled, present, presentDayEquivalent: presentEquivalent,
+    attendancePercentage: eligible ? present / eligible * 100 : null,
+    eligibleWorkdays: eligible, absenceDays: absence, ptoDays: pto, partialPtoDays: partialPto,
+    rdDays: rd, missingEntries: missing, missingScheduleDays: missingSchedule,
+    status: missingSchedule ? 'Missing Schedule' : missing ? 'Missing Attendance' : 'Ready'
+  };
+}
+
 module.exports = {
   PTO_ACTIVE_STATUSES, PTO_KPI_GROUPS,
   cleanEmail, validDate, validTime, minutesOf, dateRange, weekdayForDate,
   rosterActiveOn, scheduleForDate, calculatePtoWorkdays, ptoConflictsFor,
   normalizePtoRequest, ptoThreshold, forecastStatus, attendanceCodeOnDate, attendanceMinutesLateOnDate, attendanceReasonOnDate, attendanceLocationOnDate,
-  buildPtoForecast, applyPtoCapacityLimits
+  buildPtoForecast, applyPtoCapacityLimits, computeAttendanceForRange
 };
