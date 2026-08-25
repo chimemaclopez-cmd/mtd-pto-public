@@ -74,12 +74,19 @@ export function consolidateScheduleBlocks({assignments={},exactBlocks=[],shiftSt
     let start=minutesOf(exact.startTime),end=exact.endTime?minutesOf(exact.endTime):start+Number(exact.durationMinutes||0);
     if(start<shiftStart&&shiftEnd>1440)start+=1440;
     if(end<=start)end+=1440;
+    const exactActivityId=normalizeActivityId(exact.activityId);
     for(let index=segments.length-1;index>=0;index--){
       const segment=segments[index];
       if(segment.end<=start||segment.start>=end)continue;
-      segments.splice(index,1,...(segment.start<start?[{...segment,end:start}]:[]),...(segment.end>end?[{...segment,start:end}]:[]));
+      // A leftover sliver from the coarse 30-min grid cell that shared the exact block's own
+      // activityId (e.g. the un-plotted remainder of a SHORT_BREAK cell) isn't actually still
+      // that activity - it's just the grid's coarse label bleeding past the real break. Relabel
+      // it to the shift's default work activity so it doesn't silently re-merge with the exact
+      // block below and reconstitute the full 30-minute span.
+      const leftoverActivityId=segment.activityId===exactActivityId?(defaultActivityId||segment.activityId):segment.activityId;
+      segments.splice(index,1,...(segment.start<start?[{...segment,end:start,activityId:leftoverActivityId}]:[]),...(segment.end>end?[{...segment,start:end,activityId:leftoverActivityId}]:[]));
     }
-    segments.push({start,end,activityId:normalizeActivityId(exact.activityId)});
+    segments.push({start,end,activityId:exactActivityId});
   }
   segments=segments.filter(x=>x.activityId&&x.end>x.start).sort((a,b)=>a.start-b.start);
   const merged=[];
