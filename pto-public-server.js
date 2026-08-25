@@ -3502,12 +3502,16 @@ const server = http.createServer(async (req, res) => {
     // employee/period, defaulting to metrics.defaultProductivityKind (a kpiType-based guess)
     // when no explicit choice has been made yet.
     const PROBATION_PRODUCTIVITY_KIND_KEY = 'mtdkpi:probation-productivity-kind';
-    function scoreProductivityTierPortal(count) {
+    // Voice reps naturally log fewer tickets/calls per hour than Email/Non-Voice reps (call
+    // handling time vs. quick ticket turnaround), so the New Hire KPI Tiered Rating sheet gives
+    // them a lower bar - everything else in the formula (CSAT/Attendance/Process Compliance) is
+    // channel-agnostic, confirmed 2026-08-26.
+    function scoreProductivityTierPortal(count, kpiType) {
       if (count == null) return 0;
-      if (count >= 15) return 100;
-      if (count >= 14) return 90;
-      if (count >= 13) return 80;
-      if (count >= 12) return 70;
+      const tiers = kpiType === 'Voice Jr TSR'
+        ? [{ min: 15, tier: 100 }, { min: 14, tier: 90 }, { min: 13, tier: 80 }, { min: 12, tier: 70 }]
+        : [{ min: 25, tier: 100 }, { min: 22, tier: 90 }, { min: 19, tier: 80 }, { min: 16, tier: 70 }];
+      for (const t of tiers) if (count >= t.min) return t.tier;
       return 60;
     }
     function scoreCsatTierPortal(pct) {
@@ -3550,7 +3554,7 @@ const server = http.createServer(async (req, res) => {
           const canChooseKind = periodNumber >= 4;
           const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
           const productivityRaw = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
-          const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw) : null;
+          const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
           const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
           const csatTier = scoreCsatTierPortal(csatRate);
           const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
