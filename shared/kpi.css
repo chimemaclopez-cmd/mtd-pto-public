@@ -7,7 +7,29 @@
    pack more compactly instead of spreading the header across several tall wrapped rows. */
 .headerRight .actions{gap:6px}
 .headerRight .btn{padding:7px 11px;font-size:13px}
-.headerRight .field label{margin-bottom:1px}.tabGroupButtons .btn{border:none;background:none;text-align:left;border-radius:8px;padding:8px 10px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;width:100%}.tabGroupButtons .btn:hover{background:var(--bg)}.tabGroupButtons .btn.primary{background:var(--blue);color:#fff;font-weight:700}.tabGroupButtons .btn.primary:hover{background:var(--blue-dark)}.navIcon,.groupIcon{flex:0 0 auto;opacity:.8}.tabGroup-work .navIcon,.tabGroup-work .groupIcon{color:var(--blue)}.tabGroup-team .navIcon,.tabGroup-team .groupIcon{color:var(--purple)}.tabGroup-tools .navIcon,.tabGroup-tools .groupIcon{color:var(--amber)}.tabGroup-company .navIcon,.tabGroup-company .groupIcon{color:var(--green)}.tabGroupButtons .btn.primary .navIcon{opacity:1;color:#fff}@media(max-width:900px){.portalLayout{display:block}.sidebar{width:auto;position:static;max-height:none;margin-bottom:16px}.tabGroupButtons{flex-direction:row;flex-wrap:wrap}.tabGroupButtons .btn{width:auto;border:1px solid #c9cdd6}}@media print{.portalLayout{display:block}}.devSimPanel{background:#f2effa;border:1px dashed #b9aee0}.devSimHead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.devSimHead .filters{margin:0;align-items:end}@media(max-width:760px){.devSimHead{display:block}.devSimHead .filters{margin-top:10px}}.att-PARTIAL_PTO{background:#f3e8ff}.status-approved{background:#e3f7ec;color:#0f7a49}.status-partially-approved{background:#ede9fe;color:#4338ca}.status-declined,.status-cancelled,.status-withdrawn{background:#fce8e8;color:#8b1f1f}.status-draft,.status-submitted{background:#edf4fb;color:#174b78}.status-threshold-not-configured{background:#eef0f5;color:#5b6274}pre{white-space:pre-wrap;word-break:break-word;max-width:560px;margin:0}.lobLogo{display:block;height:30px;width:auto;margin-bottom:6px}.appCredit{text-align:center;color:var(--muted);font-size:11px;opacity:.65;padding:18px 0 8px}@media print{.appCredit{display:none!important}}
+.headerRight .field label{margin-bottom:1px}
+/* Sidebar redesign - subtle elevation instead of a flat border, and per-group color carried
+   into the hover/open states (not just the icons) so the four groups read as distinct colored
+   sections rather than one flat gray list. Colors reuse the existing --blue/--purple/--amber/
+   --green tokens at low opacity, matching the icon-color system already in place. */
+.sidebar{border-color:#e8eaf1;box-shadow:0 10px 28px rgba(32,36,55,.06),0 1px 0 rgba(32,36,55,.03);padding:14px}
+.tabGroup:not(:first-child){border-top-color:#eef0f5}
+.tabGroupLabel{transition:background-color .12s,color .12s}
+.tabGroup[open] .tabGroupLabel{color:var(--ink)}
+.tabGroup-work[open] .tabGroupLabel{background:rgba(59,92,222,.08)}
+.tabGroup-team[open] .tabGroupLabel{background:rgba(87,47,180,.08)}
+.tabGroup-tools[open] .tabGroupLabel{background:rgba(186,117,23,.08)}
+.tabGroup-company[open] .tabGroupLabel{background:rgba(25,171,99,.08)}
+.tabGroup-work .tabGroupLabel:hover{background:rgba(59,92,222,.08)}
+.tabGroup-team .tabGroupLabel:hover{background:rgba(87,47,180,.08)}
+.tabGroup-tools .tabGroupLabel:hover{background:rgba(186,117,23,.08)}
+.tabGroup-company .tabGroupLabel:hover{background:rgba(25,171,99,.08)}
+.tabGroupButtons .btn{transition:background-color .12s}
+.tabGroup-work .tabGroupButtons .btn:hover{background:rgba(59,92,222,.07)}
+.tabGroup-team .tabGroupButtons .btn:hover{background:rgba(87,47,180,.07)}
+.tabGroup-tools .tabGroupButtons .btn:hover{background:rgba(186,117,23,.07)}
+.tabGroup-company .tabGroupButtons .btn:hover{background:rgba(25,171,99,.07)}
+.tabGroupButtons .btn.primary{box-shadow:0 3px 10px rgba(59,92,222,.28)}.tabGroupButtons .btn{border:none;background:none;text-align:left;border-radius:8px;padding:8px 10px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;width:100%}.tabGroupButtons .btn:hover{background:var(--bg)}.tabGroupButtons .btn.primary{background:var(--blue);color:#fff;font-weight:700}.tabGroupButtons .btn.primary:hover{background:var(--blue-dark)}.navIcon,.groupIcon{flex:0 0 auto;opacity:.8}.tabGroup-work .navIcon,.tabGroup-work .groupIcon{color:var(--blue)}.tabGroup-team .navIcon,.tabGroup-team .groupIcon{color:var(--purple)}.tabGroup-tools .navIcon,.tabGroup-tools .groupIcon{color:var(--amber)}.tabGroup-company .navIcon,.tabGroup-company .groupIcon{color:var(--green)}.tabGroupButtons .btn.primary .navIcon{opacity:1;color:#fff}@media(max-width:900px){.portalLayout{display:block}.sidebar{width:auto;position:static;max-height:none;margin-bottom:16px}.tabGroupButtons{flex-direction:row;flex-wrap:wrap}.tabGroupButtons .btn{width:auto;border:1px solid #c9cdd6}}@media print{.portalLayout{display:block}}.devSimPanel{background:#f2effa;border:1px dashed #b9aee0}.devSimHead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.devSimHead .filters{margin:0;align-items:end}@media(max-width:760px){.devSimHead{display:block}.devSimHead .filters{margin-top:10px}}.att-PARTIAL_PTO{background:#f3e8ff}.status-approved{background:#e3f7ec;color:#0f7a49}.status-partially-approved{background:#ede9fe;color:#4338ca}.status-declined,.status-cancelled,.status-withdrawn{background:#fce8e8;color:#8b1f1f}.status-draft,.status-submitted{background:#edf4fb;color:#174b78}.status-threshold-not-configured{background:#eef0f5;color:#5b6274}pre{white-space:pre-wrap;word-break:break-word;max-width:560px;margin:0}.lobLogo{display:block;height:30px;width:auto;margin-bottom:6px}.appCredit{text-align:center;color:var(--muted);font-size:11px;opacity:.65;padding:18px 0 8px}@media print{.appCredit{display:none!important}}
 
 /* Shared presentation polish for internal dashboards and the public portal. */
 .tableWrap{border-color:#d9deea;border-radius:14px;box-shadow:0 7px 22px rgba(32,36,55,.04);scrollbar-color:#bcc4d5 transparent;scrollbar-width:thin}
