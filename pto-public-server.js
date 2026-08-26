@@ -753,6 +753,18 @@ async function isPtoLeaderViewer(identity, session) {
   return access.isTeamLeader || access.canFinalApprove;
 }
 
+// Who can access Operational Notes - same "leadership" set as the Leadership PTO Calendar
+// (real team leads, BQA, SOM), plus HR, since Operational Notes records company-wide context
+// (outages, policy changes, leadership actions) HR also needs visibility into.
+async function isLeadershipRole(identity, session) {
+  const viewAs = effectiveViewAsRole(identity, session);
+  const role = viewAs || portalRoleFor(identity);
+  if (role === 'BQA' || role === 'SOM' || role === 'HR') return true;
+  if (viewAs === 'REP') return false;
+  const access = await ptoReviewAccess(identity, session.employeeName);
+  return access.isTeamLeader || access.canFinalApprove;
+}
+
 // Who the Leadership PTO Calendar is ABOUT (whose requests appear), as opposed to
 // isPtoLeaderViewer above (who is ALLOWED to open it): anyone at least one other active
 // employee reports to (a real team lead, matched by email or by name the same way
@@ -876,6 +888,54 @@ async function appendAlignmentAudit(alignmentId, action, { user = 'Team Lead', n
 const LOTTI_KNOWLEDGE_KEY = 'mtdkpi:lotti-knowledge-records';
 async function loadLottiKnowledge() { return cloudStore.kvGetJson(LOTTI_KNOWLEDGE_KEY, []); }
 async function saveLottiKnowledge(list) { return cloudStore.kvSetJson(LOTTI_KNOWLEDGE_KEY, list); }
+// Operational Notes: leadership-only log of anything that affected productivity or KPI
+// performance (completion rate, CSAT especially) - outages, policy changes, staffing gaps,
+// leadership actions - so a dip or spike has a documented reason instead of just a bare number
+// showing up later in a review with nobody remembering why.
+const OPERATIONAL_NOTES_KEY = 'mtdkpi:operational-notes';
+const OPERATIONAL_NOTE_CATEGORY_GROUPS = [
+  { group: 'System / Technical', options: [
+    { value: 'SYSTEM_OUTAGE', label: 'System Outage' },
+    { value: 'TOOL_BUG', label: 'Tool Bug' },
+    { value: 'INTEGRATION_FAILURE', label: 'Integration Failure' }
+  ] },
+  { group: 'Staffing', options: [
+    { value: 'COVERAGE_GAP', label: 'Coverage Gap' },
+    { value: 'NEW_HIRE_RAMP_UP', label: 'New Hire Ramp-Up' },
+    { value: 'SCHEDULE_DISRUPTION', label: 'Schedule/Adherence Disruption' }
+  ] },
+  { group: 'Process / Policy', options: [
+    { value: 'POLICY_CHANGE', label: 'Policy or SOP Change' },
+    { value: 'COMPLIANCE_REQUIREMENT', label: 'Compliance Requirement' },
+    { value: 'ESCALATION_PROCESS_CHANGE', label: 'Escalation Process Change' }
+  ] },
+  { group: 'Product / Business', options: [
+    { value: 'PRODUCT_OUTAGE', label: 'Product Outage/Bug' },
+    { value: 'FEATURE_RELEASE', label: 'Feature Release' },
+    { value: 'BILLING_PRICING_CHANGE', label: 'Billing/Pricing Change' },
+    { value: 'MARKETING_CAMPAIGN', label: 'Marketing Campaign' }
+  ] },
+  { group: 'External', options: [
+    { value: 'VENDOR_MLS_OUTAGE', label: 'Vendor/MLS Outage' },
+    { value: 'WEATHER_EVENT', label: 'Weather Event' },
+    { value: 'REGULATORY_CHANGE', label: 'Regulatory Change' }
+  ] },
+  { group: 'People / Leadership', options: [
+    { value: 'LEADERSHIP_ACTION', label: 'Leadership Action' },
+    { value: 'ACTION_PLAN', label: 'Action Plan / PIP' },
+    { value: 'RECOGNITION_EVENT', label: 'Recognition/Incentive Event' }
+  ] },
+  { group: 'Data Integrity', options: [
+    { value: 'KPI_CALCULATION_CORRECTION', label: 'KPI Calculation/Backfill Correction' }
+  ] }
+];
+const OPERATIONAL_NOTE_CATEGORY_VALUES = new Set(OPERATIONAL_NOTE_CATEGORY_GROUPS.flatMap(g => g.options.map(o => o.value)));
+const OPERATIONAL_NOTE_KPI_VALUES = new Set(['COMPLETION_RATE', 'CSAT', 'PRODUCTIVITY', 'ATTENDANCE', 'OTHER']);
+const OPERATIONAL_NOTE_SCOPE_VALUES = new Set(['COMPANY', 'SITE', 'TEAM', 'INDIVIDUAL']);
+const OPERATIONAL_NOTE_IMPACT_VALUES = new Set(['NEGATIVE', 'POSITIVE', 'NEUTRAL']);
+const OPERATIONAL_NOTE_STATUS_VALUES = new Set(['ONGOING', 'MONITORING', 'RESOLVED']);
+async function loadOperationalNotes() { return cloudStore.kvGetJson(OPERATIONAL_NOTES_KEY, []); }
+async function saveOperationalNotes(list) { return cloudStore.kvSetJson(OPERATIONAL_NOTES_KEY, list); }
 // Snapshot of the employee's standing at the moment a coaching record is created - frozen
 // at creation time (never recomputed later), so the record stays an honest account of what
 // was true when the conversation happened, same principle as a PTO request's approvedDates.
@@ -2948,6 +3008,73 @@ const server = http.createServer(async (req, res) => {
       if (!title || !contentHtml) return json(res, 400, { ok: false, error: 'Title and content are required.' });
       list[index] = { ...current, title, category, body: contentHtml, active: body.active !== undefined ? Boolean(body.active) : current.active, updatedAt: new Date().toISOString() };
       await saveLottiKnowledge(list);
+      return json(res, 200, { ok: true, item: list[index] });
+    }
+
+    if (parsed.pathname === '/api/leadership/operational-notes' && req.method === 'GET') {
+      if (!(await isLeadershipRole(identity, session))) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const list = await loadOperationalNotes();
+      return json(res, 200, { ok: true, items: list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || '')), categoryGroups: OPERATIONAL_NOTE_CATEGORY_GROUPS });
+    }
+
+    if (parsed.pathname === '/api/leadership/operational-notes' && req.method === 'POST') {
+      if (!(await isLeadershipRole(identity, session))) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim(), description = String(body.description || '').trim(), category = String(body.category || '').trim();
+      const date = ptoLogic.validDate(body.date) ? body.date : '';
+      if (!title || !description) return json(res, 400, { ok: false, error: 'Title and description are required.' });
+      if (!date) return json(res, 400, { ok: false, error: 'A valid date is required.' });
+      if (!OPERATIONAL_NOTE_CATEGORY_VALUES.has(category)) return json(res, 400, { ok: false, error: 'A valid category is required.' });
+      const now = new Date().toISOString();
+      const item = {
+        id: `OPNOTE-${Date.now()}`,
+        date,
+        dateEnd: ptoLogic.validDate(body.dateEnd) ? body.dateEnd : '',
+        category, title, description,
+        scope: OPERATIONAL_NOTE_SCOPE_VALUES.has(body.scope) ? body.scope : 'COMPANY',
+        scopeTarget: String(body.scopeTarget || '').trim(),
+        kpisAffected: Array.isArray(body.kpisAffected) ? body.kpisAffected.filter(k => OPERATIONAL_NOTE_KPI_VALUES.has(k)) : [],
+        impact: OPERATIONAL_NOTE_IMPACT_VALUES.has(body.impact) ? body.impact : 'NEGATIVE',
+        status: OPERATIONAL_NOTE_STATUS_VALUES.has(body.status) ? body.status : 'ONGOING',
+        resolutionNotes: String(body.resolutionNotes || '').trim(),
+        createdBy: identity, createdByName: session.employeeName || identity, createdAt: now, updatedAt: now
+      };
+      const list = await loadOperationalNotes();
+      list.push(item);
+      await saveOperationalNotes(list);
+      return json(res, 201, { ok: true, item });
+    }
+
+    const operationalNoteMatch = parsed.pathname.match(/^\/api\/leadership\/operational-notes\/([^/]+)$/);
+    if (operationalNoteMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!(await isLeadershipRole(identity, session))) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const id = decodeURIComponent(operationalNoteMatch[1]);
+      const list = await loadOperationalNotes();
+      const index = list.findIndex(x => x.id === id);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Note not found.' });
+      if (req.method === 'DELETE') {
+        list.splice(index, 1);
+        await saveOperationalNotes(list);
+        return json(res, 200, { ok: true, deleted: id });
+      }
+      const body = await readJsonBody(req), current = list[index];
+      const title = String(body.title ?? current.title).trim(), description = String(body.description ?? current.description).trim(), category = String(body.category ?? current.category).trim();
+      if (!title || !description) return json(res, 400, { ok: false, error: 'Title and description are required.' });
+      if (!OPERATIONAL_NOTE_CATEGORY_VALUES.has(category)) return json(res, 400, { ok: false, error: 'A valid category is required.' });
+      list[index] = {
+        ...current,
+        date: body.date !== undefined ? (ptoLogic.validDate(body.date) ? body.date : current.date) : current.date,
+        dateEnd: body.dateEnd !== undefined ? (ptoLogic.validDate(body.dateEnd) ? body.dateEnd : '') : current.dateEnd,
+        title, description, category,
+        scope: OPERATIONAL_NOTE_SCOPE_VALUES.has(body.scope) ? body.scope : current.scope,
+        scopeTarget: body.scopeTarget !== undefined ? String(body.scopeTarget || '').trim() : current.scopeTarget,
+        kpisAffected: Array.isArray(body.kpisAffected) ? body.kpisAffected.filter(k => OPERATIONAL_NOTE_KPI_VALUES.has(k)) : current.kpisAffected,
+        impact: OPERATIONAL_NOTE_IMPACT_VALUES.has(body.impact) ? body.impact : current.impact,
+        status: OPERATIONAL_NOTE_STATUS_VALUES.has(body.status) ? body.status : current.status,
+        resolutionNotes: body.resolutionNotes !== undefined ? String(body.resolutionNotes || '').trim() : current.resolutionNotes,
+        updatedAt: new Date().toISOString()
+      };
+      await saveOperationalNotes(list);
       return json(res, 200, { ok: true, item: list[index] });
     }
 
