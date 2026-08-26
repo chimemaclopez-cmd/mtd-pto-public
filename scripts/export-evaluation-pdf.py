@@ -22,11 +22,12 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROSTER_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'roster.json')
 EVALUATIONS_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'evaluations.json')
+APPENDIX_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'evaluation-appendix.json')
 REPS_ROOT = '/Users/mac/Library/CloudStorage/OneDrive-MoatableInc/Lofty PH Repository - Documents/Lofty TSR/Reps'
 LOFTY_LOGO_PATH = os.path.join(SCRIPT_DIR, '..', 'shared', 'img', 'lofty-logo.png')
 MOATABLE_LOGO_PATH = os.path.join(SCRIPT_DIR, '..', 'shared', 'img', 'moatable-logo.png')
@@ -106,6 +107,7 @@ def build_styles():
     styles.add(ParagraphStyle('BodyText9', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12.5, spaceAfter=6))
     styles.add(ParagraphStyle('ScaleItem', parent=styles['Normal'], fontName='Helvetica', fontSize=8.3, leading=11.5, spaceAfter=4))
     styles.add(ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, alignment=1))
+    styles.add(ParagraphStyle('AppendixTableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1))
     styles.add(ParagraphStyle('CellBody', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12.5))
     styles.add(ParagraphStyle('CellBodyCenter', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10.5, leading=13, alignment=1))
     styles.add(ParagraphStyle('AckScript', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13, spaceAfter=8))
@@ -241,6 +243,84 @@ def wet_signature_line(styles, name_label):
     return [row, labels]
 
 
+def pct_text(value):
+    return '&mdash;' if value is None else f'{value:.1f}%'
+
+
+def kpi_appendix_table(styles, kpi_rows):
+    header = ['PERIOD', 'DAYS\nWORKED', 'PRODUCTIVITY', 'CSAT', 'PROCESS\nCOMPLIANCE', 'ATTENDANCE', 'TOTAL\nSCORE']
+    rows = [[Paragraph(h.replace('\n', '<br/>'), styles['AppendixTableHeader']) for h in header]]
+    for row in kpi_rows:
+        kind_label = 'calls' if row.get('productivityKind') == 'calls' else 'tickets'
+        productivity_raw = row.get('productivityRaw')
+        productivity_text = '&mdash;' if productivity_raw is None else f"{productivity_raw} {kind_label}/day<br/><font size=7.5 color='#444444'>{row.get('productivityTotal') or 0} total &middot; Tier {pct_text(row.get('productivityTier'))}</font>"
+        csat_text = '&mdash;' if row.get('csatRaw') is None else f"{pct_text(row.get('csatRaw'))}<br/><font size=7.5 color='#444444'>Tier {pct_text(row.get('csatTier'))}</font>"
+        total = row.get('totalScore')
+        total_text = '&mdash;' if total is None else f"<b>{total:.2f}%</b>" + (' <font size=7.5 color=\'#444444\'>(partial)</font>' if row.get('totalScoreProvisional') else '')
+        rows.append([
+            Paragraph(f"Month {row['periodNumber']}<br/><font size=7.5 color='#444444'>{xml_escape(row.get('periodStart',''))} &ndash; {xml_escape(row.get('periodEnd',''))}</font>", styles['CellBody']),
+            Paragraph(str(row.get('workedDays') if row.get('workedDays') is not None else '&mdash;'), styles['CellBody']),
+            Paragraph(productivity_text, styles['CellBody']),
+            Paragraph(csat_text, styles['CellBody']),
+            Paragraph(pct_text(row.get('complianceRaw')), styles['CellBody']),
+            Paragraph(pct_text(row.get('attendanceRaw')), styles['CellBody']),
+            Paragraph(total_text, styles['CellBody']),
+        ])
+    widths = [PAGE_WIDTH * w for w in (0.16, 0.09, 0.21, 0.14, 0.15, 0.12, 0.13)]
+    table = Table(rows, colWidths=widths)
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.75, LINE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5), ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    return table
+
+
+def coaching_appendix_table(styles, coaching_logs):
+    if not coaching_logs:
+        return Paragraph('No coaching sessions on file for this period.', styles['BodyText9'])
+    rows = [[Paragraph(h, styles['TableHeader']) for h in ['DATE', 'CATEGORY', 'STANDING', 'DISCUSSION SUMMARY', 'STATUS']]]
+    for log in coaching_logs:
+        rows.append([
+            Paragraph(xml_escape(log.get('coachingDate') or ''), styles['CellBody']),
+            Paragraph(xml_escape(log.get('category') or ''), styles['CellBody']),
+            Paragraph(xml_escape(log.get('standingSummary') or ''), styles['CellBody']),
+            Paragraph(xml_escape((log.get('discussionSummary') or '')[:400]), styles['CellBody']),
+            Paragraph(xml_escape(log.get('status') or ''), styles['CellBody']),
+        ])
+    widths = [PAGE_WIDTH * w for w in (0.11, 0.14, 0.13, 0.5, 0.12)]
+    table = Table(rows, colWidths=widths)
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.75, LINE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5), ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    return table
+
+
+def appendix_section(styles, appendix_data):
+    kpi_rows = appendix_data.get('kpiRows') or []
+    coaching_logs = appendix_data.get('coachingLogs') or []
+    flow = [Paragraph('Appendix: Probationary KPI Metrics &amp; Coaching Logs', styles['FormTitle'])]
+    flow.append(Paragraph(
+        'Running KPI scores and coaching history for this employee through the period covered by this evaluation, '
+        'pulled from the portal at the time this evaluation was generated - not a live/updating record.',
+        styles['BodyText9']
+    ))
+    flow.append(Spacer(1, 6))
+    flow.append(Paragraph('KPI Score History', styles['SectionHeading']))
+    if kpi_rows:
+        flow.append(kpi_appendix_table(styles, kpi_rows))
+    else:
+        flow.append(Paragraph('No KPI data available for this employee/period.', styles['BodyText9']))
+    flow.append(Spacer(1, 12))
+    flow.append(Paragraph('Coaching Logs', styles['SectionHeading']))
+    flow.append(coaching_appendix_table(styles, coaching_logs))
+    return flow
+
+
 def acknowledgement_section(styles, record):
     ack = record.get('acknowledgment') or {}
     online_note = (
@@ -259,7 +339,7 @@ def acknowledgement_section(styles, record):
     return flow
 
 
-def build_pdf(out_path, record):
+def build_pdf(out_path, record, appendix_data=None):
     styles = build_styles()
     doc = SimpleDocTemplate(out_path, pagesize=letter, topMargin=0.55 * inch, bottomMargin=0.55 * inch, leftMargin=0.7 * inch, rightMargin=0.7 * inch)
     evaluation_period = record.get('evaluationPeriod') or ''
@@ -281,6 +361,12 @@ def build_pdf(out_path, record):
     story.extend(comments_section(styles, record))
     story.append(Spacer(1, 10))
     story.extend(acknowledgement_section(styles, record))
+    # KPI/coaching appendix is a second page, added only when data was available at export
+    # time - a rep with no probation-KPI or coaching history yet still gets a clean one-page
+    # evaluation, not an empty appendix page.
+    if appendix_data:
+        story.append(PageBreak())
+        story.extend(appendix_section(styles, appendix_data))
     doc.build(story)
 
 
@@ -293,6 +379,17 @@ def main():
         roster = json.load(f)
     with open(EVALUATIONS_PATH) as f:
         evaluations = json.load(f)
+    # Built by zendesk-proxy.js's buildEvaluationAppendixData() right before this script runs -
+    # may not exist yet on a fresh checkout, or may simply have nothing for a given
+    # employee/period (e.g. no probation-KPI/coaching data at all), so a missing file or a
+    # missing lookup key are both normal, not errors - just no appendix page for that record.
+    appendix_by_email = {}
+    if os.path.exists(APPENDIX_PATH):
+        try:
+            with open(APPENDIX_PATH) as f:
+                appendix_by_email = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            appendix_by_email = {}
 
     used_names = {}
     folder_by_email = {}
@@ -333,7 +430,9 @@ def main():
             year_dir = os.path.join(REPS_ROOT, folder_name, 'Evaluations', year)
             os.makedirs(year_dir, exist_ok=True)
             filename = sanitize_filename(f"Evaluation - {record.get('evaluationPeriod', '')} - {record.get('evaluationDate', '')}") + '.pdf'
-            build_pdf(os.path.join(year_dir, filename), record)
+            period_digits = re.sub(r'\D', '', record.get('evaluationPeriod') or '')
+            appendix_data = appendix_by_email.get(email.lower(), {}).get(period_digits) if period_digits else None
+            build_pdf(os.path.join(year_dir, filename), record, appendix_data)
         written += 1
 
     print(f'Exported evaluation PDFs for {written} rep(s) under {REPS_ROOT}')
