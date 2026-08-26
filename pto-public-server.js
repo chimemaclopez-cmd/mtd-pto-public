@@ -3608,10 +3608,16 @@ const server = http.createServer(async (req, res) => {
       const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
       if (!assignedMembers.some(x => ptoLogic.cleanEmail(x.employeeEmail) === targetEmail)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const body = await readJsonBody(req);
-      const periodNumber = Number(body.periodNumber), percent = Number(body.percent);
+      const periodNumber = Number(body.periodNumber);
       if (!Number.isInteger(periodNumber) || periodNumber < 1 || periodNumber > 5) return json(res, 400, { ok: false, error: 'periodNumber must be 1-5.' });
-      if (!Number.isFinite(percent) || percent < 0 || percent > 100) return json(res, 400, { ok: false, error: 'percent must be 0-100.' });
       const store = await cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {});
+      if (body.percent === null || body.percent === '') {
+        if (store[targetEmail]) delete store[targetEmail][periodNumber];
+        await cloudStore.kvSetJson(PROBATION_COMPLIANCE_KEY, store);
+        return json(res, 200, { ok: true, percent: null });
+      }
+      const percent = Number(body.percent);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) return json(res, 400, { ok: false, error: 'percent must be 0-100.' });
       store[targetEmail] ??= {};
       store[targetEmail][periodNumber] = { percent, updatedAt: new Date().toISOString(), updatedBy: identity };
       await cloudStore.kvSetJson(PROBATION_COMPLIANCE_KEY, store);

@@ -2020,10 +2020,12 @@ function probationTotalScorePill(r){
 }
 async function handleProbationComplianceSave(button){
   const input=button.previousElementSibling;
-  const email=input.dataset.email,periodNumber=Number(input.dataset.period),percent=Number(input.value);
-  if(input.value===''||!Number.isFinite(percent)||percent<0||percent>100)return alert('Enter a Process Compliance percent between 0 and 100.');
+  const email=input.dataset.email,periodNumber=Number(input.dataset.period);
+  const clearing=input.value==='';
+  const percent=clearing?null:Number(input.value);
+  if(!clearing&&(!Number.isFinite(percent)||percent<0||percent>100))return alert('Enter a Process Compliance percent between 0 and 100, or leave it blank to clear.');
   const originalLabel=button.textContent;
-  button.disabled=true;input.disabled=true;button.textContent='Saving…';
+  button.disabled=true;input.disabled=true;button.textContent=clearing?'Clearing…':'Saving…';
   try{await saveProbationCompliance(email,periodNumber,percent);await loadProbationKpi()}
   catch(error){alert(error.response?.error||error.message);button.disabled=false;input.disabled=false;button.textContent=originalLabel}
 }
