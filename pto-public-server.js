@@ -3399,7 +3399,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, record });
     }
 
-    const coachingMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?coaching\/([^/]+)(?:\/(send|acknowledge))?$/);
+    const coachingMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?coaching\/([^/]+)(?:\/(send|acknowledge|clear-followup))?$/);
     if (coachingMatch) {
       const coachingId = decodeURIComponent(coachingMatch[1]), action = coachingMatch[2] || '';
       const data = await loadCoaching();
@@ -3461,6 +3461,16 @@ const server = http.createServer(async (req, res) => {
         data.records[index] = next;
         await saveCoaching(data);
         await appendCoachingAudit(coachingId, 'ACKNOWLEDGED', { user: identity, previousValue: current.status, newValue: 'ACKNOWLEDGED', notes: signedName });
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (action === 'clear-followup') {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the team lead who created this record can clear its follow-up date.' });
+        if (!['SENT', 'ACKNOWLEDGED'].includes(current.status)) return json(res, 409, { ok: false, error: 'This record has no follow-up date to clear.' });
+        if (!current.targetFollowUpDate) return json(res, 409, { ok: false, error: 'This record has no follow-up date to clear.' });
+        const next = { ...current, targetFollowUpDate: null, updatedAt: now };
+        data.records[index] = next;
+        await saveCoaching(data);
+        await appendCoachingAudit(coachingId, 'FOLLOWUP_CLEARED', { user: identity, previousValue: current.targetFollowUpDate, newValue: null });
         return json(res, 200, { ok: true, record: next });
       }
       return json(res, 404, { ok: false, error: 'Unknown coaching action.' });

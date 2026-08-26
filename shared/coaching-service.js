@@ -9,4 +9,5 @@ export const deleteTeamCoaching=coachingId=>api(`/api/my/team-coaching/${encodeU
 export const sendTeamCoaching=coachingId=>api(`/api/my/team-coaching/${encodeURIComponent(coachingId)}/send`,{method:'POST',body:'{}'});
 export const loadMyCoaching=()=>api('/api/my/coaching');
 export const acknowledgeCoaching=(coachingId,payload)=>api(`/api/my/coaching/${encodeURIComponent(coachingId)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});
+export const clearCoachingFollowUp=coachingId=>api(`/api/my/team-coaching/${encodeURIComponent(coachingId)}/clear-followup`,{method:'POST',body:'{}'});
 export const loadSiteCoachingOverview=()=>api('/api/som/coaching-overview');
