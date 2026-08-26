@@ -1978,24 +1978,27 @@ function renderTeamEvaluations(){
   }).join('')||'<tr><td colspan="6">No evaluations created yet.</td></tr>';
 }
 function probationScorePercentText(v){return v==null?'—':`${v.toFixed(1)}%`}
-// Ascending tier tables, mirrored from zendesk-proxy.js/pto-public-server.js's tier scoring -
-// used only to work the formula backwards for the "what's still achievable" projection below.
-const PROBATION_PRODUCTIVITY_TIERS=[{count:12,tier:70},{count:13,tier:80},{count:14,tier:90},{count:15,tier:100}];
+// Ascending tier tables, mirrored from pto-public-server.js's channel-aware tier scoring - used
+// only to work the formula backwards for the "what's still achievable" projection below. Voice
+// Jr TSR gets a lower ticket/call-per-day bar than everyone else (call handling time vs. quick
+// ticket turnaround) - confirmed 2026-08-26, everything else in the formula is channel-agnostic.
+const PROBATION_PRODUCTIVITY_TIERS_VOICE=[{count:12,tier:70},{count:13,tier:80},{count:14,tier:90},{count:15,tier:100}];
+const PROBATION_PRODUCTIVITY_TIERS_NON_VOICE=[{count:16,tier:70},{count:19,tier:80},{count:22,tier:90},{count:25,tier:100}];
 const PROBATION_CSAT_TIERS=[{pct:80,tier:70},{pct:85,tier:80},{pct:90,tier:90},{pct:95,tier:100}];
-// Two independent single-lever scenarios ("if CSAT holds, how many more tickets/calls get to
-// 80%?" and "if Productivity holds, how many more good CSATs get to 80%?"), each solving the
-// weighted-total formula backwards for the one variable being asked about. Only meaningful for
-// the period still in progress - a closed period's ticket/CSAT window can't grow anymore.
+// Two independent single-lever scenarios ("if CSAT holds, what daily average gets to 80%?" and
+// "if Productivity holds, how many more good CSATs get to 80%?"), each solving the weighted-total
+// formula backwards for the one variable being asked about. Productivity is a per-worked-day
+// average (not a cumulative count, confirmed 2026-08-26), so its scenario is phrased as a target
+// daily rate to sustain for the rest of the period, not a total still to accumulate. Only
+// meaningful for the period still in progress - a closed period's window can't grow anymore.
 function probationPassScenario(r){
   if(!r.isCurrentPeriod||!r.daysRemaining||r.productivity.error)return null;
   if(r.totalScore!=null&&r.totalScore>=80)return null;
   if(r.processCompliance.weighted==null||r.attendance.weighted==null)return null;
   const fixed=r.processCompliance.weighted+r.attendance.weighted,scenarios=[];
-  const prodMatch=PROBATION_PRODUCTIVITY_TIERS.find(t=>t.tier>=(80-fixed-(r.csat.weighted??0))/0.40);
-  if(prodMatch){
-    const needed=Math.max(0,prodMatch.count-(r.productivity.raw||0));
-    if(needed>0)scenarios.push(`Get ${needed} more ${r.productivity.kind==='calls'?'calls':'tickets'} this period (holding CSAT steady)`);
-  }
+  const productivityTiers=r.kpiType==='Voice Jr TSR'?PROBATION_PRODUCTIVITY_TIERS_VOICE:PROBATION_PRODUCTIVITY_TIERS_NON_VOICE;
+  const prodMatch=productivityTiers.find(t=>t.tier>=(80-fixed-(r.csat.weighted??0))/0.40);
+  if(prodMatch&&prodMatch.count>(r.productivity.raw||0))scenarios.push(`Sustain at least ${prodMatch.count} ${r.productivity.kind==='calls'?'calls':'tickets'}/day for the rest of this period (holding CSAT steady)`);
   const csatMatch=PROBATION_CSAT_TIERS.find(t=>t.tier>=(80-fixed-(r.productivity.weighted??0))/0.30);
   if(csatMatch){
     const bad=r.csat.bad||0,good=r.csat.good||0;
@@ -2050,7 +2053,7 @@ function renderProbationKpi(){
     // toggle for which one actually counts, defaulting to a kpiType-based guess server-side.
     const kindPicker=r.productivity.canChooseKind?`<select data-kind-select data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" style="margin-top:2px"><option value="tickets"${r.productivity.kind==='tickets'?' selected':''}>Tickets (${r.productivity.ticketsRaw??0})</option><option value="calls"${r.productivity.kind==='calls'?' selected':''}>Calls (${r.productivity.callsRaw??0})</option></select>`:'';
     const productivityLabel=r.productivity.kind==='calls'?'calls':'tickets';
-    const productivityCell=r.productivity.error?`<span class="muted">${esc(r.productivity.error)}</span>`:`${r.productivity.raw??'—'} ${productivityLabel}<br><span class="muted">Tier: ${probationScorePercentText(r.productivity.tierPercent)}</span>${kindPicker?`<br>${kindPicker}`:''}`;
+    const productivityCell=r.productivity.error?`<span class="muted">${esc(r.productivity.error)}</span>`:`${r.productivity.raw??'—'} ${productivityLabel}/day<br><span class="muted">${r.productivity.totalCount??0} total over ${r.workedDays??0} worked day${r.workedDays===1?'':'s'} · Tier: ${probationScorePercentText(r.productivity.tierPercent)}</span>${kindPicker?`<br>${kindPicker}`:''}`;
     const csatCell=r.csat.raw==null?'<span class="muted">No surveys yet</span>':`${probationScorePercentText(r.csat.raw)}<br><span class="muted">Tier: ${probationScorePercentText(r.csat.tierPercent)}</span>`;
     const complianceCell=`<input type="number" min="0" max="100" step="0.1" style="width:70px" value="${r.processCompliance.raw??''}" data-email="${esc(r.employeeEmail)}" data-period="${r.periodNumber}" placeholder="—"> <button class="btn compact" type="button" data-save-compliance>Save</button>`;
     const attendanceCell=probationScorePercentText(r.attendance.raw);

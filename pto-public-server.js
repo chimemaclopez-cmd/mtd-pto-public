@@ -3553,8 +3553,14 @@ const server = http.createServer(async (req, res) => {
           const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, email, periodStart, windowEnd);
           const canChooseKind = periodNumber >= 4;
           const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
-          const productivityRaw = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
-          const productivityTier = metrics && !metrics.error ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
+          const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
+          const productivityWorkedDays = attendanceRange?.scheduledWorkdays || null;
+          // "Total Worked Tickets" on the real tier sheet is a daily average (count ÷ worked
+          // days in the period so far), not a cumulative total - confirmed 2026-08-26 against a
+          // real employee's spreadsheet row (312 tickets / 23 worked days = 13.6 -> rounds to
+          // 14 -> the 60% floor tier, not 100% for the raw 312).
+          const productivityRaw = productivityCount != null && productivityWorkedDays ? Math.round(productivityCount / productivityWorkedDays) : null;
+          const productivityTier = productivityRaw != null ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
           const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
           const csatTier = scoreCsatTierPortal(csatRate);
           const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
@@ -3574,13 +3580,13 @@ const server = http.createServer(async (req, res) => {
           const anyKnown = missingComponents.length < 4;
           const totalScore = anyKnown ? Object.values(componentWeights).reduce((sum, w) => sum + (w || 0), 0) : null;
           out.push({
-            employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate,
+            employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate, kpiType: member.kpiType,
             periodNumber, periodStart, periodEnd: periodEndInclusive, isCurrentPeriod,
             daysRemaining: isCurrentPeriod ? Math.max(0, ptoLogic.dateRange(windowEnd, periodEndInclusive).length - 1) : 0,
             workedDays: attendanceRange?.scheduledWorkdays ?? null,
             totalScoreProvisional: missingComponents.length > 0, missingComponents,
             productivity: {
-              raw: productivityRaw, kind: selectedKind, canChooseKind,
+              raw: productivityRaw, totalCount: productivityCount, kind: selectedKind, canChooseKind,
               ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
               tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
             },
