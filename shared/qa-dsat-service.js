@@ -14,7 +14,7 @@ export const disconnectCopilot=()=>api('/api/admin/copilot/disconnect',{method:'
 // (send-code/verify) and the actual chat call happen directly from whichever browser is doing
 // them, same as Team_Mac_Daily_Operations_Dashboard.html already does successfully.
 const COPILOT_BASE='https://tsr-bot.d.chime.me/api/v1';
-const COPILOT_CLIENT_VERSION='2.4.2';
+const COPILOT_CLIENT_VERSION='2.5.3';
 // No timeout used to mean a hung tsr-bot request left the UI (a triage loop, LoftIQ's
 // "thinking" state, Suggest Reply) stuck indefinitely with no way out but a page reload -
 // 30s is generous for a single chat/messages call but still bounds the wait.
