@@ -367,6 +367,20 @@ let queue=[],queueIndex=0,rotateTimer=null;
 // while a completely different slide is on screen.
 const announcedKeys=new Set();
 let firstLoad=true;
+// The birthday chime/confetti below fires every time the slideshow rotates back onto that
+// slide (no dedup like announcedKeys gives shoutouts) - with a ~25-slide, ~30s/slide queue
+// that's roughly every 12-13 minutes, which reads as spammy over a full workday. Throttle it
+// to once per 2 hours per person instead, so it still celebrates all day without repeating on
+// every loop. Keyed by employeeName only (not the full keyFor(), which bakes in daysUntil) so
+// the cooldown survives daysUntil staying 0 all day.
+const BIRTHDAY_CELEBRATION_COOLDOWN_MS=2*60*60*1000;
+const lastBirthdayCelebrationAt=new Map();
+function shouldCelebrateBirthdayNow(item){
+  const last=lastBirthdayCelebrationAt.get(item.employeeName)||0;
+  if(Date.now()-last<BIRTHDAY_CELEBRATION_COOLDOWN_MS)return false;
+  lastBirthdayCelebrationAt.set(item.employeeName,Date.now());
+  return true;
+}
 
 function keyFor(item){
   if(item.kind==='shoutout'||item.kind==='save')return `${item.kind}:${item.ticketId}`;
@@ -452,7 +466,7 @@ function showSlide(index){
   }
   // Every sound is tied to the slide actually being on screen right now, never to background
   // polling, so what you hear always matches what you're looking at.
-  if(item.kind==='birthday'&&item.daysUntil===0){birthdayChime();burstConfetti()}
+  if(item.kind==='birthday'&&item.daysUntil===0&&shouldCelebrateBirthdayNow(item)){birthdayChime();burstConfetti()}
   else if(item.pendingAnnounce&&firstLoad===false){
     const k=keyFor(item);
     if(item.kind==='shoutout'){
