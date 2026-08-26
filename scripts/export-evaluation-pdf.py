@@ -38,6 +38,33 @@ COL_GUTTER = 18  # points of breathing room between adjacent columns in 2-column
 
 PERIOD_WORD = {'Month 2': 'second', 'Month 3': 'third', 'Month 4': 'fourth'}
 PERIOD_ORDINAL = {'Month 2': '2ND', 'Month 3': '3RD', 'Month 4': '4TH'}
+PERIOD_NUMBER = {'Month 2': 2, 'Month 3': 3, 'Month 4': 4}
+
+
+def add_months(date_str, months):
+    # Mirrors zendesk-proxy.js/pto-public-server.js's addMonthsToDate() exactly - both build a
+    # date via a rollover-permissive constructor (JS's Date.UTC(y, m-1+months, d)), so an
+    # out-of-range day rolls into the following month(s) rather than clamping. Replicated here
+    # with real date arithmetic (first-of-month + (day-1) days) for the same rollover behavior,
+    # since this is the same rolling hire-date-anchored period math used everywhere else.
+    from datetime import date, timedelta
+    y, m, d = (int(x) for x in date_str.split('-'))
+    total_month_index = (m - 1) + months
+    new_year = y + total_month_index // 12
+    new_month0 = total_month_index % 12
+    return (date(new_year, new_month0 + 1, 1) + timedelta(days=d - 1)).isoformat()
+
+
+def evaluation_period_dates(hire_date, period_label):
+    period_number = PERIOD_NUMBER.get(period_label)
+    if not hire_date or not period_number:
+        return None, None
+    from datetime import date, timedelta
+    period_start = hire_date if period_number == 1 else add_months(hire_date, period_number - 1)
+    period_end_exclusive = add_months(hire_date, period_number)
+    y, m, d = (int(x) for x in period_end_exclusive.split('-'))
+    period_end_inclusive = (date(y, m, d) - timedelta(days=1)).isoformat()
+    return period_start, period_end_inclusive
 
 # Verbatim from the source Word form.
 RATING_SCALE_ITEMS = [
@@ -129,10 +156,14 @@ def identification_block(styles, record):
     employee_label = record.get('employeeName', '')
     if record.get('employeeId'):
         employee_label = f"{employee_label} ({record['employeeId']})"
+    period_start, period_end = evaluation_period_dates(record.get('hireDate'), record.get('evaluationPeriod'))
+    period_label = record.get('evaluationPeriod', '')
+    if period_start and period_end:
+        period_label = f"{period_label} ({period_start} to {period_end})"
     grid = Table([
         [cell('Employee Name', employee_label), cell('Immediate Manager', record.get('teamLeadName', ''))],
         [cell('Business Unit', record.get('businessUnit', '')), cell('Hire Date', record.get('hireDate', ''))],
-        [cell('Position', record.get('position', '')), cell('Evaluation Period', record.get('evaluationPeriod', ''))],
+        [cell('Position', record.get('position', '')), cell('Evaluation Period', period_label)],
     ], colWidths=[PAGE_WIDTH / 2, PAGE_WIDTH / 2])
     grid.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
