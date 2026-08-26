@@ -55,6 +55,20 @@ def add_months(date_str, months):
     return (date(new_year, new_month0 + 1, 1) + timedelta(days=d - 1)).isoformat()
 
 
+def format_short_date(date_str):
+    from datetime import date
+    y, m, d = (int(x) for x in date_str.split('-'))
+    return date(y, m, d).strftime('%b %-d')
+
+
+def format_period_range(period_start, period_end):
+    sy = int(period_start.split('-')[0])
+    ey = int(period_end.split('-')[0])
+    if sy == ey:
+        return f"{format_short_date(period_start)} – {format_short_date(period_end)}, {ey}"
+    return f"{format_short_date(period_start)}, {sy} – {format_short_date(period_end)}, {ey}"
+
+
 def evaluation_period_dates(hire_date, period_label):
     period_number = PERIOD_NUMBER.get(period_label)
     if not hire_date or not period_number:
@@ -159,7 +173,7 @@ def identification_block(styles, record):
     period_start, period_end = evaluation_period_dates(record.get('hireDate'), record.get('evaluationPeriod'))
     period_label = record.get('evaluationPeriod', '')
     if period_start and period_end:
-        period_label = f"{period_label} ({period_start} to {period_end})"
+        period_label = f"{period_label} ({format_period_range(period_start, period_end)})"
     grid = Table([
         [cell('Employee Name', employee_label), cell('Immediate Manager', record.get('teamLeadName', ''))],
         [cell('Business Unit', record.get('businessUnit', '')), cell('Hire Date', record.get('hireDate', ''))],
