@@ -573,6 +573,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <label style="font-weight:400"><input type="checkbox" name="kpisAffected" value="ATTENDANCE"> Attendance</label>
 <label style="font-weight:400"><input type="checkbox" name="kpisAffected" value="OTHER"> Other</label>
 </div></div>
+<div class="field" style="grid-column:1/-1"><label>If "Other", specify which KPI</label><input name="otherKpiDetail" placeholder="e.g. Handle Time, First Contact Resolution, Escalation Rate"></div>
 <div class="field" style="grid-column:1/-1"><label>Description *</label><textarea name="description" required placeholder="What happened, and how it affected the team/KPIs"></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Resolution Notes</label><textarea name="resolutionNotes" placeholder="Fill in once resolved"></textarea></div>
 </div>
@@ -2488,10 +2489,11 @@ function operationalNoteCategoryLabel(value){for(const g of operationalNoteCateg
 function operationalNoteCategoryOptionsHtml(){return operationalNoteCategoryGroups.map(g=>`<optgroup label="${esc(g.group)}">${g.options.map(o=>`<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</optgroup>`).join('')}
 const OPERATIONAL_NOTE_STATUS_CLASS={ONGOING:'status-failed',MONITORING:'status-pending',RESOLVED:'status-ready'};
 const OPERATIONAL_NOTE_IMPACT_CLASS={NEGATIVE:'status-failed',POSITIVE:'status-ready',NEUTRAL:'status-no-data'};
+function operationalNoteKpiLabel(k,note){return k==='OTHER'&&note.otherKpiDetail?`Other: ${note.otherKpiDetail}`:(OPERATIONAL_NOTE_KPI_LABELS[k]||k)}
 function renderOperationalNotes(){
   const catFilter=$('operationalNotesCategoryFilter').value,kpiFilter=$('operationalNotesKpiFilter').value,statusFilter=$('operationalNotesStatusFilter').value;
   const filtered=operationalNotes.filter(n=>(!catFilter||n.category===catFilter)&&(!kpiFilter||(n.kpisAffected||[]).includes(kpiFilter))&&(!statusFilter||n.status===statusFilter));
-  $('operationalNotesBody').innerHTML=filtered.map(n=>`<tr><td><b>${esc(n.date)}</b>${n.dateEnd?` – ${esc(n.dateEnd)}`:''}</td><td>${esc(operationalNoteCategoryLabel(n.category))}</td><td>${esc(n.title)}</td><td>${esc(OPERATIONAL_NOTE_SCOPE_LABELS[n.scope]||n.scope)}${n.scopeTarget?` — ${esc(n.scopeTarget)}`:''}</td><td>${(n.kpisAffected||[]).map(k=>esc(OPERATIONAL_NOTE_KPI_LABELS[k]||k)).join(', ')||'—'}</td><td><span class="pill ${OPERATIONAL_NOTE_IMPACT_CLASS[n.impact]||''}">${esc(OPERATIONAL_NOTE_IMPACT_LABELS[n.impact]||n.impact)}</span></td><td><span class="pill ${OPERATIONAL_NOTE_STATUS_CLASS[n.status]||''}">${esc(OPERATIONAL_NOTE_STATUS_LABELS[n.status]||n.status)}</span></td><td>${esc(n.createdByName||n.createdBy||'—')}</td><td><button class="btn compact" data-edit-operational-note="${esc(n.id)}">Edit</button> <button class="btn compact danger" data-delete-operational-note="${esc(n.id)}">Delete</button></td></tr>`).join('')||emptyStateRow('No operational notes logged yet.',9,'📋');
+  $('operationalNotesBody').innerHTML=filtered.map(n=>`<tr><td><b>${esc(n.date)}</b>${n.dateEnd?` – ${esc(n.dateEnd)}`:''}</td><td>${esc(operationalNoteCategoryLabel(n.category))}</td><td>${esc(n.title)}</td><td>${esc(OPERATIONAL_NOTE_SCOPE_LABELS[n.scope]||n.scope)}${n.scopeTarget?` — ${esc(n.scopeTarget)}`:''}</td><td>${(n.kpisAffected||[]).map(k=>esc(operationalNoteKpiLabel(k,n))).join(', ')||'—'}</td><td><span class="pill ${OPERATIONAL_NOTE_IMPACT_CLASS[n.impact]||''}">${esc(OPERATIONAL_NOTE_IMPACT_LABELS[n.impact]||n.impact)}</span></td><td><span class="pill ${OPERATIONAL_NOTE_STATUS_CLASS[n.status]||''}">${esc(OPERATIONAL_NOTE_STATUS_LABELS[n.status]||n.status)}</span></td><td>${esc(n.createdByName||n.createdBy||'—')}</td><td><button class="btn compact" data-edit-operational-note="${esc(n.id)}">Edit</button> <button class="btn compact danger" data-delete-operational-note="${esc(n.id)}">Delete</button></td></tr>`).join('')||emptyStateRow('No operational notes logged yet.',9,'📋');
 }
 async function loadOperationalNotesTab(){
   try{
@@ -2521,6 +2523,7 @@ function openOperationalNoteForm(note){
     form.elements.impact.value=note.impact||'NEGATIVE';
     form.elements.description.value=note.description||'';
     form.elements.resolutionNotes.value=note.resolutionNotes||'';
+    form.elements.otherKpiDetail.value=note.otherKpiDetail||'';
     form.querySelectorAll('[name="kpisAffected"]').forEach(cb=>{cb.checked=(note.kpisAffected||[]).includes(cb.value)});
   }else{
     form.elements.date.value=todayET();
