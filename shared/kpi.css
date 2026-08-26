@@ -44,3 +44,27 @@ tbody tr{transition:background-color .12s}tbody tr:nth-child(even) td{background
 .richContent ul,.richContent ol{margin:0 0 10px;padding-left:22px}
 .richContent h1,.richContent h2,.richContent h3,.richContent h4{margin:12px 0 8px}
 .att-OUTSIDE{background:#f1f3f7;color:#697184;text-align:center}.att-OUTSIDE .pill{white-space:nowrap}
+
+/* Header button hierarchy - utility/account actions get a lower-weight "ghost" treatment so
+   Time In/Out stay the visually dominant actions in a crowded header row. */
+.btn.ghost{background:none;border-color:transparent;color:var(--muted);font-weight:600}
+.btn.ghost:hover{background:var(--bg);border-color:var(--line);color:var(--ink)}
+
+/* Header title/subtitle - a touch more presence for the title, scoped to the header only so it
+   doesn't affect .sub/.muted used everywhere else in the app. */
+.header .title{font-size:28px}
+.header .sub{font-size:13px;margin-top:2px}
+
+/* Shared empty-state treatment (icon + muted message) - replaces plain "No data" strings
+   scattered across sections with one consistent, intentional-looking pattern. */
+.emptyState{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:28px 16px;color:var(--muted);font-size:13px;text-align:center}
+.emptyStateIcon{font-size:24px;opacity:.5;line-height:1}
+td.emptyState{padding:22px 16px}
+
+/* Team Schedule override editor (Team Management > Team Schedule) - scoped compaction so the
+   filter row, form fields, and blocks table read as a dense, professional form instead of an
+   oversized one, without touching these same elements' default sizing anywhere else in the app. */
+#teamScheduleView .field label{font-size:10px}
+#teamScheduleView input,#teamScheduleView select{font-size:13px;padding:7px 9px}
+#teamScheduleView .tableWrap th,#teamScheduleView .tableWrap td{padding:6px 8px;font-size:12px}
+#teamScheduleView .filters .btn,#teamScheduleView .actions .btn{padding:7px 11px;font-size:13px}
