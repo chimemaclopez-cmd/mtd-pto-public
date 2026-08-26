@@ -337,7 +337,11 @@ function slideForItem(item){
     return `<div class="slide">${heroVisual(icon,item.photoBase64)}<div class="slideBadge badge-gold">${badge}</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${body}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
   }
   if(item.kind==='save')return `<div class="slide">${heroVisual('🔄',item.photoBase64)}<div class="slideBadge badge-teal">Save of the Day</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${item.comment?`<div class="slideBody isQuote ${sizeFor(item.comment,'body')}">${esc(item.comment)}</div>`:`<div class="slideBody sizeL">${esc(stablePick(SAVE_FALLBACK_LINES,item.ticketId))}</div>`}<div class="slideMeta">${esc(item.subject)} · #${item.ticketId}</div></div>`;
-  if(item.kind==='birthday')return `<div class="slide">${heroVisual('🎂',item.photoBase64)}<div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  if(item.kind==='birthday'){
+    const firstName=esc(String(item.employeeName||'').split(' ')[0]||item.employeeName);
+    const greeting=item.daysUntil===0?`<div class="slideBody sizeM">🎂 Happy Birthday, ${firstName}! Wishing you a fantastic day and an amazing year ahead. 🎉</div>`:'';
+    return `<div class="slide">${heroVisual('🎂',item.photoBase64)}<div class="slideBadge badge-purple">Birthday</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div>${greeting}<div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
+  }
   if(item.kind==='anniversary')return `<div class="slide">${heroVisual('🏆',item.photoBase64)}<div class="slideBadge badge-purple">Work Anniversary</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${item.years} year${item.years===1?'':'s'} at Lofty</div><div class="slideMeta">${item.daysUntil===0?'Today! 🎉':item.daysUntil===1?'Tomorrow':`In ${item.daysUntil} days`}</div></div>`;
   if(item.kind==='weather'){
     const icon=item.level==='warning'?'⛈️':item.level==='caution'?'🌦️':'☀️';
