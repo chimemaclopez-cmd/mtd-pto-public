@@ -428,7 +428,11 @@ function buildQueue(spotlight){
   // Weather always leads the rotation (not woven in as random filler) since it's daily
   // commute-safety info reps should reliably see, not something that should get crowded out.
   const weatherItem=spotlight.weather?[{...spotlight.weather,kind:'weather'}]:[];
-  const real=[...weatherItem,...dailyThanks,...shoutouts,...saves,...shiftEndThanks,...birthdays,...anniversaries];
+  // Birthdays/anniversaries are rare, once-a-year "hero" moments, not routine content - queuing
+  // them after every shoutout/save/shift-end-thanks (which can easily number in the dozens)
+  // meant a birthday could sit unseen for 15+ minutes before its first appearance. They go
+  // right after weather so they're reliably caught within the first few slides instead.
+  const real=[...weatherItem,...dailyThanks,...birthdays,...anniversaries,...shoutouts,...saves,...shiftEndThanks];
   if(callLeaders.length)real.splice(Math.min(3,real.length),0,{kind:'leaders',callLeaders});
   for(const item of real){const k=keyFor(item);if(k)item.pendingAnnounce=!announcedKeys.has(k)}
   if(!real.length)return{list:maybeInjectPoster(withReminders(todaysFillerList().map(x=>({...x}))))};
