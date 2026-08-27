@@ -21,6 +21,18 @@
 .attentionRow:hover{background:var(--bg)}
 .attentionEmpty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0}
 .dashboardQuickLinks{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+/* Header account menu - collapses Signed-in-as/View As/Status Wall/Spotlight Wall/Refresh/
+   Change Password/Log Out (all previously always-visible, spread across several wrapped rows)
+   behind one click, matching how Slack/Linear/Zendesk-style tools keep the header to a single
+   compact row and tuck account-ish actions into one menu instead of a wall of buttons. */
+.headerMenu{position:relative}
+.headerMenuPanel{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 32px rgba(32,36,55,.15);padding:8px;min-width:230px;z-index:50;display:flex;flex-direction:column;gap:2px}
+.headerMenuWhoami{padding:6px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12px}
+.headerMenuPanel .field{padding:4px 8px 8px}
+.headerMenuItem{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:none;background:none;text-align:left;font-weight:600;font-size:13px;color:var(--ink);text-decoration:none;cursor:pointer;width:100%}
+.headerMenuItem:hover{background:var(--bg)}
+.headerMenuDanger{color:var(--red)}
+.headerMenuDanger:hover{background:#fce8e8}
 /* Team Attendance grid - a frozen employee column needs a visible edge once the grid scrolls
    under it, otherwise day cells appear to slide underneath with no boundary. */
 #teamAttendanceView .sticky1{box-shadow:2px 0 4px rgba(32,36,55,.05)}
