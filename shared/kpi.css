@@ -2,6 +2,25 @@
 .status-active{background:#e3f7ec;color:#0f7a49}
 .status-resigned,.status-terminated,.status-inactive{background:#eef0f5;color:#5b6274}
 .status-suspended{background:#fce8e8;color:#8b1f1f}
+/* Dashboard landing page - the first thing signed-in users see, so the hero gets real visual
+   weight (gradient, glow) while everything below it reuses the app's existing card/panel/pill
+   language rather than inventing a second design system. */
+.dashboardHero{background:var(--gradient);border-radius:18px;padding:22px 24px;color:#fff;box-shadow:0 16px 36px rgba(59,92,222,.25);position:relative;overflow:hidden}
+.dashboardHero::after{content:'';position:absolute;top:-60px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+.dashboardHero::before{content:'';position:absolute;bottom:-70px;right:80px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none}
+.dashboardGreeting{font-size:25px;font-weight:850;letter-spacing:-.01em;position:relative}
+.dashboardDate{font-size:13px;opacity:.85;margin-top:3px;position:relative}
+.dashboardStatusChip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:800;margin-top:13px;position:relative}
+.dashboardStatusChip .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.25)}
+.dashboardStatusChip.offline .dot{background:rgba(255,255,255,.55);box-shadow:none}
+.dashboardGrid{display:grid;grid-template-columns:1.3fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:900px){.dashboardGrid{grid-template-columns:1fr}}
+.dashboardPanel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 8px 24px rgba(0,0,0,.035)}
+.dashboardPanelTitle{font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:9px}
+.attentionRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .12s}
+.attentionRow:hover{background:var(--bg)}
+.attentionEmpty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0}
+.dashboardQuickLinks{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 /* Team Attendance grid - a frozen employee column needs a visible edge once the grid scrolls
    under it, otherwise day cells appear to slide underneath with no boundary. */
 #teamAttendanceView .sticky1{box-shadow:2px 0 4px rgba(32,36,55,.05)}
