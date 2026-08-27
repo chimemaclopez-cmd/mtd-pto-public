@@ -1995,6 +1995,12 @@ function teamScheduleActivityOptions(selected){
   const map=activityMap(BUILTIN_ACTIVITIES);
   return activityGroups.map(([label,ids])=>`<optgroup label="${esc(label)}">${ids.map(id=>`<option value="${id}"${id===selected?' selected':''}>${esc(map.get(id)?.name||id)}</option>`).join('')}</optgroup>`).join('');
 }
+// Same category palette as the read-only schedule views (schedCat-Queue/Break/etc. in
+// kpi.css) - applied to the <select> itself here since this table is editable, not display-only.
+function teamScheduleCatClass(activityId){
+  const category=activityMap(BUILTIN_ACTIVITIES).get(activityId)?.category||'Other';
+  return `schedCatSelect schedCat-${String(category).replace(/[^A-Za-z0-9]/g,'')}`;
+}
 function populateTeamScheduleMemberSelect(){
   const select=$('teamScheduleMemberSelect'),prior=teamScheduleSelectedEmail||select.value;
   select.innerHTML=teamRosterMembers.map(m=>`<option value="${esc(m.employeeEmail)}">${esc(m.employeeName)}</option>`).join('')||'<option value="">No direct reports found.</option>';
@@ -2002,7 +2008,7 @@ function populateTeamScheduleMemberSelect(){
   teamScheduleSelectedEmail=select.value;
 }
 function renderTeamScheduleBlocks(){
-  $('teamScheduleBlocksBody').innerHTML=teamScheduleBlocks.map((b,i)=>`<tr><td><input type="time" step="60" value="${esc(b.startTime)}" data-block-field="startTime" data-block-index="${i}"></td><td><input type="time" step="60" value="${esc(b.endTime)}" data-block-field="endTime" data-block-index="${i}"></td><td><select data-block-field="activityId" data-block-index="${i}">${teamScheduleActivityOptions(b.activityId)}</select></td><td><button type="button" class="btn compact" data-remove-block="${i}">✕</button></td></tr>`).join('')||'<tr><td colspan="4">No blocks yet. Click "Add Block" to add one.</td></tr>';
+  $('teamScheduleBlocksBody').innerHTML=teamScheduleBlocks.map((b,i)=>`<tr><td><input type="time" step="60" value="${esc(b.startTime)}" data-block-field="startTime" data-block-index="${i}"></td><td><input type="time" step="60" value="${esc(b.endTime)}" data-block-field="endTime" data-block-index="${i}"></td><td><select class="${teamScheduleCatClass(b.activityId)}" data-block-field="activityId" data-block-index="${i}">${teamScheduleActivityOptions(b.activityId)}</select></td><td><button type="button" class="btn compact" data-remove-block="${i}">✕</button></td></tr>`).join('')||'<tr><td colspan="4">No blocks yet. Click "Add Block" to add one.</td></tr>';
 }
 function toggleTeamScheduleOff(){
   const off=$('teamScheduleOffToggle').checked;
@@ -2072,6 +2078,7 @@ function teamScheduleBlockFieldEvent(event){
   const index=Number(event.target.dataset.blockIndex),field=event.target.dataset.blockField;
   if(Number.isNaN(index)||!field)return;
   teamScheduleBlocks[index]={...teamScheduleBlocks[index],[field]:event.target.value};
+  if(field==='activityId')event.target.className=teamScheduleCatClass(event.target.value);
 }
 $('teamScheduleBlocksBody').addEventListener('input',teamScheduleBlockFieldEvent);
 $('teamScheduleBlocksBody').addEventListener('change',teamScheduleBlockFieldEvent);
