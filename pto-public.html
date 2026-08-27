@@ -1545,7 +1545,7 @@ function showLogin(){stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling
   myCoachingRecords=[];teamCoachingRecords=[];$('coachingBadge').hidden=true;notifLoftIqUnread=0;$('loftiqBadge').hidden=true;loftIqScopeType='general';loftIqScopeId='';loftIqThreadMessages=[];loftIqContext=null;sessionUser=null;loading.dismiss();setMessage('')}
 function openChangePassword(forced){$('changePasswordForm').reset();$('changePasswordError').hidden=true;$('changePasswordHint').hidden=!forced;$('changePasswordCancel').hidden=forced;$('changePasswordModal').dataset.forced=forced?'1':'';$('changePasswordModal').hidden=false}
 async function loadAttendanceMonth(month,endDate=''){const attendanceResult=await getMyAttendance(month,endDate);attendanceDays=attendanceResult.days||[];renderAttendance()}
-function teamAttendanceCodeOptions(selected){return`<option value=""${selected?'':' selected'}>—</option>`+Object.keys(ATTENDANCE_LABELS).map(code=>`<option value="${code}"${code===selected?' selected':''}>${esc(ATTENDANCE_LABELS[code])}</option>`).join('')}
+function teamAttendanceCodeOptions(selected){const shortLabel={WFH:'WFH'};return`<option value=""${selected?'':' selected'}>—</option>`+Object.keys(ATTENDANCE_LABELS).map(code=>`<option value="${code}"${code===selected?' selected':''}>${esc(shortLabel[code]||ATTENDANCE_LABELS[code])}</option>`).join('')}
 function renderTeamAttendance(){
   if(!teamAttendanceDates.length){$('teamAttendanceHead').innerHTML='';$('teamAttendanceBody').innerHTML=emptyStateRow('No direct reports found for this period.',1,'👥');return}
   $('teamAttendanceHead').innerHTML=`<tr><th class="sticky1">Employee</th>${teamAttendanceDates.map(d=>`<th>${Number(d.slice(8))}<br>${esc(weekday(d))}</th>`).join('')}</tr>`;
