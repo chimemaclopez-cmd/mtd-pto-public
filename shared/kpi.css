@@ -118,6 +118,19 @@ tbody tr{transition:background-color .12s}tbody tr:nth-child(even) td{background
    stay inline right next to the field they're pointing at, not float away from it. */
 #message,#teamAttendanceMessage,#mbrReportMessage,#teamCoachingMessage,#teamDisciplinaryMessage,#teamAlignmentMessage,#alignmentReviewMessage{position:fixed;top:18px;right:18px;left:auto;max-width:420px;z-index:9999;box-shadow:0 14px 32px rgba(32,36,55,.18);animation:toastIn .22s ease-out}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Sortable table headers - initSortableTables() (pto-public.html) wires click/keydown per <th>. */
+.sortableTh{cursor:pointer;user-select:none;position:relative;padding-right:18px}
+.sortableTh:hover{background:var(--bg)}
+.sortableTh:focus-visible{outline:2px solid var(--brand,#185fa5);outline-offset:-2px}
+.sortableTh::after{content:'\21C5';position:absolute;right:5px;top:50%;transform:translateY(-50%);opacity:.32;font-size:11px}
+.sortableTh.sortAsc::after{content:'\25B2';opacity:.9}
+.sortableTh.sortDesc::after{content:'\25BC';opacity:.9}
+
+/* Tab-switch fade: applied to the newly-shown view container in setTab() (pto-public.html). */
+.tabViewActive{animation:tabFadeIn .16s ease-out}
+@keyframes tabFadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 @media(max-width:760px){#message,#teamAttendanceMessage,#mbrReportMessage,#teamCoachingMessage,#teamDisciplinaryMessage,#teamAlignmentMessage,#alignmentReviewMessage{left:14px;right:14px;max-width:none}}
 
 /* Rich-text composer (shared/rich-text.js) - toolbar + contenteditable body for SOP/announcement content pasted from Word/PDF. */
