@@ -2078,9 +2078,62 @@ $('teamScheduleBlocksBody').addEventListener('change',teamScheduleBlockFieldEven
 $('teamScheduleBlocksBody').addEventListener('click',event=>{
   const btn=event.target.closest('[data-remove-block]');
   if(!btn)return;
-  teamScheduleBlocks.splice(Number(btn.dataset.removeBlock),1);
+  const index=Number(btn.dataset.removeBlock),removed=teamScheduleBlocks[index];
+  teamScheduleBlocks.splice(index,1);
+  teamScheduleBlocks=closeTeamScheduleGap(teamScheduleBlocks,removed);
   renderTeamScheduleBlocks();
 });
+// Deleting a carved-out block (e.g. that Coaching session) leaves a gap where it sat, not two
+// touching blocks, so a plain adjacent-merge wouldn't rejoin them. If the block right before and
+// right after the gap are the same activity (the common case - the deleted block was carved out
+// of one continuous block), stretch the earlier one across the gap and drop the later one,
+// restoring the original unified block exactly as it was before the override.
+function closeTeamScheduleGap(blocks,removed){
+  if(!removed)return blocks;
+  const before=blocks.find(b=>b.endTime===removed.startTime);
+  const after=blocks.find(b=>b.startTime===removed.endTime);
+  if(before&&after&&before.activityId===after.activityId&&before!==after){
+    before.endTime=after.endTime;
+    blocks=blocks.filter(b=>b!==after);
+  }
+  return mergeAdjacentTeamScheduleBlocks(blocks);
+}
+// A block plotted onto a time range an earlier block already covers (e.g. a 4:15-4:45 Coaching
+// session inside an existing 3-5 Call block) used to just fail with "Exact activity blocks
+// cannot overlap" - the admin had to manually split the surrounding block themselves. Instead,
+// carve the new/edited block out of whatever it overlaps, same trim-and-splice approach
+// consolidateScheduleBlocks() already uses to fold exact overrides into the base grid for
+// display - later blocks in the array (Add Block always appends) win over earlier ones.
+function resolveTeamScheduleOverlaps(blocks){
+  const result=[];
+  for(const block of blocks){
+    const start=teamScheduleMinutesOf(block.startTime),end=teamScheduleMinutesOf(block.endTime);
+    if(!(end>start)){result.push(block);continue}
+    for(let i=result.length-1;i>=0;i--){
+      const other=result[i],otherStart=teamScheduleMinutesOf(other.startTime),otherEnd=teamScheduleMinutesOf(other.endTime);
+      if(otherEnd<=start||otherStart>=end)continue;
+      const pieces=[];
+      if(otherStart<start)pieces.push({...other,endTime:block.startTime});
+      if(otherEnd>end)pieces.push({...other,startTime:block.endTime});
+      result.splice(i,1,...pieces);
+    }
+    result.push(block);
+  }
+  return result.sort((a,b)=>teamScheduleMinutesOf(a.startTime)-teamScheduleMinutesOf(b.startTime));
+}
+// So deleting a carved-out block (e.g. removing that Coaching session) immediately collapses
+// back to the original unified block instead of leaving two identical-activity slivers sitting
+// side by side until the next reload.
+function mergeAdjacentTeamScheduleBlocks(blocks){
+  const sorted=[...blocks].sort((a,b)=>teamScheduleMinutesOf(a.startTime)-teamScheduleMinutesOf(b.startTime));
+  const merged=[];
+  for(const block of sorted){
+    const last=merged.at(-1);
+    if(last&&last.activityId===block.activityId&&last.endTime===block.startTime)last.endTime=block.endTime;
+    else merged.push({...block});
+  }
+  return merged;
+}
 // Expands the edited block list into the {"HH:MM":activityId} 30-minute grid the server
 // expects, same interval size as the My Schedule / Team Attendance assignment grids elsewhere
 // in this app - each slot takes whichever block covers that slot's start time.
@@ -2102,6 +2155,8 @@ $('teamScheduleSaveBtn').onclick=async()=>{
   try{
     const email=$('teamScheduleMemberSelect').value,date=$('teamScheduleDate').value,off=$('teamScheduleOffToggle').checked;
     const shiftStartEastern=$('teamScheduleShiftStart').value,shiftEndEastern=$('teamScheduleShiftEnd').value,reason=$('teamScheduleReason').value.trim();
+    teamScheduleBlocks=mergeAdjacentTeamScheduleBlocks(resolveTeamScheduleOverlaps(teamScheduleBlocks));
+    renderTeamScheduleBlocks();
     const exactActivities=teamScheduleBlocks.map(b=>({startTime:b.startTime,endTime:b.endTime,activityId:b.activityId}));
     const assignments=off?{}:buildTeamScheduleAssignments(shiftStartEastern,shiftEndEastern,exactActivities);
     const recurring=$('teamScheduleRecurringToggle').checked,templateWeekday=teamScheduleWeekdayFor(date);
