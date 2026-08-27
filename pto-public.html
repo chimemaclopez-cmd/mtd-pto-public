@@ -1822,7 +1822,7 @@ $('teamAttendanceSaveBtn').onclick=async()=>{
   }finally{button.disabled=false}
 };
 function renderTeamRoster(){
-  $('teamRosterBody').innerHTML=teamRosterMembers.map(m=>`<tr><td><b>${esc(m.employeeName)}</b></td><td>${esc(m.employeeEmail)}</td><td>${esc(m.employeeId||'—')}</td><td>${esc(m.primaryChannel||'—')}</td><td>${esc(m.kpiType||'—')}</td><td>${esc(m.employmentStatus||'—')}</td><td><button class="btn compact" data-edit-email="${esc(m.employeeEmail)}">Edit Profile</button></td></tr>`).join('')||emptyStateRow('No direct reports found.',7,'👥');
+  $('teamRosterBody').innerHTML=teamRosterMembers.map(m=>`<tr><td><b>${esc(m.employeeName)}</b></td><td>${esc(m.employeeEmail)}</td><td>${esc(m.employeeId||'—')}</td><td>${esc(m.primaryChannel||'—')}</td><td>${esc(m.kpiType||'—')}</td><td>${m.employmentStatus?statusPill(m.employmentStatus):'—'}</td><td><button class="btn compact" data-edit-email="${esc(m.employeeEmail)}">Edit Profile</button></td></tr>`).join('')||emptyStateRow('No direct reports found.',7,'👥');
 }
 async function loadTeamRoster(){
   try{
