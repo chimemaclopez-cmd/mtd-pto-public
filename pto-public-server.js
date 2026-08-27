@@ -1253,7 +1253,12 @@ function trainingManagerIdentity() { return [...TRAINING_MANAGER_EMAILS][0] || '
 // 'Trainee') only, never a coworker who happens to name-match her for some unrelated reason.
 // allowViewAs=false on write paths - an admin previewing as TRAINING must never get write
 // access to Mae's trainees, only a real TRAINING identity's own real trainees do.
-function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs = true, includeInactive = false) {
+// includeSeniorTsrAssignments: on top of the normal teamLeadEmail/teamLeadName match, also
+// include reps whose seniorTsrAssignment names this caller - gives a Sr TSR the same
+// team-attendance access as a real Team Lead for whoever they're informally assigned to
+// oversee, without touching the broader team-lead surface (roster edits, coaching, disciplinary,
+// etc.) that scopedTeamMembers gates everywhere else. Opt-in per call site, not a default.
+function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs = true, includeInactive = false, includeSeniorTsrAssignments = false) {
   const inScope = employee => includeInactive || employee.active !== false;
   const viewingAsTraining = allowViewAs && effectiveViewAsRole(identity, session) === 'TRAINING';
   const isRealTraining = portalRoleFor(identity) === 'TRAINING';
@@ -1266,7 +1271,11 @@ function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs 
   }
   const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
   const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
-  return (roster.records || []).filter(x => inScope(x) && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (ptoLogic.cleanEmail(x.teamLeadEmail) === identity || (leaderName && String(x.teamLeadName || '').trim() === leaderName)));
+  return (roster.records || []).filter(x => inScope(x) && ptoLogic.cleanEmail(x.employeeEmail) !== identity && (
+    ptoLogic.cleanEmail(x.teamLeadEmail) === identity ||
+    (leaderName && String(x.teamLeadName || '').trim() === leaderName) ||
+    (includeSeniorTsrAssignments && leaderName && String(x.seniorTsrAssignment || '').trim().toLowerCase() === leaderName.toLowerCase())
+  ));
 }
 function employmentStateOnDate(employee, date) {
   if (employee?.hireDate && date < employee.hireDate) return { outsideEmployment: true, employmentState: 'PRE_HIRE', employmentLabel: 'Not Yet Hired' };
@@ -2293,6 +2302,10 @@ const server = http.createServer(async (req, res) => {
       const leaderName=String(signedInEmployee?.employeeName||session.employeeName||'').trim();
       const assignedMembers=scopedTeamMembers(roster,identity,session,session.employeeName);
       const memberEmails=new Set(assignedMembers.map(x=>ptoLogic.cleanEmail(x.employeeEmail)));
+      // Separate from isTeamLeader on purpose - a Sr TSR gets Team Attendance access for whoever
+      // names them in seniorTsrAssignment without also picking up Team Roster/Team Schedule/MBR/
+      // Service Recovery/Team KPI, which all still gate on the narrower isTeamLeader below.
+      const canManageTeamAttendance=assignedMembers.length>0||scopedTeamMembers(roster,identity,session,session.employeeName,true,false,true).length>0;
       const availablePeriods=[...currentPeriodSet].sort((a,b)=>b.localeCompare(a));
       const requestedPeriod=String(parsed.searchParams.get('period')||'');
       const latestTeamPeriod=(requestedPeriod&&periods[requestedPeriod]?requestedPeriod:availablePeriods.find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))))||'';
@@ -2323,7 +2336,7 @@ const server = http.createServer(async (req, res) => {
         teamSize=teammates.length;
         if(teamSize)teamAverage=teammates.reduce((sum,x)=>sum+Number(x.finalKpi),0)/teamSize;
       }
-      return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
+      return json(res,200,{ok:true,results,isTeamLeader:assignedMembers.length>0,canManageTeamAttendance,teamResults,teamPeriod:latestTeamPeriod,teamAverage,teamLeadName,teamSize,assignedMemberCount:assignedMembers.length,availablePeriods});
     }
 
     // Senior TSR EOD Jira activity: read-only visibility into AM tickets touched, commented on,
@@ -3182,7 +3195,7 @@ const server = http.createServer(async (req, res) => {
       const month = parsed.searchParams.get('month') || '', endDate = parsed.searchParams.get('endDate') || '';
       if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
       const roster = await loadRosterSnapshot();
-      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, true, false, true);
       if (!assignedMembers.length) return json(res, 200, { ok: true, isTeamLeader: false, month, endDate, dates: [], members: [] });
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
       const dates = ptoLogic.dateRange(`${month}-01`, endDate);
@@ -3211,7 +3224,7 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}$/.test(month) || !ptoLogic.validDate(endDate) || !endDate.startsWith(month)) return json(res, 400, { ok: false, error: 'A valid month (YYYY-MM) and endDate within that month are required.' });
       if (!body.entries || typeof body.entries !== 'object') return json(res, 400, { ok: false, error: 'Attendance entries are required.' });
       const roster = await loadRosterSnapshot();
-      const scopedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, false, true);
+      const scopedMembers = scopedTeamMembers(roster, identity, session, session.employeeName, false, true, true);
       const memberByEmail = new Map(scopedMembers.map(x => [ptoLogic.cleanEmail(x.employeeEmail), x]));
       if (!memberByEmail.size) return json(res, 403, { ok: false, error: 'You do not have any direct reports.' });
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
@@ -3430,7 +3443,7 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || session.employeeName || '').trim();
-      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName, true, false, true).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       if (!memberEmails.has(email)) return json(res, 403, { ok: false, error: 'Not your direct report.' });
       const attendance = await loadAttendanceSnapshot();
       const code = ptoLogic.attendanceCodeOnDate(attendance, email, date) || '';
