@@ -3740,6 +3740,67 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, isTeamLeader: rows.length > 0 || assignedMembers.length > 0, rows, lastUpdated: metricsSnapshot.lastUpdated || '' });
     }
 
+    // Own-record equivalent of /api/my/team-probation-kpi above, scoped to the single
+    // (current) period an evaluation covers rather than the full 1..evalMonth trend a team
+    // lead needs - lets a rep see the same KPI/coaching context their evaluation was written
+    // against, right on the sign-and-review screen. Field shapes intentionally match
+    // zendesk-proxy.js's buildEvaluationAppendixData() (kpiRows/coachingLogs) so the client
+    // can share one render function with the exported-PDF appendix.
+    if (parsed.pathname === '/api/my/evaluation-appendix' && req.method === 'GET') {
+      const evaluationId = parsed.searchParams.get('evaluationId') || '';
+      const evaluations = await loadEvaluations();
+      const record = (evaluations.records || []).find(r => r.evaluationId === evaluationId && ptoLogic.cleanEmail(r.employeeEmail) === identity);
+      if (!record) return json(res, 400, { ok: false, error: 'Evaluation not found.' });
+      const periodNumber = Number(String(record.evaluationPeriod || '').replace(/\D/g, '')) || null;
+      const roster = await loadRosterSnapshot();
+      const member = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      if (!periodNumber || !member?.hireDate) return json(res, 200, { ok: true, kpiRows: [], coachingLogs: [] });
+      const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, coachingData] = await Promise.all([
+        getSnapshot('probation-metrics', 'mtdkpi:snapshot:probation-metrics', { byEmployee: {} }),
+        cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {}),
+        cloudStore.kvGetJson(PROBATION_PRODUCTIVITY_KIND_KEY, {}),
+        loadScheduleSnapshot(),
+        loadAttendanceSnapshot(),
+        loadCoaching()
+      ]);
+      const todayParts = easternDateParts(new Date());
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const periodStart = periodNumber === 1 ? member.hireDate : addMonthsToDate(member.hireDate, periodNumber - 1);
+      const periodEndExclusive = addMonthsToDate(member.hireDate, periodNumber);
+      const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+      const windowEnd = today < periodEndInclusive ? today : periodEndInclusive;
+      const metrics = metricsSnapshot.byEmployee?.[identity]?.[periodNumber] || null;
+      const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, identity, periodStart, windowEnd);
+      const selectedKind = productivityKindStore?.[identity]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
+      const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
+      const workedDays = attendanceRange?.scheduledWorkdays || null;
+      const productivityRaw = productivityCount != null && workedDays ? Math.round(productivityCount / workedDays) : null;
+      const productivityTier = productivityRaw != null ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
+      const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
+      const csatTier = scoreCsatTierPortal(csatRate);
+      const compliancePercent = complianceStore?.[identity]?.[periodNumber]?.percent ?? null;
+      const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+      const weighted = {
+        productivity: productivityTier == null ? null : productivityTier * 0.40,
+        csat: csatTier == null ? null : csatTier * 0.30,
+        processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
+        attendance: attendancePercent == null ? null : attendancePercent * 0.15
+      };
+      const knownWeights = Object.values(weighted);
+      const totalScore = knownWeights.some(w => w != null) ? knownWeights.reduce((sum, w) => sum + (w || 0), 0) : null;
+      const kpiRows = [{
+        periodNumber, periodStart, periodEnd: periodEndInclusive, workedDays,
+        productivityRaw, productivityTotal: productivityCount, productivityKind: selectedKind, productivityTier,
+        csatRaw: csatRate, csatTier, complianceRaw: compliancePercent, attendanceRaw: attendancePercent,
+        totalScore, totalScoreProvisional: knownWeights.some(w => w == null)
+      }];
+      const coachingLogs = (coachingData.records || [])
+        .filter(c => c.status !== 'DRAFT' && ptoLogic.cleanEmail(c.employeeEmail) === identity && c.coachingDate >= member.hireDate && c.coachingDate <= periodEndInclusive)
+        .map(c => ({ coachingDate: c.coachingDate, category: c.category, standingSummary: c.currentStanding?.performanceStatus && c.currentStanding?.finalKpi != null ? `${c.currentStanding.performanceStatus} (${c.currentStanding.finalKpi}%)` : (c.currentStanding?.performanceStatus || ''), discussionSummary: c.discussionSummary, actionPlan: c.actionPlan, status: c.status }))
+        .sort((a, b) => a.coachingDate.localeCompare(b.coachingDate));
+      return json(res, 200, { ok: true, kpiRows, coachingLogs });
+    }
+
     const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);
     if (probationComplianceMatch && req.method === 'POST') {
       const targetEmail = ptoLogic.cleanEmail(decodeURIComponent(probationComplianceMatch[1]));

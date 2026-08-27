@@ -40,6 +40,10 @@ export const deleteTeamEvaluation=evaluationId=>api(`/api/my/team-evaluations/${
 export const sendTeamEvaluation=evaluationId=>api(`/api/my/team-evaluations/${encodeURIComponent(evaluationId)}/send`,{method:'POST',body:'{}'});
 export const loadMyEvaluations=()=>api('/api/my/evaluations');
 export const acknowledgeEvaluation=(evaluationId,payload)=>api(`/api/my/evaluations/${encodeURIComponent(evaluationId)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});
+// Current-period KPI score + coaching logs for one of MY OWN evaluations - the same appendix
+// data baked into the official exported PDF (zendesk-proxy.js's buildEvaluationAppendixData),
+// surfaced here so the sign-and-review screen can show the same supporting context.
+export const loadMyEvaluationAppendix=evaluationId=>api(`/api/my/evaluation-appendix?evaluationId=${encodeURIComponent(evaluationId)}`);
 
 // Probationary KPI Metrics - a running table separate from the formal evaluation form above,
 // for direct reports still within their first 5 months of tenure.

@@ -748,7 +748,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill,emptyState,emptyStateRow} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyKpi,getMySeniorJiraActivity,getSeniorTsrSummary,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto,getMyTeamSchedule,saveMyTeamSchedule,saveMyTeamScheduleTemplate} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChatWithRetry,isCopilotAuthError} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,clearLoftIqThread,searchLoftIqHelp,searchLoftIqAlignments,loadAllApprovedAlignments,buildAlignmentContradictionPrompt,isLoftIqBadAnswer,LOFTIQ_QUICK_ACTIONS,LOFTIQ_LEAD_QUICK_ACTIONS,buildLoftIqPrompt,searchLoftIqKnowledge,loadLottiKnowledge,createLottiKnowledge,updateLottiKnowledge,deleteLottiKnowledge} from './shared/loftiq-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview,clearCoachingFollowUp} from './shared/coaching-service.js';import {EVALUATION_STATUS_LABELS,EVALUATION_ATTRIBUTE_LABELS,EVALUATION_ATTRIBUTE_DESCRIPTIONS,evaluationAverageScore,loadMyTeamEvaluations,createTeamEvaluation,updateTeamEvaluation,deleteTeamEvaluation,sendTeamEvaluation,loadMyEvaluations,acknowledgeEvaluation,loadTeamProbationKpi,saveProbationCompliance,saveProbationProductivityKind} from './shared/evaluation-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {OPERATIONAL_NOTE_KPI_LABELS,OPERATIONAL_NOTE_SCOPE_LABELS,OPERATIONAL_NOTE_IMPACT_LABELS,OPERATIONAL_NOTE_STATUS_LABELS,loadOperationalNotes,createOperationalNote,updateOperationalNote,deleteOperationalNote} from './shared/operational-notes-service.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview,clearCoachingFollowUp} from './shared/coaching-service.js';import {EVALUATION_STATUS_LABELS,EVALUATION_ATTRIBUTE_LABELS,EVALUATION_ATTRIBUTE_DESCRIPTIONS,evaluationAverageScore,loadMyTeamEvaluations,createTeamEvaluation,updateTeamEvaluation,deleteTeamEvaluation,sendTeamEvaluation,loadMyEvaluations,acknowledgeEvaluation,loadMyEvaluationAppendix,loadTeamProbationKpi,saveProbationCompliance,saveProbationProductivityKind} from './shared/evaluation-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {OPERATIONAL_NOTE_KPI_LABELS,OPERATIONAL_NOTE_SCOPE_LABELS,OPERATIONAL_NOTE_IMPACT_LABELS,OPERATIONAL_NOTE_STATUS_LABELS,loadOperationalNotes,createOperationalNote,updateOperationalNote,deleteOperationalNote} from './shared/operational-notes-service.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
@@ -4124,11 +4124,78 @@ function evaluationDetailHtml(record){
   html+=coachCard('Acknowledgment',ackBody);
   return html;
 }
-function evaluationPrintableHtml(record){
+// Mirrors export-evaluation-pdf.py's PERIOD_WORD/PERIOD_ORDINAL/PERIOD_NUMBER and add_months()/
+// evaluation_period_dates()/format_period_range() exactly, so the web preview computes the same
+// "Month N (date range)" text as the official exported PDF - same rollover-permissive date math
+// (first-of-month + (day-1) days) as addMonthsToDate() on the server.
+const EVAL_PERIOD_WORD={'Month 2':'second','Month 3':'third','Month 4':'fourth'};
+const EVAL_PERIOD_ORDINAL={'Month 2':'2ND','Month 3':'3RD','Month 4':'4TH'};
+const EVAL_PERIOD_NUMBER={'Month 2':2,'Month 3':3,'Month 4':4};
+function evalAddMonths(dateStr,months){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const totalMonthIndex=(m-1)+months;
+  const newYear=y+Math.floor(totalMonthIndex/12);
+  const newMonth0=((totalMonthIndex%12)+12)%12;
+  const first=new Date(Date.UTC(newYear,newMonth0,1));
+  first.setUTCDate(first.getUTCDate()+(d-1));
+  return first.toISOString().slice(0,10);
+}
+function evalFormatShortDate(dateStr){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y,m-1,d)).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+}
+function evalFormatPeriodRange(periodStart,periodEnd){
+  const sy=periodStart.slice(0,4),ey=periodEnd.slice(0,4);
+  return sy===ey?`${evalFormatShortDate(periodStart)} – ${evalFormatShortDate(periodEnd)}, ${ey}`:`${evalFormatShortDate(periodStart)}, ${sy} – ${evalFormatShortDate(periodEnd)}, ${ey}`;
+}
+function evalPeriodDates(hireDate,periodLabel){
+  const periodNumber=EVAL_PERIOD_NUMBER[periodLabel];
+  if(!hireDate||!periodNumber)return[null,null];
+  const periodStart=periodNumber===1?hireDate:evalAddMonths(hireDate,periodNumber-1);
+  const periodEndExclusive=evalAddMonths(hireDate,periodNumber);
+  const periodEndInclusive=new Date(new Date(periodEndExclusive+'T00:00:00Z').getTime()-86400000).toISOString().slice(0,10);
+  return[periodStart,periodEndInclusive];
+}
+// Verbatim from the source Word form - same text as RATING_SCALE_ITEMS/COMMENTS_INTRO/
+// ACKNOWLEDGMENT_SCRIPT/ATTRIBUTE_LABELS in export-evaluation-pdf.py.
+const EVAL_RATING_SCALE_ITEMS=[
+  ['1 - Poor.','Rarely achieves/displays the requirement, attitude or behavior; shows a lack of ability which requires significant and immediate improvement; many major problems or lapses are present; employee may need strict supervision or a coaching or mentoring plan is required.'],
+  ['2 - Below Average.','Achieves/displays some but not all requirements, attitude or behavior in a number of key results areas; inconsistent and needs improvements; some major problem or lapses are present; employee may need a coaching or mentoring plan.'],
+  ['3 - Average.','Consistently achieves/displays requirements, attitude, or behavior in all key results areas; some lapses exist but not a major concern as solution is made speedily most employees fall on this scale.'],
+  ['4 - Above Average.','Consistently achieves and often displays requirements, attitude or behavior in a number of key results areas; no lapses exist; employee is one of the keys.'],
+  ['5 - Excellent.','Significantly and consistently exceeds requirements, attitude, or behavior in all key results areas; exceptional; has championed initiatives and continuous improvements; employee excelled among peers and serves as a role model and mentor to other colleagues.']
+];
+const EVAL_COMMENTS_INTRO='Comments to Evaluator and Employee. Evaluators should discuss the evaluation results with the employee. At a minimum, employees must be given a copy of the evaluation for their own records. Both the evaluator and the employee should sign the evaluation form. The employee signature indicates only that the employee received a copy of the evaluation. It does not necessarily signify employee concurrence. Both employees and evaluators are strongly encouraged to include written comments.';
+const EVAL_ACKNOWLEDGMENT_SCRIPT='I have reviewed and discussed the contents with my supervisor. My signature means that I have been advised of my performance and that I agree with this evaluation with my own comments indicate on the above section.';
+function evalPctText(v){return v==null?'—':`${v.toFixed(1)}%`}
+function evaluationAppendixHtml(appendix){
+  const rows=appendix?.kpiRows||[],logs=appendix?.coachingLogs||[];
+  const kpiTable=rows.length?`<table class="appendixTable"><thead><tr><th>Period</th><th>Days Worked</th><th>Productivity</th><th>CSAT</th><th>Process Compliance</th><th>Attendance</th><th>Total Score</th></tr></thead><tbody>${rows.map(r=>{
+    const kind=r.productivityKind==='calls'?'calls':'tickets';
+    const productivity=r.productivityRaw==null?'—':`${r.productivityRaw} ${kind}/day<br><span class="appendixSub">${r.productivityTotal||0} total · Tier ${evalPctText(r.productivityTier)}</span>`;
+    const csat=r.csatRaw==null?'—':`${evalPctText(r.csatRaw)}<br><span class="appendixSub">Tier ${evalPctText(r.csatTier)}</span>`;
+    const total=r.totalScore==null?'—':`<b>${r.totalScore.toFixed(2)}%</b>${r.totalScoreProvisional?' <span class="appendixSub">(partial)</span>':''}`;
+    return `<tr><td>Month ${r.periodNumber}<br><span class="appendixSub">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span></td><td>${r.workedDays??'—'}</td><td>${productivity}</td><td>${csat}</td><td>${evalPctText(r.complianceRaw)}</td><td>${evalPctText(r.attendanceRaw)}</td><td>${total}</td></tr>`;
+  }).join('')}</tbody></table>`:'<div class="instructions">No KPI data available for this employee/period.</div>';
+  const coachingTable=logs.length?`<table class="appendixTable"><thead><tr><th>Date</th><th>Category</th><th>Standing</th><th>Discussion Summary</th><th>Status</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${esc(l.coachingDate||'')}</td><td>${esc(l.category||'')}</td><td>${esc(l.standingSummary||'')}</td><td>${esc((l.discussionSummary||'').slice(0,400))}</td><td>${esc(l.status||'')}</td></tr>`).join('')}</tbody></table>`:'<div class="instructions">No coaching sessions on file for this period.</div>';
+  return `<div class="pageBreak"></div>
+<h1>Appendix: Probationary KPI Metrics &amp; Coaching Logs</h1>
+<div class="instructions">Current-period KPI score and coaching history for this employee through the period covered by this evaluation, pulled from the portal at the time this evaluation was generated - not a live/updating record.</div>
+<div class="sectionHeading">Current KPI Score</div>
+${kpiTable}
+<div class="sectionHeading">Coaching Logs</div>
+${coachingTable}`;
+}
+function evaluationPrintableHtml(record,appendix){
   const ack=record.acknowledgment;
   const origin=location.origin;
-  const onlineAckNote=ack?`<div style="margin-top:6px;font-size:11px;font-style:italic">Reviewed online by ${esc(ack.signedName)} on ${esc(String(ack.signedAt||'').slice(0,10))}. A wet signature below is still required for the HR file copy.</div>`:'';
+  const onlineNote=ack?.signedName?`Reviewed online by <b>${esc(ack.signedName)}</b> on ${esc(String(ack.signedAt||'').slice(0,10))}. A wet signature below is still required for the HR file copy.`:'<i>Awaiting the employee’s online review.</i>';
   const ratingRow=(label,key)=>{const v=record.ratings?.[key];return `<tr><td><b>${esc(label)}</b><br><span style="font-size:10px;color:#5b6274">${esc(EVALUATION_ATTRIBUTE_DESCRIPTIONS[key]||'')}</span></td><td></td><td style="text-align:center;vertical-align:top">${v==null?'N/A':esc(String(v))}</td></tr>`};
+  const employeeLabel=record.employeeId?`${record.employeeName} (${record.employeeId})`:record.employeeName;
+  const ordinal=EVAL_PERIOD_ORDINAL[record.evaluationPeriod]||'3RD';
+  const periodWord=EVAL_PERIOD_WORD[record.evaluationPeriod]||'third';
+  const [periodStart,periodEnd]=evalPeriodDates(record.hireDate,record.evaluationPeriod);
+  const periodLabel=periodStart&&periodEnd?`${esc(record.evaluationPeriod)} (${esc(evalFormatPeriodRange(periodStart,periodEnd))})`:esc(record.evaluationPeriod);
   return `<!doctype html><html><head><meta charset="utf-8"><title>Employee Performance Evaluation - ${esc(record.employeeName)}</title>
 <style>
 body{font-family:Arial,Helvetica,sans-serif;color:#202437;margin:40px;max-width:720px}
@@ -4138,24 +4205,36 @@ h1{font-size:18px;text-align:center;margin:0 0 16px}
 .hdrGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;font-size:13px;margin-bottom:14px}
 .hdrGrid div{border-bottom:1px solid #999;padding-bottom:2px}
 .instructions{font-size:11px;color:#444;line-height:1.5;margin-bottom:10px}
+.sectionHeading{font-weight:bold;font-size:13px;margin:14px 0 6px}
+.scaleItem{font-size:10.5px;color:#333;line-height:1.5;margin-bottom:5px}
 table.ratings{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
 table.ratings th,table.ratings td{border:1px solid #999;padding:6px 8px}
 table.ratings th{background:#f0f0f0;text-align:left}
+table.appendixTable{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:14px}
+table.appendixTable th,table.appendixTable td{border:1px solid #999;padding:5px 7px;text-align:left;vertical-align:top}
+table.appendixTable th{background:#f0f0f0}
+.appendixSub{font-size:9px;color:#444}
 .commentBlock{border:1px solid #999;min-height:70px;padding:8px;font-size:12px;white-space:pre-wrap;margin-bottom:14px}
 .commentLabel{font-weight:bold;font-size:12px;margin-bottom:4px}
+.ackHeading{font-weight:bold;font-size:14px;text-align:center;margin:16px 0 6px}
 .ackScript{font-style:italic;font-size:11px;color:#444;line-height:1.5;margin:14px 0}
+.onlineNote{font-style:italic;font-size:10.5px;color:#444;margin-bottom:10px}
 .sigRow{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:26px;font-size:12px}
 .sigLine{border-bottom:1px solid #000;height:26px}
+.pageBreak{page-break-before:always}
 @media print{body{margin:0.5in}}
 </style></head><body>
 <div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
-<h1>EMPLOYEE PERFORMANCE EVALUATION FOR ${esc((record.evaluationPeriod||'').toUpperCase())}</h1>
+<h1>EMPLOYEE PERFORMANCE EVALUATION FOR ${esc(ordinal.slice(0,-2))}<sup>${esc(ordinal.slice(-2))}</sup> MONTH</h1>
 <div class="hdrGrid">
-<div>Employee Name: ${esc(record.employeeName)}</div><div>Immediate Manager: ${esc(record.teamLeadName)}</div>
+<div>Employee Name: ${esc(employeeLabel)}</div><div>Immediate Manager: ${esc(record.teamLeadName)}</div>
 <div>Business Unit: ${esc(record.businessUnit||'—')}</div><div>Hire Date: ${esc(record.hireDate||'—')}</div>
-<div>Position: ${esc(record.position||'—')}</div><div>Evaluation Period: ${esc(record.evaluationPeriod)} (${esc(record.evaluationDate)})</div>
+<div>Position: ${esc(record.position||'—')}</div><div>Evaluation Period: ${periodLabel}</div>
 </div>
-<div class="instructions">Rating Scale: 1 - Poor. 2 - Below Average. 3 - Average. 4 - Above Average. 5 - Excellent. See the source evaluation form for the full description of each level.</div>
+<div class="instructions">Instructions to Evaluator:  Evaluators should refer to the employee's job description when completing this form; the evaluation should focus on the employee's ability to perform the job duties listed in the job description.  Employees should be evaluated at ${esc(periodWord)} month. Indicate the evaluation of the employee's job performance by writing a number between 1 to 5 on the blank line to the right of each attribute, in the appropriate column. Use the following scale:</div>
+<div class="sectionHeading">Rating Scale:</div>
+${EVAL_RATING_SCALE_ITEMS.map(([bold,rest])=>`<div class="scaleItem"><b>${esc(bold)}</b> ${esc(rest)}</div>`).join('')}
+<div class="instructions">See the reverse side of this form for additional comments to the evaluator and the employee.</div>
 <table class="ratings"><thead><tr><th>Attribute</th><th style="text-align:center;width:90px">Date<br>${esc(record.evaluationDate)}</th><th style="text-align:center;width:70px">${esc((record.evaluationPeriod||'').toUpperCase())}<br>Avg: ${evaluationAverageScore(record.ratings)==null?'—':evaluationAverageScore(record.ratings).toFixed(2)}</th></tr></thead><tbody>
 ${ratingRow('Quantity of Work','quantityOfWork')}
 ${ratingRow('Quality of Work','qualityOfWork')}
@@ -4166,20 +4245,27 @@ ${ratingRow('Speed and Executive Ability','speedAndExecutiveAbility')}
 ${ratingRow('Capacity to Develop','capacityToDevelop')}
 ${ratingRow('Leadership / Management (supervisor or manager level)','leadershipManagement')}
 </tbody></table>
-<div class="commentLabel">Evaluator Comments</div>
-<div class="commentBlock">${esc(record.evaluatorComments||'—')}</div>
-<div class="commentLabel">Employee Comments</div>
-<div class="commentBlock">${esc(record.employeeComments||'—')}</div>
-<div class="ackScript">I have reviewed and discussed the contents with my supervisor. My signature means that I have been advised of my performance and that I agree with this evaluation with my own comments indicated above.</div>
-${onlineAckNote}
+<div class="instructions">${esc(EVAL_COMMENTS_INTRO)}</div>
+<div class="commentLabel">Employee Comments (please include date; attach additional paper if necessary):</div>
+<div class="commentBlock">${esc(record.employeeComments||'')}</div>
+<div class="commentLabel">Evaluator Comments (please include date; attach additional paper if necessary):</div>
+<div class="commentBlock">${esc(record.evaluatorComments||'')}</div>
+<div class="ackHeading">Acknowledgement</div>
+<div class="ackScript">${esc(EVAL_ACKNOWLEDGMENT_SCRIPT)}</div>
+<div class="onlineNote">${onlineNote}</div>
 <div class="sigRow"><div>Employee Signature:<div class="sigLine"></div></div><div>Date:<div class="sigLine"></div></div></div>
 <div class="sigRow"><div>Manager/Supervisor Signature:<div class="sigLine"></div></div><div>Date:<div class="sigLine"></div></div></div>
+${evaluationAppendixHtml(appendix)}
 </body></html>`;
 }
-function previewEvaluationPdf(record){
+async function previewEvaluationPdf(record){
   const win=window.open('','_blank');
   if(!win){alert('Please allow pop-ups to preview the PDF.');return}
-  win.document.write(evaluationPrintableHtml(record));
+  win.document.write('<p style="font-family:sans-serif;padding:20px">Loading…</p>');
+  let appendix={kpiRows:[],coachingLogs:[]};
+  try{appendix=await loadMyEvaluationAppendix(record.evaluationId)}catch(_){}
+  win.document.open();
+  win.document.write(evaluationPrintableHtml(record,appendix));
   win.document.close();
   win.onload=()=>win.print();
 }
