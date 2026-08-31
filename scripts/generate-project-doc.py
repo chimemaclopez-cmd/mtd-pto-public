@@ -289,7 +289,6 @@ for name, desc in fixes:
 h1('Roadmap / Not Yet Built')
 bullet('Trainee-specific KPI framework, once scoring criteria are finalized.')
 bullet('Wider Customer Shoutout detection on the Spotlight Wall - email/chat praise, not just CSAT surveys.')
-bullet('Optional MS Teams integration for shoutouts and alerts.')
 bullet('Deeper adherence and attendance analytics.')
 
 doc.save(OUT_PATH)

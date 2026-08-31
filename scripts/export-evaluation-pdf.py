@@ -350,12 +350,12 @@ def appendix_section(styles, appendix_data):
     coaching_logs = appendix_data.get('coachingLogs') or []
     flow = [Paragraph('Appendix: Probationary KPI Metrics &amp; Coaching Logs', styles['FormTitle'])]
     flow.append(Paragraph(
-        'Running KPI scores and coaching history for this employee through the period covered by this evaluation, '
+        'Current-period KPI score and coaching history for this employee through the period covered by this evaluation, '
         'pulled from the portal at the time this evaluation was generated - not a live/updating record.',
         styles['BodyText9']
     ))
     flow.append(Spacer(1, 6))
-    flow.append(Paragraph('KPI Score History', styles['SectionHeading']))
+    flow.append(Paragraph('Current KPI Score', styles['SectionHeading']))
     if kpi_rows:
         flow.append(kpi_appendix_table(styles, kpi_rows))
     else:
