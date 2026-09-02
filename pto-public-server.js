@@ -193,7 +193,7 @@ const MTD_ROOT = __dirname;
 const SNAPSHOT_MAX_AGE_MS = Number(process.env.PTO_SNAPSHOT_CACHE_MS || 15000);
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 10 minutes
-const FINAL_PTO_APPROVER_EMAIL = 'charlotte@lofty.com';
+const FINAL_PTO_APPROVER_EMAILS = new Set(['charlotte@lofty.com', 'jason@lofty.com']);
 
 ptoLogic.PTO_ACTIVE_STATUSES.add('PRE_APPROVED');
 ptoLogic.PTO_ACTIVE_STATUSES.add('FINAL_APPROVAL_QUEUED');
@@ -606,7 +606,7 @@ async function computeStatusWall() {
 }
 
 // --- Cloud data access (with a short-lived cache on the read-only snapshots) ---
-const DISPUTE_CC_EMAIL = process.env.DISPUTE_CC_EMAIL || 'charlotte@lofty.com';
+const DISPUTE_CC_EMAILS = (process.env.DISPUTE_CC_EMAIL || 'charlotte@lofty.com,jason@lofty.com').split(',').map(x => x.trim()).filter(Boolean);
 const DISPUTES_KEY = 'mtdkpi:csat-disputes';
 // Must match the same literal in zendesk-proxy.js's syncCsatRefreshRequestsFromCloud() - the
 // two processes only share state through this key, there's no shared module between them.
@@ -732,7 +732,7 @@ async function ptoReviewAccess(identity, employeeName = '') {
   return {
     memberEmails,
     isTeamLeader: memberEmails.size > 0,
-    canFinalApprove: cleanIdentity === FINAL_PTO_APPROVER_EMAIL
+    canFinalApprove: FINAL_PTO_APPROVER_EMAILS.has(cleanIdentity)
   };
 }
 
@@ -1063,7 +1063,7 @@ const DISCIPLINE_CLEANSING_MONTHS = { Misdemeanor: 6, MinorOffense: 9, MajorOffe
 // approver: Charlotte (Senior Ops Manager) does the preliminary review after a team lead
 // files, then Janet (HR) gives the actual final decision before it's shared with the
 // employee.
-const PRE_DISCIPLINARY_APPROVER_EMAIL = 'charlotte@lofty.com';
+const PRE_DISCIPLINARY_APPROVER_EMAILS = new Set(['charlotte@lofty.com', 'jason@lofty.com']);
 const FINAL_DISCIPLINARY_APPROVER_EMAIL = 'janet.memoracion@moatable.com';
 // Reviews every bad CSAT ticket company-wide (not just her own team) for validity, and is the
 // final approver on rep-filed CSAT disputes - a QA function distinct from the disciplinary
@@ -1082,7 +1082,7 @@ const TRAINING_MANAGER_EMAILS = new Set(['priscilla@lofty.com']);
 function portalRoleFor(email) {
   const clean = ptoLogic.cleanEmail(email);
   if (clean === FINAL_DISCIPLINARY_APPROVER_EMAIL) return 'HR';
-  if (clean === PRE_DISCIPLINARY_APPROVER_EMAIL) return 'SOM';
+  if (PRE_DISCIPLINARY_APPROVER_EMAILS.has(clean)) return 'SOM';
   if (clean === DSAT_REVIEWER_EMAIL) return 'BQA';
   if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
@@ -1099,7 +1099,7 @@ const ADMIN_EMAILS = new Set(['mac@lofty.com']);
 // Separate from ADMIN_EMAILS on purpose: Charlotte (SOM, department head) gets the View As
 // preview to check what other roles see, but not the admin-only Copilot connection controls or
 // credential-reset endpoint below - those stay Mac-only.
-const VIEW_AS_ALLOWED_EMAILS = new Set([...ADMIN_EMAILS, 'charlotte@lofty.com']);
+const VIEW_AS_ALLOWED_EMAILS = new Set([...ADMIN_EMAILS, 'charlotte@lofty.com', 'jason@lofty.com']);
 const VIEW_AS_ROLES = new Set(['BQA', 'SOM', 'HR', 'TRAINING', 'SENIOR TSR', 'REP']);
 function canUseViewAs(identity) {
   return VIEW_AS_ALLOWED_EMAILS.has(ptoLogic.cleanEmail(identity));
@@ -1316,7 +1316,7 @@ async function disciplinaryReviewAccess(identity, employeeName = '', viewAsRole 
   }
   return {
     memberEmails, isTeamLeader: memberEmails.size > 0,
-    canPreDecide: cleanIdentity === PRE_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'SOM',
+    canPreDecide: PRE_DISCIPLINARY_APPROVER_EMAILS.has(cleanIdentity) || viewAsRole === 'SOM',
     canDecide: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR',
     isHrOnly: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR'
   };
@@ -1843,8 +1843,8 @@ const server = http.createServer(async (req, res) => {
       let emailSent = false, emailError = '';
       try {
         await emailService.send({
-          to: recipients.length ? recipients : [DISPUTE_CC_EMAIL],
-          cc: recipients.length ? [DISPUTE_CC_EMAIL] : [],
+          to: recipients.length ? recipients : DISPUTE_CC_EMAILS,
+          cc: recipients.length ? DISPUTE_CC_EMAILS : [],
           subject: `CSAT Dispute Filed - ${session.employeeName} - Ticket #${ticketId}`,
           html: `<p><b>${escapeHtml(session.employeeName)}</b> (${escapeHtml(identity)}) has filed a dispute for a bad CSAT rating.</p>` +
             `<p><b>Ticket:</b> #${escapeHtml(ticketId)} - ${escapeHtml(ticket.subject || '(no subject)')}<br>` +
