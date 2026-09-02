@@ -1057,6 +1057,10 @@ function renderDashboard(){
     const cards=[['Final KPI',fmt(latest.finalKpi),statusClass],['Performance',latest.performanceStatus||'—',statusClass]];
     if(latest.csat)cards.push(['CSAT',metricValue('csat',latest.csat),'']);
     $('dashboardKpiCards').innerHTML=cards.map(([a,b,c])=>`<div class="card ${c||''}"><div class="label">${a}</div><div class="value">${esc(String(b))}</div></div>`).join('');
+  }else if(isTeamLeader&&teamKpiResults.length){
+    const valid=teamKpiResults.filter(x=>x.finalKpi!=null&&Number.isFinite(+x.finalKpi));
+    const average=valid.length?valid.reduce((sum,x)=>sum+Number(x.finalKpi),0)/valid.length:null;
+    $('dashboardKpiCards').innerHTML=average==null?'<div class="card"><div class="label">KPI Scores</div><div class="value" style="font-size:15px">No results yet</div></div>':`<div class="card"><div class="label">Team Average KPI</div><div class="value">${fmt(Math.round(average*100)/100)}%</div></div><div class="card"><div class="label">Team Rated</div><div class="value">${valid.length}/${teamKpiResults.length}</div></div>`;
   }else{
     $('dashboardKpiCards').innerHTML='<div class="card"><div class="label">KPI Scores</div><div class="value" style="font-size:15px">No results yet</div></div>';
   }
