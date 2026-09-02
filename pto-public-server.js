@@ -1074,7 +1074,7 @@ const DSAT_REVIEWER_EMAIL = 'sunshine.simon@lofty.com';
 // routes below. A trainee's teamLeadEmail is set to her during training, which is what
 // naturally gives her Coaching/Disciplinary/Alignment/Team Attendance access to them too -
 // those all already gate on "is this person's teamLeadEmail me," no new logic needed there.
-const TRAINING_MANAGER_EMAILS = new Set(['priscilla@lofty.com']);
+const TRAINING_MANAGER_EMAILS = new Set(['priscilla@lofty.com', 'jean@lofty.com']);
 // Drives which tabs pto-public.html shows a signed-in user - most accounts are a normal
 // rep/team-lead ('REP', the default), but a couple of identities hold a narrower,
 // oversight-only role instead of day-to-day queue work, so their portal view is curated
