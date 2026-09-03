@@ -164,34 +164,73 @@ def rate_fill(rate):
     return PatternFill('solid', fgColor=GREEN if rate >= 95 else AMBER if rate >= 90 else RED)
 
 
+WEEKDAY_INITIALS = {'Sunday': 'Su', 'Monday': 'Mo', 'Tuesday': 'Tu', 'Wednesday': 'We', 'Thursday': 'Th', 'Friday': 'Fr', 'Saturday': 'Sa'}
+
+
+def cell_code_for_day(schedules, attendance, email, date_str):
+    # A day with no recorded attendance CODE isn't necessarily unexplained - a scheduled
+    # rest day has no attendance.json entry at all (it's derived from the schedule, not
+    # logged), so it rendered as a confusing blank cell before this check. Only genuinely
+    # unscheduled/unknown days (missingSchedule) stay blank - everything else gets a label.
+    code = attendance_code_on_date(attendance, email, date_str)
+    if code:
+        return code
+    resolved = schedule_for_date(schedules, email, date_str)
+    if resolved['missingSchedule']:
+        return ''
+    if (resolved['template'] or {}).get('off'):
+        return 'RD'
+    return ''
+
+
 def build_month_sheet(ws, year, month_num, roster_rows, schedules, attendance, roster_by_email):
     days_in_month = calendar.monthrange(int(year), month_num)[1]
     header_font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+    weekday_font = Font(name='Calibri', size=8, color='FFFFFF')
     header_fill = PatternFill('solid', fgColor=NAVY)
 
-    headers = ['Employee', 'Team Lead'] + [str(d) for d in range(1, days_in_month + 1)] + ['Month %']
-    for col_idx, label in enumerate(headers, start=1):
-        cell = ws.cell(row=1, column=col_idx, value=label)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-        cell.border = BORDER
-    ws.row_dimensions[1].height = 20
+    # Two header rows: day number, then a weekday initial right below it (Su/Mo/.../Sa) -
+    # makes the recurring rest-day columns visually obvious at a glance without having to
+    # read every cell, and explains why those columns are shaded differently below.
+    ws.cell(row=1, column=1, value='Employee').font = header_font
+    ws.cell(row=1, column=2, value='Team Lead').font = header_font
+    ws.merge_cells('A1:A2')
+    ws.merge_cells('B1:B2')
+    ws.cell(row=1, column=1).alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(row=1, column=2).alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(row=1, column=len(['Employee', 'Team Lead']) + days_in_month + 1, value='Month %').font = header_font
+    ws.merge_cells(start_row=1, start_column=3 + days_in_month, end_row=2, end_column=3 + days_in_month)
+    ws.cell(row=1, column=3 + days_in_month).alignment = Alignment(horizontal='center', vertical='center')
+    for day in range(1, days_in_month + 1):
+        col = 2 + day
+        date_str = f'{year}-{month_num:02d}-{day:02d}'
+        ws.cell(row=1, column=col, value=day).font = header_font
+        ws.cell(row=2, column=col, value=WEEKDAY_INITIALS[weekday_of(date_str)]).font = weekday_font
+        ws.cell(row=1, column=col).alignment = Alignment(horizontal='center', vertical='center')
+        ws.cell(row=2, column=col).alignment = Alignment(horizontal='center', vertical='center')
+    for row in (1, 2):
+        for col in range(1, 4 + days_in_month):
+            cell = ws.cell(row=row, column=col)
+            cell.fill = header_fill
+            cell.border = BORDER
+    ws.row_dimensions[1].height = 18
+    ws.row_dimensions[2].height = 14
 
+    total_cols = 3 + days_in_month
     month_start = f'{year}-{month_num:02d}-01'
     # Capped at today for the CURRENT/a future month, so an in-progress month's remaining
     # (not-yet-happened) days don't count as unexplained absences in the denominator - the
     # matrix columns below still show every day of the month regardless, just blank past today.
     month_end = min(f'{year}-{month_num:02d}-{days_in_month:02d}', TODAY)
 
-    row_idx = 2
+    row_idx = 3
     for emp in roster_rows:
         email = emp.get('employeeEmail')
         ws.cell(row=row_idx, column=1, value=emp.get('employeeName') or email).border = BORDER
         ws.cell(row=row_idx, column=2, value=emp.get('teamLeadName') or '').border = BORDER
         for day in range(1, days_in_month + 1):
             date_str = f'{year}-{month_num:02d}-{day:02d}'
-            code = attendance_code_on_date(attendance, email, date_str)
+            code = cell_code_for_day(schedules, attendance, email, date_str)
             cell = ws.cell(row=row_idx, column=2 + day)
             cell.border = BORDER
             cell.alignment = Alignment(horizontal='center')
@@ -203,7 +242,7 @@ def build_month_sheet(ws, year, month_num, roster_rows, schedules, attendance, r
                     cell.fill = PatternFill('solid', fgColor=fill_color)
         stats = compute_attendance_rate(roster_by_email, schedules, attendance, email, month_start, month_end)
         rate = stats['rate'] if stats else None
-        rate_cell = ws.cell(row=row_idx, column=len(headers), value=(round(rate, 1) if rate is not None else None))
+        rate_cell = ws.cell(row=row_idx, column=total_cols, value=(round(rate, 1) if rate is not None else None))
         rate_cell.border = BORDER
         rate_cell.alignment = Alignment(horizontal='center')
         rate_cell.font = Font(bold=True)
@@ -212,13 +251,15 @@ def build_month_sheet(ws, year, month_num, roster_rows, schedules, attendance, r
             rate_cell.fill = fill
         row_idx += 1
 
-    ws.freeze_panes = 'C2'
+    ws.freeze_panes = 'C3'
     ws.column_dimensions['A'].width = 22
     ws.column_dimensions['B'].width = 18
     for day in range(1, days_in_month + 1):
-        ws.column_dimensions[get_column_letter(2 + day)].width = 5
-    ws.column_dimensions[get_column_letter(len(headers))].width = 10
-    ws.auto_filter.ref = f'A1:{get_column_letter(len(headers))}{row_idx - 1}'
+        ws.column_dimensions[get_column_letter(2 + day)].width = 6.5
+    ws.column_dimensions[get_column_letter(total_cols)].width = 10
+    # No auto-filter here - on a 30+ narrow-column day grid the dropdown-arrow buttons ate
+    # nearly all the header width, making the day numbers unreadable. Filtering by Employee/
+    # Team Lead matters more and already works fine on the Summary sheet's table.
 
 
 def build_summary_sheet(ws, year, roster_rows, schedules, attendance, roster_by_email, months_with_data):
