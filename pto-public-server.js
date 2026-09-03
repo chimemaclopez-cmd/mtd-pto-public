@@ -884,7 +884,8 @@ const DEFAULT_GUIDES = {
   categories: [
     { id: 'billing', label: 'Billing', rootStepId: 'billing-root' },
     { id: 'tech', label: 'Technical', rootStepId: 'tech-root' },
-    { id: 'emailDomain', label: 'Sending Email Domain', rootStepId: 'email-root' }
+    { id: 'emailDomain', label: 'Sending Email Domain', rootStepId: 'email-root' },
+    { id: 'mls', label: 'MLS Applications', rootStepId: 'mls-root' }
   ],
   steps: {
     'billing-root': { id: 'billing-root', text: "What's the billing issue?", choices: [
@@ -1001,7 +1002,49 @@ const DEFAULT_GUIDES = {
     ] },
     'email-f-stale': { id: 'email-f-stale', text: 'Stale domain reference', resolution: 'Remove or correct the stale dependency (an old domain still attached to templates, settings, or team-level defaults), then have the customer retest - the banner should clear once the correct domain is the only one referenced.' },
     'email-ui-review': { id: 'email-ui-review', text: 'UI/backend state mismatch', resolution: 'This is a UI/backend state mismatch, not a real domain problem - capture the exact warning text, confirm which domain it names, and check for old domains still referenced in templates, settings, or team-level defaults. If nothing stale explains it and the domain genuinely sends successfully, escalate for UI/backend state review.' },
-    'email-g1': { id: 'email-g1', text: "Doesn't fit any lane above", resolution: 'Gather the minimum fact set first: exact domain, exact from-address, ownership type (customer-owned vs Lofty-provided), DNS host if customer-owned, current status in Lofty, whether outbound and/or inbound is affected, and the target account/instance. Classify by domain type and verification state and assign the closest lane above. If still unclear or multiple lanes apply, prioritize whatever is customer-visible right now and document the rest for technical review.' }
+    'email-g1': { id: 'email-g1', text: "Doesn't fit any lane above", resolution: 'Gather the minimum fact set first: exact domain, exact from-address, ownership type (customer-owned vs Lofty-provided), DNS host if customer-owned, current status in Lofty, whether outbound and/or inbound is affected, and the target account/instance. Classify by domain type and verification state and assign the closest lane above. If still unclear or multiple lanes apply, prioritize whatever is customer-visible right now and document the rest for technical review.' },
+    // Adapted from an MLS Team state-machine spec covering Shift-Left vs Legacy application
+    // handling, escalation paths, and the Day 3/7/14 reminder + Day 15 manual-handoff timers.
+    // Reps can't act on background timers mid-call, so those are folded into the relevant
+    // resolution text as reference info rather than modeled as their own steps.
+    'mls-root': { id: 'mls-root', text: 'In CMS, go to MLS Integration and search for the application (by email, domain, site ID, order ID, or application ID). What did you find?', choices: [
+      { text: 'Not found in CMS at all', nextStepId: 'mls-not-found' },
+      { text: 'Found the application in CMS', nextStepId: 'mls-check-jira' }
+    ] },
+    'mls-not-found': { id: 'mls-not-found', text: 'Application not found in CMS', resolution: "Escalate to the MLS Team - the application isn't in CMS at all, so there's nothing further to check on your end. Package the escalation with whatever identifiers you searched (email/domain/site ID/order ID/application ID) and note the reason as \"application not found in CMS.\"" },
+    'mls-check-jira': { id: 'mls-check-jira', text: 'Now search Jira for an existing ticket - use a known mapping if you have one, otherwise search by client name, site, domain, or MLS name. Is there already a ticket?', choices: [
+      { text: 'Yes, a ticket already exists', nextStepId: 'mls-existing-jira' },
+      { text: 'No ticket found', nextStepId: 'mls-no-jira-blockers' }
+    ] },
+    'mls-existing-jira': { id: 'mls-existing-jira', text: 'Jira ticket already exists', resolution: "Handle it like any other ticket - triage it and follow the normal AM workflow. Use the Support dashboards/filters for queue visibility if you need it. Don't open a second ticket for the same application." },
+    'mls-no-jira-blockers': { id: 'mls-no-jira-blockers', text: "Before anything else: is the client reporting they're blocked, is there an actual error on screen, or does the behavior not match what you'd expect for how this MLS is supposed to work?", choices: [
+      { text: "Yes - blocked, an error, or it doesn't look right for this MLS", nextStepId: 'mls-escalate-mismatch' },
+      { text: 'No - none of that, just no ticket yet', nextStepId: 'mls-determine-flow' }
+    ] },
+    'mls-escalate-mismatch': { id: 'mls-escalate-mismatch', text: 'Blocked, error, or flow mismatch', resolution: "Escalate to the MLS Team. Package the escalation with: the application ID, MLS name, which flow this MLS is on if you know it, the CMS application status, what the client is seeing vs. what you see in CMS, and a screenshot of any error. Note the reason as whichever applies - client blocked, error observed, or flow mismatch suspected." },
+    'mls-determine-flow': { id: 'mls-determine-flow', text: "Important: don't guess this. Check CMS flags, the MLS configuration, or the internal onboarding list - is this MLS on the new Shift-Left automation, or still on the Legacy flow?", choices: [
+      { text: 'Shift-Left', nextStepId: 'mls-shift-left-status' },
+      { text: 'Legacy', nextStepId: 'mls-legacy-recheck' },
+      { text: "Can't tell / can't verify quickly", nextStepId: 'mls-escalate-unknown-flow' }
+    ] },
+    'mls-escalate-unknown-flow': { id: 'mls-escalate-unknown-flow', text: "Can't verify which flow applies", resolution: "Don't proceed on a guess. Ask the MLS Team directly whether this MLS is Shift-Left or Legacy. If you can't get an answer quickly, escalate now instead of waiting it out - note the reason as \"cannot verify MLS flow mode, no Jira ticket exists.\"" },
+    'mls-shift-left-status': { id: 'mls-shift-left-status', text: "In CMS, what's the application status?", choices: [
+      { text: 'Incomplete', nextStepId: 'mls-shift-left-working-period' },
+      { text: 'Not incomplete (Submitted, Complete, or Ready)', nextStepId: 'mls-shift-left-post-completion' }
+    ] },
+    'mls-shift-left-post-completion': { id: 'mls-shift-left-post-completion', text: "Shift-Left, but CMS shows it's past Incomplete", resolution: "This looks like an automation gap, not something to work around manually - CMS shows the application is no longer Incomplete, but there's still no Jira ticket. First, redo your Jira search to rule out a false negative (try broader terms). If it's genuinely still missing, capture the CMS status and timestamps as evidence and escalate to the MLS Team with the reason: \"Shift-Left, CMS not incomplete but Jira missing.\"" },
+    'mls-shift-left-working-period': { id: 'mls-shift-left-working-period', text: 'This is actually expected - the client is still in their Working Period, and under Shift-Left a Jira ticket isn’t always created yet by design. Do NOT create one manually just because it’s missing; that risks a duplicate once the automation catches up. Tell the client: "Your MLS application may still be in progress in CMS. Please open CMS → MLS Integration, click Continue, and complete the next required step (for example, signing the agreement, following the vendor/MLS instructions, or uploading proof/docs). A Jira ticket isn’t always created immediately under this flow - it will be created automatically at the right stage." Automatic reminders go out to the client on Day 3, 7, and 14 if it’s still Incomplete; if it’s still Incomplete by Day 15, it’s automatically handed off for manual follow-up. What’s the situation right now?', choices: [
+      { text: 'Just needs those instructions - nothing else right now', nextStepId: 'mls-shift-left-instructions-given' },
+      { text: 'Client says this has already been going on 15+ days', nextStepId: 'mls-day15-handoff' },
+      { text: "Client is now reporting they're blocked or seeing an error", nextStepId: 'mls-escalate-mismatch' }
+    ] },
+    'mls-shift-left-instructions-given': { id: 'mls-shift-left-instructions-given', text: 'Client just needs the Working Period instructions', resolution: "Give the client the CMS → MLS Integration → Continue instructions above, log the interaction, and close out normally. No Jira ticket needed on your end - the automation will create one at the right stage if the client doesn't finish in time." },
+    'mls-day15-handoff': { id: 'mls-day15-handoff', text: 'Day 15 handoff', resolution: "By policy, an application still Incomplete after 15 days in the Working Period should already be automatically handed off for manual follow-up (a task in the workflow engine, plus a heads-up to the MLS Team/Support queue owner) - not a manual Jira AM ticket unless the MLS Team specifically confirms that's the right channel. If the client is telling you it's been 15+ days and nothing's happened yet, notify the MLS Team now that this application exceeded its working period and needs a look." },
+    'mls-legacy-recheck': { id: 'mls-legacy-recheck', text: 'Under Legacy, a Jira ticket is expected immediately after CMS submission, so a missing one here suggests a real problem, not a normal wait. Re-check the CMS submission timestamp and identifiers, then re-search Jira with broader terms (client name, site, domain, MLS name). Did a ticket turn up this time?', choices: [
+      { text: 'Found it on the recheck', nextStepId: 'mls-existing-jira' },
+      { text: 'Still nothing', nextStepId: 'mls-escalate-legacy-missing' }
+    ] },
+    'mls-escalate-legacy-missing': { id: 'mls-escalate-legacy-missing', text: 'Legacy flow, still no ticket', resolution: "Escalate to the MLS Team. Package the escalation with the CMS submission timestamp, the identifiers you searched, and a note that a broader Jira recheck still came up empty. Reason: \"Legacy flow, Jira ticket expected immediately but missing.\"" }
   }
 };
 async function loadGuides() { return cloudStore.kvGetJson(GUIDES_KEY, DEFAULT_GUIDES); }
