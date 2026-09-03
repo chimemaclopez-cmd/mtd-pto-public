@@ -167,7 +167,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn" data-tab="attendance"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 5.4V9l2.7 1.8"/></svg>My Attendance</button>
 <button class="btn" data-tab="kpi"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V9.5M9 15V4.5M14 15v-7"/></svg>KPI Scores</button>
 <button class="btn" data-tab="seniorJira" id="seniorJiraTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.3 9.5h2.6l1.7-4.5 2.6 9 1.7-4.5h3.8"/></svg>Jira Activity</button>
-<button class="btn" data-tab="guides" id="guidesTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 11.4v-.6c0-.8.5-1.2 1-1.6.6-.4 1-.9 1-1.7A2 2 0 0 0 9 5.5a2 2 0 0 0-2 1.8"/><circle cx="9" cy="12.9" r=".3" fill="currentColor"/></svg>Guides</button>
+<button class="btn" data-tab="guides" id="guidesTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 11.4v-.6c0-.8.5-1.2 1-1.6.6-.4 1-.9 1-1.7A2 2 0 0 0 9 5.5a2 2 0 0 0-2 1.8"/><circle cx="9" cy="12.9" r=".3" fill="currentColor"/></svg>WorkFlow Engine</button>
 </div></details>
 <details class="tabGroup tabGroup-team"><summary class="tabGroupLabel"><svg class="groupIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.3" cy="6.2" r="2.2"/><circle cx="12.1" cy="6.2" r="2.2"/><path d="M2.2 14.8c.4-2.5 2.1-4 4.1-4s3.6 1.4 4 3.6"/><path d="M9.8 14.4c.4-2.1 1.9-3.4 3.5-3.4 1.7 0 3.2 1.2 3.5 3.4"/></svg>Team Management</summary><div class="tabGroupButtons">
 <button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 5.4V9l2.7 1.8"/></svg>Team Attendance</button>
@@ -233,7 +233,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="seniorJiraDays"></div>
 </section>
 <section id="guidesView" hidden>
-<div class="sectionTitle">Troubleshooting Guides</div>
+<div class="sectionTitle">WorkFlow Engine</div>
 <div class="sub">Pick a category, answer a few questions, and get straight to the right next step.</div>
 <div id="guidesBody" style="margin-top:14px"></div>
 </section>
@@ -1415,7 +1415,7 @@ function renderGuidesTab(){
   if(!guidesCurrentCategoryId){
     $('guidesBody').innerHTML=guidesData.categories.length
       ?`<div class="cards">${guidesData.categories.map(c=>`<button type="button" class="card guideOptionBtn" data-guide-category="${esc(c.id)}" style="font-size:16px">${esc(c.label)}</button>`).join('')}</div>`
-      :'<div class="sub">No guides are available yet.</div>';
+      :'<div class="sub">Nothing is available yet.</div>';
     return;
   }
   const step=guidesData.steps[guidesCurrentStepId];
