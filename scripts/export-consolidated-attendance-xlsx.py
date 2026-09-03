@@ -28,6 +28,7 @@ from datetime import date as date_cls, timedelta
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.comments import Comment
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROSTER_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'roster.json')
@@ -268,15 +269,19 @@ def build_summary_sheet(ws, year, roster_rows, schedules, attendance, roster_by_
     bold = Font(bold=True)
 
     ws.cell(row=1, column=1, value=f'{year} Attendance Reliability Summary').font = Font(size=16, bold=True)
-    ws.cell(row=2, column=1, value=(
+    # The formula explanation used to be a full wrapped-text row across the top of the
+    # sheet, pushing the actual stats/employee list further down and dominating the view.
+    # Moved to a hover comment on a small "ⓘ" cell instead - still one click away, but the
+    # sheet now opens straight into the data.
+    info_cell = ws.cell(row=1, column=3, value='ⓘ Rate formula')
+    info_cell.font = Font(size=9, italic=True, color='5B6274')
+    info_cell.alignment = Alignment(horizontal='left', vertical='center')
+    info_cell.comment = Comment((
         'Attendance Rate = Present Days ÷ Eligible Scheduled Days (approved PTO, rest days, and days '
         'outside the employee’s active employment window are excluded from both sides). This is the same '
         'formula used for the Attendance component in KPI Scores and Evaluation PDFs, so the number means the '
         'same thing everywhere in the portal. Recomputed fresh from live data every time this file regenerates.'
-    )).font = Font(size=9, italic=True, color='5B6274')
-    ws.merge_cells('A2:Q2')
-    ws.row_dimensions[2].height = 28
-    ws.cell(row=2, column=1).alignment = Alignment(wrap_text=True, vertical='top')
+    ), 'Consolidated Attendance Export', height=110, width=320)
 
     rows = []
     for emp in roster_rows:
@@ -313,7 +318,7 @@ def build_summary_sheet(ws, year, roster_rows, schedules, attendance, roster_by_
     below_90 = [r for r in tracked if r['rate'] is not None and r['rate'] < 90]
     total_ncns = sum(r['ncns'] for r in rows)
 
-    stat_row = 4
+    stat_row = 3
     for label, value in [
         ('Employees Tracked This Year', len(tracked)),
         ('Company-Wide Average Attendance Rate', f"{company_avg:.1f}%" if company_avg is not None else '—'),
