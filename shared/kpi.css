@@ -194,3 +194,9 @@ td.emptyState{padding:22px 16px}
 #teamScheduleView .tableWrap th,#teamScheduleView .tableWrap td{padding:6px 8px;font-size:12px}
 #teamScheduleView .filters .btn,#teamScheduleView .actions .btn{padding:7px 11px;font-size:13px}
 .guideOptionBtn{display:block;width:100%;text-align:left;font:inherit;color:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.guideBreadcrumb{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:12px;font-size:12px}
+.guideCrumbBtn{border:none;background:none;padding:2px 4px;font:inherit;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;border-radius:5px}
+.guideCrumbBtn:hover{background:#eef0f5;text-decoration:underline}
+.guideCrumbBtn[aria-current="step"]{color:var(--muted);cursor:default;text-decoration:none}
+.guideCrumbBtn[aria-current="step"]:hover{background:none}
+.guideCrumbSep{color:var(--muted)}

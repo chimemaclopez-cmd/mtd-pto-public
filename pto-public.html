@@ -761,7 +761,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor95(good,bad){const needed=19*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesCurrentCategoryId=null,guidesCurrentStepId=null,guidesStepHistory=[];
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[];
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');$('lottiKnowledgeBodyFieldContainer').innerHTML=richTextFieldHtml('lottiKnowledgeBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -1396,8 +1396,13 @@ function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').for
 const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView'};
 function applyTabFadeIn(next){const el=$(TAB_VIEW_IDS[next]);if(!el)return;el.classList.remove('tabViewActive');void el.offsetWidth;el.classList.add('tabViewActive');initSortableTables()}
 // WFE beta: interactive troubleshooting guides. guidesData is fetched once per session
-// (categories+steps); guidesCurrentStepId/guidesStepHistory track where the viewer is in the
-// tree so Back can pop to the prior step and Start Over resets to the category picker.
+// (categories+steps); guidesTrail tracks where the viewer is in the tree - see the comment
+// on guidesTrail's declaration and guidesBreadcrumbHtml() below for the exact shape.
+// guidesTrail is the single source of truth for where the viewer is: an ordered list of
+// {label, stepId} entries. trail[0] is always {category label, category root step}; each
+// later entry is {the choice text just picked, the step that choice led to}. Empty trail
+// means "show the category picker". This lets the breadcrumb be clickable (jump straight
+// back to any earlier point) instead of only supporting single-step Back.
 async function loadGuidesTab(){
   try{
     const result=await getMyGuides();
@@ -1407,58 +1412,70 @@ async function loadGuidesTab(){
     $('guidesBody').innerHTML=`<div class="message error">Could not load guides. ${esc(error.response?.error||error.message)}</div>`;
     return;
   }
-  guidesCurrentCategoryId=null;guidesCurrentStepId=null;guidesStepHistory=[];
+  guidesTrail=[];
   renderGuidesTab();
+}
+function guidesBreadcrumbHtml(){
+  if(!guidesTrail.length)return'';
+  const crumbs=guidesTrail.map((entry,idx)=>`<button type="button" class="guideCrumbBtn" data-guide-crumb="${idx}"${idx===guidesTrail.length-1?' aria-current="step"':''}>${esc(entry.label)}</button>`).join('<span class="guideCrumbSep">›</span>');
+  return `<div class="guideBreadcrumb">${crumbs}</div>`;
 }
 function renderGuidesTab(){
   if(!guidesData)return;
-  if(!guidesCurrentCategoryId){
+  if(!guidesTrail.length){
     $('guidesBody').innerHTML=guidesData.categories.length
-      ?`<div class="cards">${guidesData.categories.map(c=>`<button type="button" class="card guideOptionBtn" data-guide-category="${esc(c.id)}" style="font-size:16px">${esc(c.label)}</button>`).join('')}</div>`
+      ?`<div class="sub" style="margin-bottom:10px">Step 1 - pick what the customer needs help with:</div><div class="cards">${guidesData.categories.map(c=>`<button type="button" class="card guideOptionBtn" data-guide-category="${esc(c.id)}" style="font-size:16px">${esc(c.label)}</button>`).join('')}</div>`
       :'<div class="sub">Nothing is available yet.</div>';
     return;
   }
-  const step=guidesData.steps[guidesCurrentStepId];
-  const backBtn=guidesStepHistory.length?'<button type="button" class="btn" id="guidesBackBtn">← Back</button>':'';
+  const current=guidesTrail[guidesTrail.length-1];
+  const step=guidesData.steps[current.stepId];
+  const breadcrumb=guidesBreadcrumbHtml();
+  const backBtn='<button type="button" class="btn" id="guidesBackBtn">← Back</button>';
   const startOverBtn='<button type="button" class="btn" id="guidesStartOverBtn">Start Over</button>';
   if(!step){
-    $('guidesBody').innerHTML=`<div class="message error">This guide step could not be found.</div><div class="actions" style="margin-top:12px">${startOverBtn}</div>`;
+    $('guidesBody').innerHTML=`${breadcrumb}<div class="message error">This guide step could not be found.</div><div class="actions" style="margin-top:12px">${startOverBtn}</div>`;
     return;
   }
   if(step.resolution){
-    $('guidesBody').innerHTML=`<div class="coachCard"><div class="coachCardHeader">Resolution</div><div class="coachCardBody"><div style="white-space:pre-wrap;line-height:1.5">${esc(step.resolution)}</div></div></div><div class="actions" style="margin-top:12px">${backBtn}${startOverBtn}</div>`;
+    $('guidesBody').innerHTML=`${breadcrumb}<div class="coachCard"><div class="coachCardHeader">✅ What to do</div><div class="coachCardBody"><div style="white-space:pre-wrap;line-height:1.6;font-size:14px">${esc(step.resolution)}</div></div></div><div class="actions" style="margin-top:12px">${backBtn}${startOverBtn}</div>`;
   }else{
     const choicesHtml=(step.choices||[]).map((choice,idx)=>`<button type="button" class="card guideOptionBtn" data-guide-choice="${idx}">${esc(choice.text)}</button>`).join('');
-    $('guidesBody').innerHTML=`<div class="coachCard"><div class="coachCardHeader">Question</div><div class="coachCardBody"><div style="font-weight:700;margin-bottom:10px">${esc(step.text)}</div><div class="cards">${choicesHtml}</div></div></div><div class="actions" style="margin-top:12px">${backBtn}${startOverBtn}</div>`;
+    $('guidesBody').innerHTML=`${breadcrumb}<div class="coachCard"><div class="coachCardHeader">Step ${guidesTrail.length+1} - pick the closest match</div><div class="coachCardBody"><div style="font-weight:700;margin-bottom:10px;font-size:15px">${esc(step.text)}</div><div class="cards">${choicesHtml}</div></div></div><div class="actions" style="margin-top:12px">${backBtn}${startOverBtn}</div>`;
   }
 }
 $('guidesBody').addEventListener('click',event=>{
   const categoryBtn=event.target.closest('[data-guide-category]');
   if(categoryBtn){
-    guidesCurrentCategoryId=categoryBtn.dataset.guideCategory;
-    const category=guidesData.categories.find(c=>c.id===guidesCurrentCategoryId);
-    guidesCurrentStepId=category?.rootStepId||null;
-    guidesStepHistory=[];
+    const category=guidesData.categories.find(c=>c.id===categoryBtn.dataset.guideCategory);
+    if(!category)return;
+    guidesTrail=[{label:category.label,stepId:category.rootStepId}];
     renderGuidesTab();
     return;
   }
   const choiceBtn=event.target.closest('[data-guide-choice]');
   if(choiceBtn){
-    const step=guidesData.steps[guidesCurrentStepId];
+    const current=guidesTrail[guidesTrail.length-1];
+    const step=guidesData.steps[current?.stepId];
     const choice=step?.choices?.[Number(choiceBtn.dataset.guideChoice)];
     if(!choice)return;
-    guidesStepHistory.push(guidesCurrentStepId);
-    guidesCurrentStepId=choice.nextStepId;
+    guidesTrail.push({label:choice.text,stepId:choice.nextStepId});
+    renderGuidesTab();
+    return;
+  }
+  const crumbBtn=event.target.closest('[data-guide-crumb]');
+  if(crumbBtn){
+    guidesTrail=guidesTrail.slice(0,Number(crumbBtn.dataset.guideCrumb)+1);
     renderGuidesTab();
     return;
   }
   if(event.target.closest('#guidesBackBtn')){
-    guidesCurrentStepId=guidesStepHistory.pop();
+    guidesTrail.pop();
     renderGuidesTab();
     return;
   }
   if(event.target.closest('#guidesStartOverBtn')){
-    guidesCurrentCategoryId=null;guidesCurrentStepId=null;guidesStepHistory=[];
+    guidesTrail=[];
     renderGuidesTab();
   }
 });
