@@ -353,6 +353,7 @@ function slideForItem(item){
   if(item.kind==='leaders')return`<div class="slide"><div class="slideIcon">📞</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Call Volume Leaders</div><div class="leaderBoard">${item.callLeaders.map((l,i)=>`<div class="leaderRow"><div class="leaderMedal">${['🥇','🥈','🥉','🏅','🏅'][i]||'🏅'}</div>${l.photoBase64?`<img class="leaderPhoto" src="${esc(l.photoBase64)}" alt="">`:''}<div class="leaderName">${esc(l.employeeName)}</div><div class="leaderStats">${l.accepted} calls${l.longCalls?` · ${l.longCalls} long`:''}</div></div>`).join('')}</div></div>`;
   if(item.kind==='shift-end-thanks')return `<div class="slide">${heroVisual('🙏',item.photoBase64)}<div class="slideBadge badge-teal">Great Shift!</div><div class="slideName ${sizeFor(item.employeeName,'name')}">${esc(item.employeeName)}</div><div class="slideBody sizeL">${esc(item.message)}</div></div>`;
   if(item.kind==='daily-thanks')return `<div class="slide"><div class="slideIcon">🙌</div><div class="slideBadge badge-teal">Thank You, Team!</div><div class="slideBody sizeL">${esc(item.message)}</div></div>`;
+  if(item.kind==='announcement')return `<div class="slide"><div class="slideIcon">📢</div><div class="slideBadge" style="background:#fde3e3;color:#a11d1d">Announcement</div><div class="slideBody sizeXL" style="font-weight:900">${esc(item.text)}</div></div>`;
   if(item.type==='quiz')return `<div class="slide"><div class="slideIcon">🧠</div><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">Quick Trivia</div><div class="slideBody sizeL">${esc(item.question)}</div><div class="quizOptions">${item.options.map((opt,i)=>`<div class="quizOption" data-idx="${i}">${String.fromCharCode(65+i)}. ${esc(opt)}</div>`).join('')}</div><div class="slideMeta quizReveal" style="opacity:0;margin-top:14px">Correct answer highlighted above</div></div>`;
   if(item.type==='phishing')return `<div class="slide"><div class="slideBadge badge-purple" style="background:#fde3e3;color:#a11d1d">Spot the Phishing Attempt</div><div class="fillerSvgWrap">${item.svg}</div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
   if(item.type==='video')return `<div class="slide slide-video"><div class="slideBadge badge-purple" style="background:#dbe4ff;color:#2e46b8">${esc(item.attr)} Video</div><div class="fillerVideoWrap"><iframe src="${esc(item.embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="slideMeta" style="margin-top:14px">${esc(item.caption)}</div></div>`;
@@ -421,6 +422,28 @@ function maybeInjectPoster(list){
   out.splice(Math.min(1,out.length),0,poster);
   return out;
 }
+// One-time, date-bounded ops notice (HR/contract-status announcements, escalation contacts,
+// etc.) - shown immediately on load, then again roughly every 8 hours (3x/day) for as long as
+// the date window below is active. Gated on the browser's own local date (this display runs
+// physically in the Mandaluyong office, so local time already is the team's time - same
+// assumption tickClock() makes). Self-expires once the window passes, so it just stops
+// appearing on its own - delete this whole block after 2026-09-05, it's dead weight past that.
+const ANNOUNCEMENT={
+  startDate:'2026-09-04',endDate:'2026-09-05',
+  text:'Adam J Hagen-Stein’s contract with Lofty has been terminated, effective today. If he contacts Support, direct him to Chris Ortiz.'
+};
+const ANNOUNCEMENT_INTERVAL_MS=8*60*60*1000;
+let lastAnnouncementShownAt=0;
+function localDateStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function maybeInjectAnnouncement(list){
+  const today=localDateStr();
+  if(today<ANNOUNCEMENT.startDate||today>ANNOUNCEMENT.endDate)return list;
+  if(Date.now()-lastAnnouncementShownAt<ANNOUNCEMENT_INTERVAL_MS)return list;
+  lastAnnouncementShownAt=Date.now();
+  const out=[...list];
+  out.splice(Math.min(1,out.length),0,{kind:'announcement',text:ANNOUNCEMENT.text});
+  return out;
+}
 function buildQueue(spotlight){
   const shoutouts=(spotlight.shoutouts||[]).map(x=>({...x,kind:'shoutout'}));
   const saves=(spotlight.saves||[]).map(x=>({...x,kind:'save'}));
@@ -439,7 +462,7 @@ function buildQueue(spotlight){
   const real=[...weatherItem,...dailyThanks,...birthdays,...anniversaries,...shoutouts,...saves,...shiftEndThanks];
   if(callLeaders.length)real.splice(Math.min(3,real.length),0,{kind:'leaders',callLeaders});
   for(const item of real){const k=keyFor(item);if(k)item.pendingAnnounce=!announcedKeys.has(k)}
-  if(!real.length)return{list:maybeInjectPoster(withReminders(todaysFillerList().map(x=>({...x}))))};
+  if(!real.length)return{list:maybeInjectAnnouncement(maybeInjectPoster(withReminders(todaysFillerList().map(x=>({...x})))))};
   // Weave in one filler item every 3 real items so the wall stays varied even on a busy day.
   const woven=[];
   real.forEach((item,i)=>{woven.push(item);if((i+1)%3===0)woven.push(nextFillerItem())});
@@ -451,7 +474,7 @@ function buildQueue(spotlight){
   // which read as "just repeating the same few things") for a slow-content day.
   const MIN_QUEUE_LENGTH=25;
   while(woven.length<MIN_QUEUE_LENGTH)woven.push(nextFillerItem());
-  return{list:maybeInjectPoster(withReminders(woven))};
+  return{list:maybeInjectAnnouncement(maybeInjectPoster(withReminders(woven)))};
 }
 let quizRevealTimer=null;
 function showSlide(index){
