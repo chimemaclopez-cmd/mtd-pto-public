@@ -873,6 +873,77 @@ const ALIGNMENT_CATEGORY_OPTIONS = ALIGNMENT_CATEGORIES.map(value => ({ value, h
 async function loadAlignment() { return cloudStore.kvGetJson(ALIGNMENT_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
 async function saveAlignment(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(ALIGNMENT_KEY, data); return data; }
 async function loadAlignmentAudit() { return cloudStore.kvGetJson(ALIGNMENT_AUDIT_KEY, { version: 1, events: [] }); }
+
+// WFE beta: interactive troubleshooting guides (Guides tab). One shared, hand-authored
+// tree per category - no admin editor yet, content lives here as code. DEFAULT_GUIDES is
+// the fallback returned the first time (before anything's ever been saved to the KV key),
+// mirroring loadAlignment()'s default-shape-on-empty pattern above.
+const GUIDES_KEY = 'mtdkpi:troubleshooting-guides';
+const DEFAULT_GUIDES = {
+  version: 1,
+  categories: [
+    { id: 'billing', label: 'Billing', rootStepId: 'billing-root' },
+    { id: 'tech', label: 'Technical', rootStepId: 'tech-root' }
+  ],
+  steps: {
+    'billing-root': { id: 'billing-root', text: "What's the billing issue?", choices: [
+      { text: 'Payment was declined', nextStepId: 'billing-declined' },
+      { text: 'Duplicate or unexpected charge', nextStepId: 'billing-duplicate' },
+      { text: 'Question about their subscription/plan', nextStepId: 'billing-subscription' }
+    ] },
+    'billing-declined': { id: 'billing-declined', text: 'Is this a one-time attempted charge, or does it fail every renewal?', choices: [
+      { text: 'One-time / first attempt', nextStepId: 'billing-declined-onetime' },
+      { text: 'Fails every renewal', nextStepId: 'billing-declined-recurring' }
+    ] },
+    'billing-declined-onetime': { id: 'billing-declined-onetime', text: 'One-time declined charge', resolution: "Ask the customer to confirm their card details (number, expiry, CVV, billing zip) are current, then retry the charge from Billing > Payment Method > Retry Charge. If it fails again, ask them to try a different card or contact their bank to confirm there's no fraud block in place." },
+    'billing-declined-recurring': { id: 'billing-declined-recurring', text: 'Has their card expired or been replaced, or should it still be valid?', choices: [
+      { text: 'Card is expired or was replaced', nextStepId: 'billing-declined-recurring-expired' },
+      { text: "Card should be valid, not sure why it's failing", nextStepId: 'billing-declined-recurring-unsure' }
+    ] },
+    'billing-declined-recurring-expired': { id: 'billing-declined-recurring-expired', text: 'Expired/replaced card on a recurring charge', resolution: 'Walk the customer through Settings > Billing > Payment Method to update their card, then manually retry the failed invoice from Billing > Invoices > Retry. Confirm the next renewal date with them so they know when to expect the next charge.' },
+    'billing-declined-recurring-unsure': { id: 'billing-declined-recurring-unsure', text: 'Recurring decline, valid card', resolution: "Escalate to the Billing team via the #billing-escalations Slack channel with the account email and the last few failed-charge attempt dates - banks sometimes flag recurring SaaS charges as suspicious even on a valid card, and Billing can request a manual override." },
+    'billing-duplicate': { id: 'billing-duplicate', text: 'Is it the same plan charged twice, or two different charges (e.g. old plan + new plan)?', choices: [
+      { text: 'Same plan, charged twice', nextStepId: 'billing-duplicate-same' },
+      { text: 'Two different plans/products', nextStepId: 'billing-duplicate-different' }
+    ] },
+    'billing-duplicate-same': { id: 'billing-duplicate-same', text: 'Same plan charged twice', resolution: "Confirm both charges in Billing > Transaction History, then file a refund request for the duplicate via Billing > Refund Request, tagged 'Duplicate Charge.' Refunds typically post in 5-7 business days - let the customer know that timeline." },
+    'billing-duplicate-different': { id: 'billing-duplicate-different', text: 'Two different charges', resolution: "This is usually a mid-cycle plan change (upgrade/downgrade prorating both the old and new plan). Check Billing > Subscription History for a plan change around the charge date. If confirmed, explain the prorated charge to the customer; if not confirmed, treat it as a genuine duplicate and follow the same refund path as a same-plan duplicate." },
+    'billing-subscription': { id: 'billing-subscription', text: 'What does the customer want to do with their subscription?', choices: [
+      { text: 'Upgrade or downgrade their plan', nextStepId: 'billing-subscription-change' },
+      { text: 'Cancel or pause', nextStepId: 'billing-subscription-cancel' },
+      { text: 'Question about their billing cycle date', nextStepId: 'billing-subscription-cycle' }
+    ] },
+    'billing-subscription-change': { id: 'billing-subscription-change', text: 'Upgrade/downgrade', resolution: 'Confirm which plan they want in Billing > Change Plan. Upgrades apply immediately with a prorated charge; downgrades apply at the next renewal date - let the customer know which one applies to their request.' },
+    'billing-subscription-cancel': { id: 'billing-subscription-cancel', text: 'Cancel/pause', resolution: "Before canceling, ask the reason - it's often solvable without cancellation. If they still want to proceed, use Billing > Cancel Subscription; this takes effect at the end of the current billing period, not immediately, so access continues until then. If it's a temporary need, offer a pause instead (Billing > Pause Subscription, up to 3 months)." },
+    'billing-subscription-cycle': { id: 'billing-subscription-cycle', text: 'Billing cycle date question', resolution: "Their renewal/billing date is shown in Billing > Subscription Overview > Next Renewal Date. This date doesn't shift unless they cancel and resubscribe - an upgrade or downgrade alone doesn't reset it." },
+    'tech-root': { id: 'tech-root', text: "What's not working?", choices: [
+      { text: "Can't log in", nextStepId: 'tech-login' },
+      { text: 'Listing/MLS sync issue', nextStepId: 'tech-sync' },
+      { text: "Page won't load or shows an error", nextStepId: 'tech-page' }
+    ] },
+    'tech-login': { id: 'tech-login', text: 'What happens when they try to log in?', choices: [
+      { text: "Says 'incorrect password' even though they're sure it's right", nextStepId: 'tech-login-password' },
+      { text: 'Page just spins / never loads after submitting', nextStepId: 'tech-login-spin' },
+      { text: 'Account locked / too many attempts', nextStepId: 'tech-login-locked' }
+    ] },
+    'tech-login-password': { id: 'tech-login-password', text: 'Incorrect password', resolution: "Have them use Forgot Password to reset - most 'incorrect password' reports are actually browser autofill using an old saved password. If the reset email doesn't arrive within 5 minutes, check Admin > Users for the account's email on file (typos are common) and check their spam folder." },
+    'tech-login-spin': { id: 'tech-login-spin', text: 'Login page spins/never loads', resolution: "This is almost always a browser cache/cookie issue. Have them try an incognito/private window first - if it works there, have them clear cookies for the site or try a different browser. If it still spins in incognito, check our status page for an active outage before troubleshooting further." },
+    'tech-login-locked': { id: 'tech-login-locked', text: 'Account locked', resolution: 'Accounts lock after 5 failed attempts for 30 minutes. If 30+ minutes have passed and it is still locked, or they need immediate access, go to Admin > Users > [account] > Unlock Account. Confirm their identity (email + one other detail) before unlocking manually.' },
+    'tech-sync': { id: 'tech-sync', text: 'Are listings missing entirely, or present but with wrong/outdated info?', choices: [
+      { text: 'Listings missing entirely', nextStepId: 'tech-sync-missing' },
+      { text: 'Listings present but data is stale/wrong', nextStepId: 'tech-sync-stale' }
+    ] },
+    'tech-sync-missing': { id: 'tech-sync-missing', text: 'Listings missing entirely', resolution: "Check Admin > MLS Connections for their board - confirm status is 'Connected,' not 'Needs Attention.' If disconnected, this usually means their MLS credentials expired; have them re-enter credentials under Settings > MLS Feed. If status shows Connected but listings are still missing, escalate to the MLS team with the board name and agent MLS ID - could be an IDX agreement issue." },
+    'tech-sync-stale': { id: 'tech-sync-stale', text: 'Listings stale/wrong', resolution: "MLS feeds sync every 15-60 minutes depending on the board. First confirm how long the data has been stale - under 2 hours, ask them to wait for the next sync cycle. Longer than that, check Admin > MLS Connections > [board] > Last Successful Sync; if it's stuck on an old timestamp, escalate to the MLS team with that timestamp." },
+    'tech-page': { id: 'tech-page', text: 'Is this happening on one specific page, or site-wide?', choices: [
+      { text: 'One specific page', nextStepId: 'tech-page-specific' },
+      { text: 'Happening site-wide', nextStepId: 'tech-page-sitewide' }
+    ] },
+    'tech-page-specific': { id: 'tech-page-specific', text: 'One specific page', resolution: 'Ask which page/URL and what error shows (a screenshot helps). Try loading that same page yourself on a test account to confirm it is not account-specific. If reproducible, file a bug in Jira with the exact URL, error message, and steps to reproduce, tagged for the relevant team (Website/CRM/Billing).' },
+    'tech-page-sitewide': { id: 'tech-page-sitewide', text: 'Site-wide issue', resolution: "Check our internal status page first - a site-wide issue affecting multiple customers is usually already a known incident. If nothing's reported, ask 2-3 other reps whether they're seeing it too before escalating as a new incident - this helps rule out a local/network issue on the customer's own end." }
+  }
+};
+async function loadGuides() { return cloudStore.kvGetJson(GUIDES_KEY, DEFAULT_GUIDES); }
 async function saveAlignmentAudit(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(ALIGNMENT_AUDIT_KEY, data); return data; }
 async function appendAlignmentAudit(alignmentId, action, { user = 'Team Lead', notes = '', previousValue = null, newValue = null } = {}) {
   const data = await loadAlignmentAudit();
@@ -1086,6 +1157,14 @@ function portalRoleFor(email) {
   if (clean === DSAT_REVIEWER_EMAIL) return 'BQA';
   if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
+}
+// Per-person beta feature flags (e.g. 'wfe' for the Guides troubleshooting-tree beta) live
+// directly on the roster record (betaFeatures: string[]), toggled via Roster Management -
+// unlike the role gates above, this needs to be flippable per-person without a code deploy.
+async function betaFeaturesFor(email) {
+  const roster = await loadRosterSnapshot();
+  const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(email));
+  return me?.betaFeatures || [];
 }
 // The platform's own creator/admin can't otherwise see the QA/SOM/HR/TRAINING tabs - those
 // are each tied to one specific person's email, and Mac isn't any of them (he already gets
@@ -1498,7 +1577,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '' });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1611,7 +1690,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -4246,6 +4325,12 @@ const server = http.createServer(async (req, res) => {
       await saveAlignment(data);
       await appendAlignmentAudit(alignmentId, decision, { user: identity, previousValue: current.status, newValue: decision, notes: next.decisionNotes });
       return json(res, 200, { ok: true, record: next });
+    }
+
+    if (parsed.pathname === '/api/my/guides' && req.method === 'GET') {
+      if (!(await betaFeaturesFor(identity)).includes('wfe')) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadGuides();
+      return json(res, 200, { ok: true, categories: data.categories, steps: data.steps });
     }
 
     if (parsed.pathname === '/api/my/alignment' && req.method === 'GET') {

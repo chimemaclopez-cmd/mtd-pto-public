@@ -193,3 +193,4 @@ td.emptyState{padding:22px 16px}
 #teamScheduleView input,#teamScheduleView select{font-size:13px;padding:7px 9px}
 #teamScheduleView .tableWrap th,#teamScheduleView .tableWrap td{padding:6px 8px;font-size:12px}
 #teamScheduleView .filters .btn,#teamScheduleView .actions .btn{padding:7px 11px;font-size:13px}
+.guideOptionBtn{display:block;width:100%;text-align:left;font:inherit;color:inherit;font-weight:700;font-size:14px;cursor:pointer}

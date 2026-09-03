@@ -1,6 +1,7 @@
 import {api} from './ui-utils.js';
 
 export const getMyProfile=()=>api('/api/roster');
+export const getMyGuides=()=>api('/api/my/guides');
 export const getMyKpi=(period='')=>api(`/api/my/kpi${period?`?period=${encodeURIComponent(period)}`:''}`);
 export const getMySeniorJiraActivity=(month='')=>api(`/api/my/senior-jira-activity${month?`?month=${encodeURIComponent(month)}`:''}`);
 export const getSeniorTsrSummary=(month='')=>api(`/api/my/senior-tsr-summary${month?`?month=${encodeURIComponent(month)}`:''}`);
