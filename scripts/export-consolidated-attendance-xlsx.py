@@ -48,6 +48,7 @@ NAVY = '2E46B8'
 GREEN = 'E3F7EC'
 AMBER = 'FFF2CC'
 RED = 'FCE8E8'
+RED_DARK = 'C2313A'
 TODAY = date_cls.today().isoformat()
 THIN = Side(style='thin', color='DFE2EA')
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
@@ -325,17 +326,13 @@ def build_summary_sheet(ws, year, roster_rows, schedules, attendance, roster_by_
         ('Employees Below 90% (Needs Attention)', len(below_90)),
         ('Total NCNS Incidents This Year', total_ncns),
     ]:
-        ws.cell(row=stat_row, column=1, value=label).font = bold
+        cell = ws.cell(row=stat_row, column=1, value=label)
+        cell.font = bold
+        if label == 'Employees Below 90% (Needs Attention)' and below_90:
+            cell.hyperlink = '#\'Needs Attention\'!A1'
+            cell.font = Font(bold=True, color='0563C1', underline='single')
         ws.cell(row=stat_row, column=3, value=value)
         stat_row += 1
-
-    if below_90:
-        stat_row += 1
-        ws.cell(row=stat_row, column=1, value='⚠ Needs Attention (below 90% for the year, lowest first):').font = Font(bold=True, color='C2313A')
-        stat_row += 1
-        for r in sorted(below_90, key=lambda x: x['rate']):
-            ws.cell(row=stat_row, column=1, value=f"{r['name']} ({r['teamLead']}) — {r['rate']:.1f}%, {r['ncns']} NCNS")
-            stat_row += 1
 
     table_start = stat_row + 2
     headers = ['Employee', 'Team Lead', 'Year Rate'] + MONTH_NAMES + ['NCNS', 'Absence Days']
@@ -374,6 +371,54 @@ def build_summary_sheet(ws, year, roster_rows, schedules, attendance, roster_by_
         ws.column_dimensions[get_column_letter(col)].width = 8
     ws.freeze_panes = f'C{table_start + 1}'
     ws.auto_filter.ref = f'A{table_start}:{get_column_letter(len(headers))}{row_idx - 1}'
+
+    return sorted(below_90, key=lambda x: x['rate'])
+
+
+def build_needs_attention_sheet(ws, year, below_90):
+    # Used to be a plain text list bolted onto the bottom of the Summary sheet's stat
+    # block, right above the full employee table - same info in two different shapes,
+    # crammed together with no real separation between them. Its own tab now, as a
+    # proper sortable table instead of concatenated strings.
+    header_font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor=RED_DARK)
+
+    ws.cell(row=1, column=1, value=f'{year} Needs Attention').font = Font(size=16, bold=True)
+    ws.cell(row=2, column=1, value=(
+        f'{len(below_90)} employee(s) below the 90% attendance-reliability threshold for the year, lowest first.'
+    )).font = Font(size=10, italic=True, color='5B6274')
+
+    headers = ['Employee', 'Team Lead', 'Year Rate', 'NCNS Incidents']
+    for col_idx, label in enumerate(headers, start=1):
+        cell = ws.cell(row=4, column=col_idx, value=label)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = BORDER
+
+    row_idx = 5
+    for r in below_90:
+        ws.cell(row=row_idx, column=1, value=r['name']).border = BORDER
+        ws.cell(row=row_idx, column=2, value=r['teamLead']).border = BORDER
+        rate_cell = ws.cell(row=row_idx, column=3, value=round(r['rate'], 1))
+        rate_cell.font = Font(bold=True)
+        rate_cell.alignment = Alignment(horizontal='center')
+        rate_cell.border = BORDER
+        fill = rate_fill(r['rate'])
+        if fill:
+            rate_cell.fill = fill
+        ncns_cell = ws.cell(row=row_idx, column=4, value=r['ncns'])
+        ncns_cell.alignment = Alignment(horizontal='center')
+        ncns_cell.border = BORDER
+        row_idx += 1
+
+    ws.column_dimensions['A'].width = 24
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 12
+    ws.column_dimensions['D'].width = 16
+    ws.freeze_panes = 'A5'
+    if row_idx > 5:
+        ws.auto_filter.ref = f'A4:{get_column_letter(len(headers))}{row_idx - 1}'
 
 
 def save_with_retry(wb, out_path, attempts=3):
@@ -428,7 +473,10 @@ def main():
         wb = Workbook()
         wb.remove(wb.active)
         summary_ws = wb.create_sheet('Summary')
-        build_summary_sheet(summary_ws, year, roster_rows, schedules, attendance, roster_by_email, months_with_data)
+        below_90 = build_summary_sheet(summary_ws, year, roster_rows, schedules, attendance, roster_by_email, months_with_data)
+        if below_90:
+            needs_attention_ws = wb.create_sheet('Needs Attention')
+            build_needs_attention_sheet(needs_attention_ws, year, below_90)
         for m in sorted(months_with_data):
             ws = wb.create_sheet(f'{MONTH_NAMES[m - 1]} {year}')
             build_month_sheet(ws, year, m, roster_rows, schedules, attendance, roster_by_email)
