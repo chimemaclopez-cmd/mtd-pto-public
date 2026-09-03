@@ -883,7 +883,8 @@ const DEFAULT_GUIDES = {
   version: 1,
   categories: [
     { id: 'billing', label: 'Billing', rootStepId: 'billing-root' },
-    { id: 'tech', label: 'Technical', rootStepId: 'tech-root' }
+    { id: 'tech', label: 'Technical', rootStepId: 'tech-root' },
+    { id: 'emailDomain', label: 'Sending Email Domain', rootStepId: 'email-root' }
   ],
   steps: {
     'billing-root': { id: 'billing-root', text: "What's the billing issue?", choices: [
@@ -940,7 +941,67 @@ const DEFAULT_GUIDES = {
       { text: 'Happening site-wide', nextStepId: 'tech-page-sitewide' }
     ] },
     'tech-page-specific': { id: 'tech-page-specific', text: 'One specific page', resolution: 'Ask which page/URL and what error shows (a screenshot helps). Try loading that same page yourself on a test account to confirm it is not account-specific. If reproducible, file a bug in Jira with the exact URL, error message, and steps to reproduce, tagged for the relevant team (Website/CRM/Billing).' },
-    'tech-page-sitewide': { id: 'tech-page-sitewide', text: 'Site-wide issue', resolution: "Check our internal status page first - a site-wide issue affecting multiple customers is usually already a known incident. If nothing's reported, ask 2-3 other reps whether they're seeing it too before escalating as a new incident - this helps rule out a local/network issue on the customer's own end." }
+    'tech-page-sitewide': { id: 'tech-page-sitewide', text: 'Site-wide issue', resolution: "Check our internal status page first - a site-wide issue affecting multiple customers is usually already a known incident. If nothing's reported, ask 2-3 other reps whether they're seeing it too before escalating as a new incident - this helps rule out a local/network issue on the customer's own end." },
+    // Sourced from the "Sending Email Domain" internal workflow playbook (Confluence, pulled
+    // via ContentReadTool) - the decision tree here mirrors that doc's lettered lanes (A-G)
+    // and lane-internal steps exactly; resolution text condenses each lane's Process/Resolution
+    // steps/What to check sections rather than quoting them verbatim.
+    'email-root': { id: 'email-root', text: 'What is the customer reporting?', choices: [
+      { text: 'New domain setup or reconfiguration request', nextStepId: 'email-a1' },
+      { text: 'Domain is Pending, Failed, or disconnected', nextStepId: 'email-b1' },
+      { text: 'Domain already configured / already in use / transfer request', nextStepId: 'email-c1' },
+      { text: "Emails send from one address but not another, or templates fail", nextStepId: 'email-d1' },
+      { text: "Outbound sends but bounces, or replies don't arrive", nextStepId: 'email-e1' },
+      { text: "Warning banner or UI status conflicts with what's actually happening", nextStepId: 'email-f1' },
+      { text: 'None of these quite fit', nextStepId: 'email-g1' }
+    ] },
+    'email-a1': { id: 'email-a1', text: 'Is the domain customer-owned or Lofty-provided?', choices: [
+      { text: 'Customer-owned', nextStepId: 'email-owned-setup' },
+      { text: 'Lofty-provided', nextStepId: 'email-backend-review' }
+    ] },
+    'email-owned-setup': { id: 'email-owned-setup', text: 'Customer-owned domain setup', resolution: "Provide the required DKIM CNAME records and confirm SPF is a single merged record (add 'include:amazonses.com' to their existing SPF - never create a second SPF record at the same host; e.g. 'v=spf1 include:_spf.google.com include:amazonses.com ~all'). Add DMARC if required. Watch for CNAME records that double the domain (e.g. 'selector._domainkey.domain.com.domain.com'). After DNS changes, allow up to 24 hours for propagation before rechecking status, and reassure the customer their existing mailbox service is preserved - this only breaks if MX or root-level TXT records are changed incorrectly, which sending-domain setup does not require." },
+    'email-backend-review': { id: 'email-backend-review', text: 'Backend/domain-binding review', resolution: "This is a backend/domain-binding issue, not something the customer's DNS can fix. Escalate for backend verification or binding review - this applies whether the domain is Lofty-provided (previously working or not), or customer-owned with all DNS records confirmed correct but still stuck after the propagation window." },
+    'email-b1': { id: 'email-b1', text: 'Is the domain customer-owned?', choices: [
+      { text: 'Yes, customer-owned', nextStepId: 'email-b2' },
+      { text: 'No, Lofty-provided', nextStepId: 'email-backend-review' }
+    ] },
+    'email-b2': { id: 'email-b2', text: 'Are all required DNS records present and correct (DKIM CNAMEs, one merged SPF, DMARC if required)?', choices: [
+      { text: 'No - records are missing or incorrect', nextStepId: 'email-owned-setup' },
+      { text: 'Yes - correct, but still stuck after the propagation window', nextStepId: 'email-backend-review' }
+    ] },
+    'email-c1': { id: 'email-c1', text: 'Is the current domain owner (account/user/instance) still active and valid?', choices: [
+      { text: 'Yes, still active/valid', nextStepId: 'email-c-valid-owner' },
+      { text: 'No, stale/cancelled/incorrect', nextStepId: 'email-ownership-transfer' }
+    ] },
+    'email-c-valid-owner': { id: 'email-c-valid-owner', text: 'Current owner is valid', resolution: 'Confirm whether duplicate use is actually intended. If not, explain the ownership constraint to the customer and pause here - do not proceed with any reassignment until the desired final mapping (domain, account, user, instance) is confirmed.' },
+    'email-ownership-transfer': { id: 'email-ownership-transfer', text: 'Ownership transfer/release review', resolution: "Escalate immediately for a safe detach or reassignment - this needs the team that can release/migrate ownership without disrupting the existing instance. Always escalate right away when it's a prior-instance domain, a branded domain moving between team/private instances, or a domain tied to the wrong org/seat." },
+    'email-d1': { id: 'email-d1', text: 'Does the full from-address domain match the verified sending domain?', choices: [
+      { text: "No, they don't match", nextStepId: 'email-d-mismatch' },
+      { text: 'Yes, they match', nextStepId: 'email-d2' }
+    ] },
+    'email-d-mismatch': { id: 'email-d-mismatch', text: 'From-address mismatch', resolution: 'Align the sender address with the already-verified domain, or configure and verify the domain the customer actually wants to send from - then have them retest.' },
+    'email-d2': { id: 'email-d2', text: 'Is the template/campaign/user/account-level sender setting correct?', choices: [
+      { text: "No, it's misconfigured", nextStepId: 'email-d-config' },
+      { text: 'Yes, correct, but the problem persists', nextStepId: 'email-ui-review' }
+    ] },
+    'email-d-config': { id: 'email-d-config', text: 'Sender-setting misconfiguration', resolution: 'The domain matches, so this is a template/campaign/user/account-level sender-setting problem, not a domain issue. Correct the relevant sender setting and retest.' },
+    'email-e1': { id: 'email-e1', text: 'Does the send action create an outbound log?', choices: [
+      { text: 'No log exists', nextStepId: 'email-d1' },
+      { text: 'Yes, a log exists', nextStepId: 'email-e2' }
+    ] },
+    'email-e2': { id: 'email-e2', text: 'Does the mail actually reach the recipient, or does it only fail on replies?', choices: [
+      { text: 'Recipient never receives it (bounce/suppression)', nextStepId: 'email-e-bounce' },
+      { text: 'Outbound works, but replies never arrive', nextStepId: 'email-e-inbound' }
+    ] },
+    'email-e-bounce': { id: 'email-e-bounce', text: 'Bounce/deliverability triage', resolution: 'An outbound log confirms the send attempt is real, so this is deliverability triage, not sending-domain setup. Review bounce, suppression, and recipient-specific conditions - a sender-domain warning can coexist with successful sending to some recipients, so the visible warning may not fully explain this specific symptom.' },
+    'email-e-inbound': { id: 'email-e-inbound', text: 'Inbound/MX routing', resolution: "Outbound working but replies never arriving is an inbound mailbox/MX-routing problem, not a sending-domain verification issue - review MX and mailbox routing separately rather than re-checking sending-domain status." },
+    'email-f1': { id: 'email-f1', text: 'Is an old or stale domain still attached or referenced (templates, settings, team-level defaults)?', choices: [
+      { text: 'Yes, found a stale reference', nextStepId: 'email-f-stale' },
+      { text: 'No - domain is Active and sends successfully, but the warning remains', nextStepId: 'email-ui-review' }
+    ] },
+    'email-f-stale': { id: 'email-f-stale', text: 'Stale domain reference', resolution: 'Remove or correct the stale dependency (an old domain still attached to templates, settings, or team-level defaults), then have the customer retest - the banner should clear once the correct domain is the only one referenced.' },
+    'email-ui-review': { id: 'email-ui-review', text: 'UI/backend state mismatch', resolution: 'This is a UI/backend state mismatch, not a real domain problem - capture the exact warning text, confirm which domain it names, and check for old domains still referenced in templates, settings, or team-level defaults. If nothing stale explains it and the domain genuinely sends successfully, escalate for UI/backend state review.' },
+    'email-g1': { id: 'email-g1', text: "Doesn't fit any lane above", resolution: 'Gather the minimum fact set first: exact domain, exact from-address, ownership type (customer-owned vs Lofty-provided), DNS host if customer-owned, current status in Lofty, whether outbound and/or inbound is affected, and the target account/instance. Classify by domain type and verification state and assign the closest lane above. If still unclear or multiple lanes apply, prioritize whatever is customer-visible right now and document the rest for technical review.' }
   }
 };
 async function loadGuides() { return cloudStore.kvGetJson(GUIDES_KEY, DEFAULT_GUIDES); }
