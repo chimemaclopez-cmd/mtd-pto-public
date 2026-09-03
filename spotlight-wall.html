@@ -84,7 +84,7 @@ const ROTATE_MS=30000;
 // (new filler content, a bug fix, etc.) would otherwise sit invisible until someone happens to
 // reload the tab. Bump this string on every deploy; the periodic check near the bottom of this
 // file compares it against whatever is currently live and force-reloads when they differ.
-const SW_VERSION='2026-08-27.2';
+const SW_VERSION='2026-09-04.1';
 async function api(path){const response=await fetch(path+(path.includes('?')?'&':'?')+`_=${Date.now()}`,{credentials:'same-origin'});const text=await response.text();let data;try{data=text?JSON.parse(text):{}}catch(_){data={}}if(!response.ok)throw Object.assign(new Error(data.error||response.statusText),{status:response.status,response:data});return data}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
