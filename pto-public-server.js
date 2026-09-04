@@ -437,7 +437,8 @@ async function computeStatusWall() {
     const signal = signalsAvailable ? statusSignals.byEmail?.[email] || null : null;
     const liveOnCall = Boolean(signal?.onCall);
     const liveOnChat = Boolean(signal?.onChat);
-    const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat);
+    const liveOnWrapUp = Boolean(signal?.onWrapUp);
+    const liveOnline = Boolean(signal?.online || liveOnCall || liveOnChat || liveOnWrapUp);
     const zendeskActivityMs = signal?.zendeskActivityAt ? new Date(signal.zendeskActivityAt).getTime() : 0;
     const jiraActivityMs = signal?.jiraActivityAt ? new Date(signal.jiraActivityAt).getTime() : 0;
     const activityCutoffMs = Date.now() - workActivityMaxMinutes * 60 * 1000;
@@ -518,6 +519,17 @@ async function computeStatusWall() {
         statusDetail = '';
         sinceIso = null;
       }
+    } else if (liveOnWrapUp) {
+      // Zendesk's OWN Talk agent-activity view shows this as a distinct, legitimate post-call
+      // state - confirmed live: two reps actively in Wrap-up there produced zero signal from
+      // /api/v2/agent_availabilities (the endpoint this file otherwise relies on for on-call/
+      // on-chat), since that Omnichannel Routing endpoint has no concept of Talk's wrap-up at
+      // all - falling through every branch below to a false "Off Queue" flag. See
+      // fetchTalkAgentActivity() in zendesk-proxy.js for the actual (Talk-native) source.
+      statusLabel = 'Wrap-up';
+      statusCode = 'WRAP_UP';
+      statusDetail = signal.callTicketId ? `#${signal.callTicketId}` : '';
+      sinceIso = signal.callStartedAt || signal.availabilityUpdatedAt || entry?.updatedAt || entry?.clockedInAt || null;
     } else if (!manualStatusIsNewer && recentZendeskWork && zendeskActivityMs >= jiraActivityMs) {
       statusLabel = 'Zendesk Ticket';
       statusCode = 'ZENDESK_TICKET';

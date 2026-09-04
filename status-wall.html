@@ -10,6 +10,7 @@
 .status-AVAIL{background:#e8f7ed;color:#16733c}.status-ON_CALL{background:#e8f0ff;color:#2857c7}.status-ON_CHAT{background:#f0eaff;color:#6b3bc0}.status-OTHER{background:#f1f3f7;color:#596274}
 .status-ZENDESK_TICKET{background:#e7f6f8;color:#087384}.status-JIRA_TICKET{background:#eaf1ff;color:#2456a6}
 .status-ON_LEAVE{background:#fdf3e2;color:#8a6d1f}
+.status-WRAP_UP{background:#e6f7f5;color:#0d7a6c}
 .status-OFF_QUEUE{background:#fdeceb;color:#b23a2e}
 .statusDetail{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:700}
 .longCallRow td{background:#fff8e6}.longCallRow .durationCell{color:#9a5b00;font-weight:850}
@@ -40,10 +41,11 @@ function tierOf(c){
   if(c.flagged)return 0;
   if(c.row.statusCode==='ON_CALL'&&c.elapsedSec!=null&&c.elapsedSec/60>15)return 1;
   if(c.row.statusCode==='ON_CALL')return 2;
-  if(c.row.statusCode==='ON_CHAT')return 3;
-  if(c.row.statusCode==='ZENDESK_TICKET'||c.row.statusCode==='JIRA_TICKET')return 4;
-  if(c.row.statusCode==='AVAIL')return 5;
-  return 6;
+  if(c.row.statusCode==='WRAP_UP')return 3;
+  if(c.row.statusCode==='ON_CHAT')return 4;
+  if(c.row.statusCode==='ZENDESK_TICKET'||c.row.statusCode==='JIRA_TICKET')return 5;
+  if(c.row.statusCode==='AVAIL')return 6;
+  return 7;
 }
 function tick(){
   const now=Date.now();
@@ -62,7 +64,7 @@ function tick(){
   }).join('')||'<tr><td colspan="6">No reps are currently on shift or reporting in.</td></tr>';
   const flaggedCount=computed.filter(c=>c.flagged).length;
   const count=code=>rows.filter(row=>row.statusCode===code).length;
-  document.getElementById('cards').innerHTML=[['Avail',count('AVAIL')],['On Call',count('ON_CALL')],['On Chat',count('ON_CHAT')],['Tickets',count('ZENDESK_TICKET')+count('JIRA_TICKET')],['Flagged',flaggedCount]].map(([a,b])=>`<div class="stat"><b>${b}</b>${a}</div>`).join('');
+  document.getElementById('cards').innerHTML=[['Avail',count('AVAIL')],['On Call',count('ON_CALL')],['Wrap-up',count('WRAP_UP')],['On Chat',count('ON_CHAT')],['Tickets',count('ZENDESK_TICKET')+count('JIRA_TICKET')],['Flagged',flaggedCount]].map(([a,b])=>`<div class="stat"><b>${b}</b>${a}</div>`).join('');
 }
 function setMessage(text,type){const el=document.getElementById('message');el.className=`message ${type||''}`;el.textContent=text;el.hidden=!text}
 async function load(){
