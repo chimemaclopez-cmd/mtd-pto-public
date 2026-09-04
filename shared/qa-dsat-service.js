@@ -52,6 +52,16 @@ export function copilotResponseText(data){
 }
 export const copilotChat=(token,question)=>copilotDirectFetch('/chat/messages',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({question,streaming_mode:false})});
 
+// The real PapagoAI Copilot Chrome extension's own ticket-research agent (reverse-engineered
+// from its bundled popup.js, not documented anywhere) - a dedicated pipeline that checks a
+// customer's REAL account/billing state (confirmed live: correctly read a customer's actual
+// Smart Plan settings and contract end date), not just a text search over KB/Jira/tickets like
+// Ticket Audit's own fallback chain. A fresh run takes ~60s and can fail, so it's tried first
+// and the existing search-based chain is the fallback, not a replacement.
+export const getPreRunStatus=(token,ticketId)=>copilotDirectFetch(`/zendesk/pre-run/status/${encodeURIComponent(ticketId)}`,{headers:{Authorization:`Bearer ${token}`}});
+export const triggerPreRun=(token,ticketId)=>copilotDirectFetch('/zendesk/pre-run/manual',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({ticket_id:Number(ticketId)})});
+export const getPreRunResult=(token,ticketId)=>copilotDirectFetch(`/zendesk/pre-run/result/${encodeURIComponent(ticketId)}`,{headers:{Authorization:`Bearer ${token}`}});
+
 // Single home for "is this error really an expired/invalid connection" - every Copilot call
 // site across the portal (LoftIQ, DSAT/Service Recovery triage, Suggest Reply, Alignment
 // Consistency Check, rephrase/quiz) used to each carry its own copy of this regex.
