@@ -69,3 +69,33 @@ export function buildDraftReplyPrompt({ subject, comment, employeeName }) {
 Ticket subject: ${subject || '(none)'}
 Customer's message: ${comment || '(no comment left)'}${employeeName ? `\nHandling rep: ${employeeName}` : ''}`;
 }
+
+// Ticket Audit's "Suggest Resolution" - grounded in real sources (recent ticket comments plus
+// matching Help Center articles and Jira issues, all fetched by zendesk-proxy.js ahead of time -
+// see buildTicketResolutionContext() there) rather than left to invent one from the subject
+// alone. Explicitly told to say so when nothing relevant turned up, since a plausible-sounding
+// but ungrounded guess is worse than no suggestion here - the rep is deciding whether a real
+// backlog ticket is safe to close or needs work, not just wording a reply.
+export function buildResolutionPrompt({ subject, recentComments, kbMatches, jiraMatches }) {
+  const commentsText = (recentComments || []).length
+    ? recentComments.map(c => `- [${c.public ? 'Public reply to customer' : 'Internal note'}] ${c.body}`).join('\n')
+    : '(no comments available - many phone-call tickets store the real summary as an internal note, so this usually means the ticket genuinely has none yet)';
+  const kbText = (kbMatches || []).length
+    ? kbMatches.map((a, i) => `[KB${i + 1}] "${a.title}" - ${a.snippet}`).join('\n')
+    : '(no matching Help Center articles found)';
+  const jiraText = (jiraMatches || []).length
+    ? jiraMatches.map((j, i) => `[JIRA${i + 1}] ${j.key} (${j.status}${j.resolution ? `, resolved: ${j.resolution}` : ''}) - ${j.summary}`).join('\n')
+    : '(no matching Jira issues found)';
+  return `You are helping a support team member figure out how to resolve an open Zendesk ticket. Using ONLY the ticket conversation and the Help Center articles / Jira issues below, write a short suggested resolution: what the rep should tell the customer or do next. "Internal note" comments (e.g. a call summary) describe what actually happened but were never seen by the customer - use them to understand the real issue, not as something already communicated. "Public reply to customer" comments were already sent. Cite which source backs each point using its [KB#]/[JIRA#] tag. If none of the sources below actually apply to this ticket, say so plainly instead of guessing - do not invent a fix that isn't backed by what's given. Write ONLY the suggestion itself - no preamble, no markdown headers.
+
+Ticket subject: ${subject || '(none)'}
+
+Recent ticket comments (oldest first):
+${commentsText}
+
+Matching Help Center articles:
+${kbText}
+
+Matching Jira issues:
+${jiraText}`;
+}

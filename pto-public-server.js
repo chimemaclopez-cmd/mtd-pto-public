@@ -667,6 +667,15 @@ async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdk
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
 async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, shiftEndThanks: [], dailyThanks: null, generatedAt: '' }); }
+// Ticket Audit: zendesk-proxy.js computes this (this server has no Zendesk credentials of its
+// own) on its own periodic scan - see the comment on computeTicketAudit() there for the
+// bucket/cost reasoning. The resolution-request queue below follows the exact same "this
+// server can only queue an ask for the local process to pick up" pattern as
+// CSAT_REFRESH_REQUESTS_KEY, just on zendesk-proxy's faster ~10s ticket-audit tick rather than
+// its ~10min general cloud-sync tick, since a TL is actively waiting on one specific ticket.
+async function loadTicketAuditSnapshot() { return getSnapshot('ticket-audit', 'mtdkpi:snapshot:ticket-audit', { generatedAt: '', tickets: [] }); }
+const TICKET_RESOLUTION_REQUESTS_KEY = 'mtdkpi:ticket-resolution-requests';
+const TICKET_RESOLUTION_RESULTS_KEY = 'mtdkpi:ticket-resolution-results';
 // Adds each highlighted employee's uploaded profile photo (if any) to their Spotlight Wall
 // item - resolved by email for shoutouts/saves/callLeaders, and by name via the roster for
 // birthdays/anniversaries (computeCelebrations() only carries a name, not an email). An
@@ -3818,6 +3827,52 @@ const server = http.createServer(async (req, res) => {
         members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, hireDate: x.hireDate || '', jobTitle: x.jobTitle || '' })),
         records, lastUpdated: data.lastUpdated || ''
       });
+    }
+
+    if (parsed.pathname === '/api/my/ticket-audit' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
+      const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const snapshot = await loadTicketAuditSnapshot();
+      const tickets = (snapshot.tickets || []).filter(t => memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      return json(res, 200, {
+        ok: true, isTeamLeader: memberEmails.size > 0, generatedAt: snapshot.generatedAt || '',
+        members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })),
+        tickets
+      });
+    }
+
+    // Grounding data (recent comments, matching Help Center articles, matching Jira issues) for
+    // one specific ticket is fetched only on demand - see the comment on
+    // loadTicketAuditSnapshot() above for why. Both routes below re-check the ticket actually
+    // belongs to one of the caller's own team members before queueing/returning anything, so a
+    // TL can't pull resolution context for a ticket outside their own team.
+    if (parsed.pathname === '/api/my/ticket-audit/resolution-request' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const ticketId = String(body.ticketId || '').trim();
+      if (!ticketId) return json(res, 400, { ok: false, error: 'A ticket ID is required.' });
+      const roster = await loadRosterSnapshot();
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const snapshot = await loadTicketAuditSnapshot();
+      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your team\'s backlog.' });
+      const queue = await cloudStore.kvGetJson(TICKET_RESOLUTION_REQUESTS_KEY, []);
+      queue.push({ ticketId, requestedBy: identity, requestedAt: new Date().toISOString() });
+      await cloudStore.kvSetJson(TICKET_RESOLUTION_REQUESTS_KEY, queue);
+      return json(res, 200, { ok: true, queued: true });
+    }
+
+    if (parsed.pathname === '/api/my/ticket-audit/resolution-result' && req.method === 'GET') {
+      const ticketId = String(parsed.searchParams.get('ticketId') || '').trim();
+      if (!ticketId) return json(res, 400, { ok: false, error: 'A ticket ID is required.' });
+      const roster = await loadRosterSnapshot();
+      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const snapshot = await loadTicketAuditSnapshot();
+      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your team\'s backlog.' });
+      const results = await cloudStore.kvGetJson(TICKET_RESOLUTION_RESULTS_KEY, {});
+      const result = results[ticketId] || null;
+      return json(res, 200, { ok: true, ready: Boolean(result), result });
     }
 
     // Probationary KPI Metrics: a running, live-computed table (Productivity/CSAT/Attendance/

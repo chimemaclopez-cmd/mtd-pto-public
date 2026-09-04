@@ -24,3 +24,6 @@ export const saveMyTeamSchedule=(payload)=>api('/api/my/team-schedule',{method:'
 export const saveMyTeamScheduleTemplate=(payload)=>api('/api/my/team-schedule-template',{method:'POST',body:JSON.stringify(payload)});
 export const getMyTeamRoster=()=>api('/api/my/team-roster');
 export const updateTeamMemberProfile=(payload)=>api('/api/my/team-roster',{method:'PUT',body:JSON.stringify(payload)});
+export const getMyTicketAudit=()=>api('/api/my/ticket-audit');
+export const requestTicketResolution=(ticketId)=>api('/api/my/ticket-audit/resolution-request',{method:'POST',body:JSON.stringify({ticketId})});
+export const getTicketResolutionResult=(ticketId)=>api(`/api/my/ticket-audit/resolution-result?ticketId=${encodeURIComponent(ticketId)}`);
