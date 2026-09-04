@@ -71,30 +71,34 @@ Customer's message: ${comment || '(no comment left)'}${employeeName ? `\nHandlin
 }
 
 // Ticket Audit's "Suggest Resolution" - grounded in real sources (recent ticket comments plus
-// matching Help Center articles and Jira issues, all fetched by zendesk-proxy.js ahead of time -
-// see buildTicketResolutionContext() there) rather than left to invent one from the subject
-// alone. Explicitly told to say so when nothing relevant turned up, since a plausible-sounding
-// but ungrounded guess is worse than no suggestion here - the rep is deciding whether a real
-// backlog ticket is safe to close or needs work, not just wording a reply.
-export function buildResolutionPrompt({ subject, recentComments, kbMatches, jiraMatches }) {
+// similar past tickets and Jira issues, all fetched by zendesk-proxy.js ahead of time - see
+// buildTicketResolutionContext() there) rather than left to invent one from the subject alone.
+// Help Center search was tried first and dropped per direct feedback - live-tested, it kept
+// surfacing generic changelog articles ("Feature Updates for CRM X.X") over anything actually
+// relevant, since Zendesk's search ranks on keyword overlap, not relevance. A similar PAST
+// TICKET's own real resolution is more directly useful anyway - it's precedent for this exact
+// kind of request. Explicitly told to say so when nothing relevant turned up, since a
+// plausible-sounding but ungrounded guess is worse than no suggestion here - the rep is deciding
+// whether a real backlog ticket is safe to close or needs work, not just wording a reply.
+export function buildResolutionPrompt({ subject, recentComments, similarTickets, jiraMatches }) {
   const commentsText = (recentComments || []).length
     ? recentComments.map(c => `- [${c.public ? 'Public reply to customer' : 'Internal note'}] ${c.body}`).join('\n')
     : '(no comments available - many phone-call tickets store the real summary as an internal note, so this usually means the ticket genuinely has none yet)';
-  const kbText = (kbMatches || []).length
-    ? kbMatches.map((a, i) => `[KB${i + 1}] "${a.title}" - ${a.snippet}`).join('\n')
-    : '(no matching Help Center articles found)';
+  const ticketsText = (similarTickets || []).length
+    ? similarTickets.map((t, i) => `[TICKET${i + 1}] #${t.ticketId} "${t.subject}" - resolved with: ${t.resolution || '(no public resolution comment found)'}`).join('\n')
+    : '(no similar solved tickets found)';
   const jiraText = (jiraMatches || []).length
     ? jiraMatches.map((j, i) => `[JIRA${i + 1}] ${j.key} (${j.status}${j.resolution ? `, resolved: ${j.resolution}` : ''}) - ${j.summary}`).join('\n')
     : '(no matching Jira issues found)';
-  return `You are helping a support team member figure out how to resolve an open Zendesk ticket. Using ONLY the ticket conversation and the Help Center articles / Jira issues below, write a short suggested resolution: what the rep should tell the customer or do next. "Internal note" comments (e.g. a call summary) describe what actually happened but were never seen by the customer - use them to understand the real issue, not as something already communicated. "Public reply to customer" comments were already sent. Cite which source backs each point using its [KB#]/[JIRA#] tag. If none of the sources below actually apply to this ticket, say so plainly instead of guessing - do not invent a fix that isn't backed by what's given. Write ONLY the suggestion itself - no preamble, no markdown headers.
+  return `You are helping a support team member figure out how to resolve an open Zendesk ticket. Using ONLY the ticket conversation and the similar past tickets / Jira issues below, write a short suggested resolution: what the rep should tell the customer or do next. "Internal note" comments (e.g. a call summary) describe what actually happened but were never seen by the customer - use them to understand the real issue, not as something already communicated. "Public reply to customer" comments were already sent. Cite which source backs each point using its [TICKET#]/[JIRA#] tag. If none of the sources below actually apply to this ticket, say so plainly instead of guessing - do not invent a fix that isn't backed by what's given. Write ONLY the suggestion itself - no preamble, no markdown headers.
 
 Ticket subject: ${subject || '(none)'}
 
 Recent ticket comments (oldest first):
 ${commentsText}
 
-Matching Help Center articles:
-${kbText}
+Similar past (solved) tickets:
+${ticketsText}
 
 Matching Jira issues:
 ${jiraText}`;
