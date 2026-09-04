@@ -1279,6 +1279,26 @@ async function betaFeaturesFor(email) {
   const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(email));
   return me?.betaFeatures || [];
 }
+// Ticket Audit is restricted to Mac (the full team view) and, separately, each of his own
+// direct reports (their own tickets only) - not rolled out to every team lead the way the
+// other TL tabs are. ticketAuditAccess() below is the single place both the tab-visibility
+// flag and all three routes derive "who can see what" from, so there's one rule, not several.
+async function canUseTicketAudit(email) {
+  const clean = ptoLogic.cleanEmail(email);
+  if (ADMIN_EMAILS.has(clean)) return true;
+  const roster = await loadRosterSnapshot();
+  const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === clean);
+  return Boolean(me) && ADMIN_EMAILS.has(ptoLogic.cleanEmail(me.teamLeadEmail));
+}
+function ticketAuditAccess(identity, roster, session) {
+  if (ADMIN_EMAILS.has(identity)) {
+    const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+    return { allowed: memberEmails.size > 0, ownedEmails: memberEmails, isTeamView: true };
+  }
+  const self = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+  const allowed = Boolean(self) && ADMIN_EMAILS.has(ptoLogic.cleanEmail(self.teamLeadEmail));
+  return { allowed, ownedEmails: allowed ? new Set([identity]) : new Set(), isTeamView: false };
+}
 // The platform's own creator/admin can't otherwise see the QA/SOM/HR/TRAINING tabs - those
 // are each tied to one specific person's email, and Mac isn't any of them (he already gets
 // real Team Lead access on his own account since other active employees genuinely report to
@@ -1690,7 +1710,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1803,7 +1823,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -3830,32 +3850,32 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/my/ticket-audit' && req.method === 'GET') {
+      // Mac sees his whole team; one of his own reports signed in sees only their own tickets -
+      // never a teammate's. Not rolled out to every team lead the way the other TL-only tabs
+      // (Team Roster, Coaching, etc.) are - see ticketAuditAccess() above.
       const roster = await loadRosterSnapshot();
-      const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
-      const memberEmails = new Set(assignedMembers.map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const access = ticketAuditAccess(identity, roster, session);
+      if (!access.allowed) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const snapshot = await loadTicketAuditSnapshot();
-      const tickets = (snapshot.tickets || []).filter(t => memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
-      return json(res, 200, {
-        ok: true, isTeamLeader: memberEmails.size > 0, generatedAt: snapshot.generatedAt || '',
-        members: assignedMembers.map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName })),
-        tickets
-      });
+      const tickets = (snapshot.tickets || []).filter(t => access.ownedEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      return json(res, 200, { ok: true, isTeamView: access.isTeamView, generatedAt: snapshot.generatedAt || '', tickets });
     }
 
     // Grounding data (recent comments, matching Help Center articles, matching Jira issues) for
     // one specific ticket is fetched only on demand - see the comment on
     // loadTicketAuditSnapshot() above for why. Both routes below re-check the ticket actually
-    // belongs to one of the caller's own team members before queueing/returning anything, so a
-    // TL can't pull resolution context for a ticket outside their own team.
+    // belongs to someone the caller is allowed to see (their whole team for Mac, just
+    // themselves for one of his reports) before queueing/returning anything.
     if (parsed.pathname === '/api/my/ticket-audit/resolution-request' && req.method === 'POST') {
       const body = await readJsonBody(req);
       const ticketId = String(body.ticketId || '').trim();
       if (!ticketId) return json(res, 400, { ok: false, error: 'A ticket ID is required.' });
       const roster = await loadRosterSnapshot();
-      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const access = ticketAuditAccess(identity, roster, session);
+      if (!access.allowed) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const snapshot = await loadTicketAuditSnapshot();
-      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
-      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your team\'s backlog.' });
+      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && access.ownedEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your backlog.' });
       const queue = await cloudStore.kvGetJson(TICKET_RESOLUTION_REQUESTS_KEY, []);
       queue.push({ ticketId, requestedBy: identity, requestedAt: new Date().toISOString() });
       await cloudStore.kvSetJson(TICKET_RESOLUTION_REQUESTS_KEY, queue);
@@ -3866,10 +3886,11 @@ const server = http.createServer(async (req, res) => {
       const ticketId = String(parsed.searchParams.get('ticketId') || '').trim();
       if (!ticketId) return json(res, 400, { ok: false, error: 'A ticket ID is required.' });
       const roster = await loadRosterSnapshot();
-      const memberEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const access = ticketAuditAccess(identity, roster, session);
+      if (!access.allowed) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const snapshot = await loadTicketAuditSnapshot();
-      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && memberEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
-      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your team\'s backlog.' });
+      const owned = (snapshot.tickets || []).some(t => String(t.ticketId) === ticketId && access.ownedEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
+      if (!owned) return json(res, 403, { ok: false, error: 'That ticket is not in your backlog.' });
       const results = await cloudStore.kvGetJson(TICKET_RESOLUTION_RESULTS_KEY, {});
       const result = results[ticketId] || null;
       return json(res, 200, { ok: true, ready: Boolean(result), result });

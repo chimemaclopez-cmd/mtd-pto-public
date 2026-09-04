@@ -14,7 +14,10 @@ export const disconnectCopilot=()=>api('/api/admin/copilot/disconnect',{method:'
 // (send-code/verify) and the actual chat call happen directly from whichever browser is doing
 // them, same as Team_Mac_Daily_Operations_Dashboard.html already does successfully.
 const COPILOT_BASE='https://tsr-bot.d.chime.me/api/v1';
-const COPILOT_CLIENT_VERSION='2.5.3';
+// Bump this whenever the PapagoAI Copilot Chrome extension ships a new version - tsr-bot
+// rejects requests reporting an older client version than it currently expects (confirmed via
+// the real 2.6.0 extension build: same base URL/auth/header shape, just this string changed).
+const COPILOT_CLIENT_VERSION='2.6.0';
 // No timeout used to mean a hung tsr-bot request left the UI (a triage loop, LoftIQ's
 // "thinking" state, Suggest Reply) stuck indefinitely with no way out but a page reload -
 // 30s is generous for a single chat/messages call but still bounds the wait.
