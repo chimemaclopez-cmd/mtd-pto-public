@@ -287,7 +287,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div></section>
 <section id="mbrReportView" hidden><div class="sub">Generates a Monthly Business Review deck for your team - Team Overview, Attendance, Productivity, CSAT, Coaching, and Pending/Reminders, with a few insight lines drafted by Copilot and fact-checked against your team's actual numbers by Groq. Schedule Adherence and completed Performance Evaluations aren't included yet - there's no reliable structured data for either in this portal.</div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Reporting Month</label><input type="month" id="mbrReportMonth"></div><button class="btn compact" id="mbrReportLastMonthBtn" type="button">Last Month</button><button class="btn primary" id="mbrReportGenerateBtn">Generate MBR</button><button class="btn" id="mbrExecReportGenerateBtn">Executive Report (PDF)</button></div><div id="mbrReportMessage" class="message" hidden></div></section>
 <section id="serviceRecoveryView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="serviceRecoveryPeriod"></select></div></div><div class="sectionTitle">Service Recovery — Your Team</div><div class="sub">Bad CSATs your reports received this period. "Contacted" is detected automatically once that employee's own Team Lead or assigned Senior TSR replies on the ticket after the survey - "Recovered" means the customer replied back after that.</div><div class="cards" id="serviceRecoveryCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Survey Date</th><th>Status</th><th>Contacted</th><th>AI Triage</th><th>Employee</th><th>Ticket</th><th>Comment</th></tr></thead><tbody id="serviceRecoveryBody"></tbody></table></div><div class="sectionTitle" style="margin-top:28px">Service Recovery Leaderboard</div><div class="sub">24-hour follow-up, 7-day bad→good conversion, and customer response rate, by team lead, company-wide.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Rank</th><th>Team Leader</th><th>24h Follow-up Rate</th><th>7d Bad→Good Rate</th><th>Customer Response Rate</th></tr></thead><tbody id="serviceRecoveryLeaderboardBody"></tbody><tfoot id="serviceRecoveryLeaderboardFoot"></tfoot></table></div></section>
-<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub">Every open/pending/on-hold Zendesk ticket in scope for you, refreshed roughly every 15 minutes. "Likely Closeable" means the ticket has been Pending 3+ days with no reply from the requester - worth a quick look before closing. Everything else still needs a rep's attention; use Suggest Resolution on any ticket for a draft grounded in a related Jira issue, a similar past ticket, or a Help Center article, in that order.<span id="ticketAuditGeneratedAt" class="muted" style="display:block;margin-top:4px"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="likelyCloseable">Likely Closeable</option><option value="needsAction">Needs Action</option><option value="pending">Pending</option><option value="onHold">On Hold</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
+<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub">Every open/pending/on-hold Zendesk ticket in scope for you, refreshed twice a day (around 8 AM and 2 PM ET). "Likely Closeable" means the ticket has been Pending 3+ days with no reply from the requester - worth a quick look before closing. Everything else still needs a rep's attention; use Suggest Resolution on any ticket for a draft grounded in a related Jira issue, a similar past ticket, or a Help Center article, in that order.<span id="ticketAuditGeneratedAt" class="muted" style="display:block;margin-top:4px"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="likelyCloseable">Likely Closeable</option><option value="needsAction">Needs Action</option><option value="pending">Pending</option><option value="onHold">On Hold</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -1094,7 +1094,7 @@ function renderDashboard(){
     ticketAuditTickets.forEach(t=>{if(counts[t.bucket]!=null)counts[t.bucket]++});
     $('dashboardTicketAuditMeta').textContent=ticketAuditTickets.length?`${counts.needsAction} need action · ${counts.likelyCloseable} likely closeable`:'';
     const snippet=[...ticketAuditTickets].filter(t=>t.bucket==='likelyCloseable'||t.bucket==='needsAction')
-      .sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||b.staleDays-a.staleDays)
+      .sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||ticketPriorityWithinBucket(a)-ticketPriorityWithinBucket(b)||b.staleDays-a.staleDays)
       .slice(0,4);
     $('dashboardTicketAuditSnippet').innerHTML=snippet.length?snippet.map(t=>{
       const flagCls=TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data';
@@ -3255,6 +3255,16 @@ $('suggestReplyClose').onclick=()=>{$('suggestReplyModal').hidden=true;suggestRe
 const TICKET_AUDIT_BUCKET_LABELS={likelyCloseable:'Likely Closeable',needsAction:'Needs Action',pending:'Pending',onHold:'On Hold'};
 const TICKET_AUDIT_BUCKET_ORDER={likelyCloseable:0,needsAction:1,pending:2,onHold:3};
 const TICKET_AUDIT_BUCKET_CLASS={likelyCloseable:'status-ready',needsAction:'status-failed',pending:'status-pending',onHold:'status-no-data'};
+// Priority WITHIN a bucket, per direct instruction - Needs Action: a resolved-but-unclosed
+// linked Jira issue (the rep already has what they need) outranks an "open" ticket (already
+// started), which outranks a fresh "new" one; On Hold: a resolved-but-unclosed linked Jira
+// issue outranks an unlinked ticket (unclear what it's waiting on), which outranks one still
+// genuinely blocked on in-progress engineering work. Pending is deliberately left untouched.
+function ticketPriorityWithinBucket(t){
+  if(t.bucket==='needsAction')return t.jiraLinkPriority==='jiraResolved'?-1:(t.status==='open'?0:1);
+  if(t.bucket==='onHold')return t.jiraLinkPriority==='jiraResolved'?0:t.jiraLinkPriority==='noJira'?1:2;
+  return 0;
+}
 async function loadTicketAuditTab(){
   if(ticketAuditLoading)return;
   ticketAuditLoading=true;
@@ -3273,7 +3283,7 @@ function renderTicketAudit(){
   $('ticketAuditCards').innerHTML=[['Total Open Tickets',ticketAuditTickets.length],['Likely Closeable',counts.likelyCloseable],['Needs Action',counts.needsAction],['Pending',counts.pending],['On Hold',counts.onHold]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
   $('ticketAuditGeneratedAt').textContent=ticketAuditGeneratedAt?`Last refreshed: ${new Date(ticketAuditGeneratedAt).toLocaleString()}`:'';
   const filtered=ticketAuditBucketFilter?ticketAuditTickets.filter(t=>t.bucket===ticketAuditBucketFilter):ticketAuditTickets;
-  const sorted=[...filtered].sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||b.staleDays-a.staleDays);
+  const sorted=[...filtered].sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||ticketPriorityWithinBucket(a)-ticketPriorityWithinBucket(b)||b.staleDays-a.staleDays);
   $('ticketAuditBody').innerHTML=sorted.map(t=>{
     const ticketLink=`<a href="https://${ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${encodeURIComponent(t.ticketId)}" target="_blank" rel="noopener noreferrer">#${esc(String(t.ticketId))}</a>`;
     const flagCls=TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data';
