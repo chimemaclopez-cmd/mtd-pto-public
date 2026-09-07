@@ -1291,6 +1291,15 @@ async function betaFeaturesFor(email) {
   const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(email));
   return me?.betaFeatures || [];
 }
+// Delivered in the login/session payload so the client already has it before the Dashboard's
+// first render - without this, the greeting briefly shows the legal first name (from the login
+// response's plain employeeName) and only flips to the nickname once /api/my/profile finishes
+// loading a few seconds later, a visible flash-of-wrong-name confirmed live.
+async function nicknameFor(email) {
+  const roster = await loadRosterSnapshot();
+  const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(email));
+  return (me?.nickname || '').trim();
+}
 // Ticket Audit is restricted to Mac (the full team view) and, separately, each of his own
 // direct reports (their own tickets only) - not rolled out to every team lead the way the
 // other TL tabs are. ticketAuditAccess() below is the single place both the tab-visibility
@@ -1722,7 +1731,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1835,7 +1844,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
