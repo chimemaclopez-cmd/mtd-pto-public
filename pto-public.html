@@ -287,7 +287,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div></section>
 <section id="mbrReportView" hidden><div class="sub">Generates a Monthly Business Review deck for your team - Team Overview, Attendance, Productivity, CSAT, Coaching, and Pending/Reminders, with a few insight lines drafted by Copilot and fact-checked against your team's actual numbers by Groq. Schedule Adherence and completed Performance Evaluations aren't included yet - there's no reliable structured data for either in this portal.</div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Reporting Month</label><input type="month" id="mbrReportMonth"></div><button class="btn compact" id="mbrReportLastMonthBtn" type="button">Last Month</button><button class="btn primary" id="mbrReportGenerateBtn">Generate MBR</button><button class="btn" id="mbrExecReportGenerateBtn">Executive Report (PDF)</button></div><div id="mbrReportMessage" class="message" hidden></div></section>
 <section id="serviceRecoveryView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="serviceRecoveryPeriod"></select></div></div><div class="sectionTitle">Service Recovery — Your Team</div><div class="sub">Bad CSATs your reports received this period. "Contacted" is detected automatically once that employee's own Team Lead or assigned Senior TSR replies on the ticket after the survey - "Recovered" means the customer replied back after that.</div><div class="cards" id="serviceRecoveryCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Survey Date</th><th>Status</th><th>Contacted</th><th>AI Triage</th><th>Employee</th><th>Ticket</th><th>Comment</th></tr></thead><tbody id="serviceRecoveryBody"></tbody></table></div><div class="sectionTitle" style="margin-top:28px">Service Recovery Leaderboard</div><div class="sub">24-hour follow-up, 7-day bad→good conversion, and customer response rate, by team lead, company-wide.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Rank</th><th>Team Leader</th><th>24h Follow-up Rate</th><th>7d Bad→Good Rate</th><th>Customer Response Rate</th></tr></thead><tbody id="serviceRecoveryLeaderboardBody"></tbody><tfoot id="serviceRecoveryLeaderboardFoot"></tfoot></table></div></section>
-<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub">Every Open or On Hold Zendesk ticket in scope for you, refreshed twice a day (around 8 AM and 2 PM ET) - Pending tickets are left out entirely, since those are most likely just waiting on the customer or already ready to solve. A ticket marked "Ready to Close" is the top priority in either bucket - either its linked Jira issue is already resolved, or Copilot confirmed the drafted resolution wraps it up, so it just needs a follow-up and a close. Use Suggest Resolution on any Open ticket for a draft grounded in a related Jira issue, a similar past ticket, or a Help Center article (in that order) - Copilot then checks that same draft to flag whether the ticket is actually ready to close.<span id="ticketAuditGeneratedAt" class="muted" style="display:block;margin-top:4px"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="needsAction">Needs Action</option><option value="onHold">On Hold</option><option value="readyToClose">Ready to Close</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
+<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub"><span id="ticketAuditGeneratedAt" class="muted"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="needsAction">Needs Action</option><option value="onHold">On Hold</option><option value="readyToClose">Ready to Close</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -3265,14 +3265,24 @@ function ticketPriorityWithinBucket(t){
   if(t.bucket==='onHold')return t.jiraLinkPriority==='jiraResolved'?0:t.jiraLinkPriority==='noJira'?1:2;
   return 0;
 }
-// A ticket counts as "ready to close" either because Copilot directly confirmed the drafted
-// resolution closes it out (needsAction only, on-demand), or because its linked Jira issue is
-// already resolved and just needs a follow-up + close (either bucket, from the periodic scan).
-function isReadyToClose(t){return t.aiCloseable===true||t.jiraLinkPriority==='jiraResolved'}
+// "Ready to Close" means two DIFFERENT things depending on bucket, and they must not be blended:
+// - On Hold: its linked Jira issue is already resolved - a strong signal there, since the ticket
+//   is sitting idle specifically waiting on that fix.
+// - Needs Action (Open): ONLY a direct Copilot verdict on this ticket's own drafted resolution
+//   counts. A fuzzy-matched Jira issue happening to have a resolution is NOT enough - live testing
+//   found real false positives (a resolved-looking Jira match on an Open ticket that was actually
+//   a live, escalated billing dispute still needing follow-up). Per direct instruction, an Open
+//   ticket's closeability comes from Copilot/AI judgment alone, never a Jira/text heuristic.
+function isReadyToClose(t){return t.bucket==='needsAction'?t.aiCloseable===true:t.jiraLinkPriority==='jiraResolved'}
 // One shared Flag-pill shape for the Ticket Audit table and the Dashboard snippet, so a ticket
-// reads the same "ready to close" way in both places once Copilot has weighed in on it.
+// reads the same way in both places. needsAction never gets the green "Ready to Close" pill from
+// a linked-Jira match alone - that's downgraded to a softer "worth a look" hint.
 function ticketFlagPill(t){
-  if(t.aiCloseable===true)return{cls:'status-ready',label:'✅ AI: Ready to Close',title:t.aiCloseableReason||t.reason||''};
+  if(t.bucket==='needsAction'){
+    if(t.aiCloseable===true)return{cls:'status-ready',label:'✅ AI: Ready to Close',title:t.aiCloseableReason||t.reason||''};
+    if(t.jiraLinkPriority==='jiraResolved')return{cls:'status-pending',label:'Linked Jira Resolved - Verify',title:t.reason||''};
+    return{cls:TICKET_AUDIT_BUCKET_CLASS.needsAction,label:TICKET_AUDIT_BUCKET_LABELS.needsAction,title:t.reason||''};
+  }
   if(t.jiraLinkPriority==='jiraResolved')return{cls:'status-ready',label:'Ready to Close',title:t.reason||''};
   return{cls:TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data',label:TICKET_AUDIT_BUCKET_LABELS[t.bucket]||t.bucket,title:t.reason||''};
 }
