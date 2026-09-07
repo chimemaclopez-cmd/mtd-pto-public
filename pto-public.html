@@ -287,7 +287,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div></section>
 <section id="mbrReportView" hidden><div class="sub">Generates a Monthly Business Review deck for your team - Team Overview, Attendance, Productivity, CSAT, Coaching, and Pending/Reminders, with a few insight lines drafted by Copilot and fact-checked against your team's actual numbers by Groq. Schedule Adherence and completed Performance Evaluations aren't included yet - there's no reliable structured data for either in this portal.</div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Reporting Month</label><input type="month" id="mbrReportMonth"></div><button class="btn compact" id="mbrReportLastMonthBtn" type="button">Last Month</button><button class="btn primary" id="mbrReportGenerateBtn">Generate MBR</button><button class="btn" id="mbrExecReportGenerateBtn">Executive Report (PDF)</button></div><div id="mbrReportMessage" class="message" hidden></div></section>
 <section id="serviceRecoveryView" hidden><div class="filters noPrint" style="margin-bottom:12px;align-items:flex-end"><div class="field"><label>Reporting Period</label><select id="serviceRecoveryPeriod"></select></div></div><div class="sectionTitle">Service Recovery — Your Team</div><div class="sub">Bad CSATs your reports received this period. "Contacted" is detected automatically once that employee's own Team Lead or assigned Senior TSR replies on the ticket after the survey - "Recovered" means the customer replied back after that.</div><div class="cards" id="serviceRecoveryCards"></div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Survey Date</th><th>Status</th><th>Contacted</th><th>AI Triage</th><th>Employee</th><th>Ticket</th><th>Comment</th></tr></thead><tbody id="serviceRecoveryBody"></tbody></table></div><div class="sectionTitle" style="margin-top:28px">Service Recovery Leaderboard</div><div class="sub">24-hour follow-up, 7-day bad→good conversion, and customer response rate, by team lead, company-wide.</div><div class="tableWrap" style="margin-top:12px"><table><thead><tr><th>Rank</th><th>Team Leader</th><th>24h Follow-up Rate</th><th>7d Bad→Good Rate</th><th>Customer Response Rate</th></tr></thead><tbody id="serviceRecoveryLeaderboardBody"></tbody><tfoot id="serviceRecoveryLeaderboardFoot"></tfoot></table></div></section>
-<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub">Every Open or On Hold Zendesk ticket in scope for you, refreshed twice a day (around 8 AM and 2 PM ET) - Pending tickets are left out entirely, since those are most likely just waiting on the customer or already ready to solve. A ticket flagged with a resolved-but-unclosed linked Jira issue is the top priority in either bucket - the fix is already done, it just needs a follow-up and a close. Use Suggest Resolution on any ticket for a draft grounded in a related Jira issue, a similar past ticket, or a Help Center article, in that order.<span id="ticketAuditGeneratedAt" class="muted" style="display:block;margin-top:4px"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="needsAction">Needs Action</option><option value="onHold">On Hold</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
+<section id="ticketAuditView" hidden><div class="sectionTitle" id="ticketAuditTitle">Ticket Audit — Open Backlog</div><div class="sub">Every Open or On Hold Zendesk ticket in scope for you, refreshed twice a day (around 8 AM and 2 PM ET) - Pending tickets are left out entirely, since those are most likely just waiting on the customer or already ready to solve. A ticket marked "Ready to Close" is the top priority in either bucket - either its linked Jira issue is already resolved, or Copilot confirmed the drafted resolution wraps it up, so it just needs a follow-up and a close. Use Suggest Resolution on any Open ticket for a draft grounded in a related Jira issue, a similar past ticket, or a Help Center article (in that order) - Copilot then checks that same draft to flag whether the ticket is actually ready to close.<span id="ticketAuditGeneratedAt" class="muted" style="display:block;margin-top:4px"></span></div><div class="cards" id="ticketAuditCards"></div><div class="filters noPrint" style="margin:12px 0"><div class="field"><label>Show</label><select id="ticketAuditBucketFilter"><option value="">All</option><option value="needsAction">Needs Action</option><option value="onHold">On Hold</option><option value="readyToClose">Ready to Close</option></select></div></div><div class="tableWrap"><table><thead><tr><th>Employee</th><th>Flag</th><th>Action</th><th>Ticket</th><th>Status</th><th>Age</th></tr></thead><tbody id="ticketAuditBody"></tbody></table></div></section>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -1091,16 +1091,15 @@ function renderDashboard(){
   $('dashboardTicketAuditPanel').hidden=!canUseTicketAudit;
   if(canUseTicketAudit){
     const counts={needsAction:0,onHold:0};
-    let readyToClose=0;
-    ticketAuditTickets.forEach(t=>{if(counts[t.bucket]!=null)counts[t.bucket]++;if(t.jiraLinkPriority==='jiraResolved')readyToClose++});
+    const readyToClose=ticketAuditTickets.filter(isReadyToClose).length;
+    ticketAuditTickets.forEach(t=>{if(counts[t.bucket]!=null)counts[t.bucket]++});
     $('dashboardTicketAuditMeta').textContent=ticketAuditTickets.length?`${counts.needsAction} need action · ${counts.onHold} on hold · ${readyToClose} ready to close`:'';
     const snippet=[...ticketAuditTickets]
       .sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||ticketPriorityWithinBucket(a)-ticketPriorityWithinBucket(b)||b.staleDays-a.staleDays)
       .slice(0,4);
     $('dashboardTicketAuditSnippet').innerHTML=snippet.length?snippet.map(t=>{
-      const flagCls=TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data';
-      const flagLabel=TICKET_AUDIT_BUCKET_LABELS[t.bucket]||t.bucket;
-      return `<div class="attentionRow" data-goto-dashboard-tab="ticketAudit"><span><b>#${esc(String(t.ticketId))}</b> ${esc(t.subject)} <span class="muted">— ${esc(t.employeeName)}</span></span><span class="pill ${flagCls}">${esc(flagLabel)}</span></div>`;
+      const flag=ticketFlagPill(t);
+      return `<div class="attentionRow" data-goto-dashboard-tab="ticketAudit"><span><b>#${esc(String(t.ticketId))}</b> ${esc(t.subject)} <span class="muted">— ${esc(t.employeeName)}</span></span><span class="pill ${flag.cls}" title="${esc(flag.title)}">${esc(flag.label)}</span></div>`;
     }).join(''):'<div class="attentionEmpty">Nothing flagged right now 🎉</div>';
   }
 }
@@ -3262,9 +3261,20 @@ const TICKET_AUDIT_BUCKET_CLASS={needsAction:'status-failed',onHold:'status-no-d
 // issue outranks an unlinked ticket (unclear what it's waiting on), which outranks one still
 // genuinely blocked on in-progress engineering work. Pending is deliberately left untouched.
 function ticketPriorityWithinBucket(t){
-  if(t.bucket==='needsAction')return t.jiraLinkPriority==='jiraResolved'?-1:(t.status==='open'?0:1);
+  if(t.bucket==='needsAction')return t.aiCloseable===true?-2:t.jiraLinkPriority==='jiraResolved'?-1:(t.status==='open'?0:1);
   if(t.bucket==='onHold')return t.jiraLinkPriority==='jiraResolved'?0:t.jiraLinkPriority==='noJira'?1:2;
   return 0;
+}
+// A ticket counts as "ready to close" either because Copilot directly confirmed the drafted
+// resolution closes it out (needsAction only, on-demand), or because its linked Jira issue is
+// already resolved and just needs a follow-up + close (either bucket, from the periodic scan).
+function isReadyToClose(t){return t.aiCloseable===true||t.jiraLinkPriority==='jiraResolved'}
+// One shared Flag-pill shape for the Ticket Audit table and the Dashboard snippet, so a ticket
+// reads the same "ready to close" way in both places once Copilot has weighed in on it.
+function ticketFlagPill(t){
+  if(t.aiCloseable===true)return{cls:'status-ready',label:'✅ AI: Ready to Close',title:t.aiCloseableReason||t.reason||''};
+  if(t.jiraLinkPriority==='jiraResolved')return{cls:'status-ready',label:'Ready to Close',title:t.reason||''};
+  return{cls:TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data',label:TICKET_AUDIT_BUCKET_LABELS[t.bucket]||t.bucket,title:t.reason||''};
 }
 async function loadTicketAuditTab(){
   if(ticketAuditLoading)return;
@@ -3280,17 +3290,16 @@ async function loadTicketAuditTab(){
 }
 function renderTicketAudit(){
   const counts={needsAction:0,onHold:0};
-  let readyToClose=0;
-  ticketAuditTickets.forEach(t=>{if(counts[t.bucket]!=null)counts[t.bucket]++;if(t.jiraLinkPriority==='jiraResolved')readyToClose++});
-  $('ticketAuditCards').innerHTML=[['Total Open Tickets',ticketAuditTickets.length],['Needs Action',counts.needsAction],['On Hold',counts.onHold],['Linked Jira Already Resolved',readyToClose]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
+  const readyToClose=ticketAuditTickets.filter(isReadyToClose).length;
+  ticketAuditTickets.forEach(t=>{if(counts[t.bucket]!=null)counts[t.bucket]++});
+  $('ticketAuditCards').innerHTML=[['Total Open Tickets',ticketAuditTickets.length],['Needs Action',counts.needsAction],['On Hold',counts.onHold],['Ready to Close',readyToClose]].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
   $('ticketAuditGeneratedAt').textContent=ticketAuditGeneratedAt?`Last refreshed: ${new Date(ticketAuditGeneratedAt).toLocaleString()}`:'';
-  const filtered=ticketAuditBucketFilter?ticketAuditTickets.filter(t=>t.bucket===ticketAuditBucketFilter):ticketAuditTickets;
+  const filtered=ticketAuditBucketFilter==='readyToClose'?ticketAuditTickets.filter(isReadyToClose):ticketAuditBucketFilter?ticketAuditTickets.filter(t=>t.bucket===ticketAuditBucketFilter):ticketAuditTickets;
   const sorted=[...filtered].sort((a,b)=>(TICKET_AUDIT_BUCKET_ORDER[a.bucket]??9)-(TICKET_AUDIT_BUCKET_ORDER[b.bucket]??9)||ticketPriorityWithinBucket(a)-ticketPriorityWithinBucket(b)||b.staleDays-a.staleDays);
   $('ticketAuditBody').innerHTML=sorted.map(t=>{
     const ticketLink=`<a href="https://${ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${encodeURIComponent(t.ticketId)}" target="_blank" rel="noopener noreferrer">#${esc(String(t.ticketId))}</a>`;
-    const flagCls=TICKET_AUDIT_BUCKET_CLASS[t.bucket]||'status-no-data';
-    const flagLabel=TICKET_AUDIT_BUCKET_LABELS[t.bucket]||t.bucket;
-    return `<tr><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span></td><td><span class="pill ${flagCls}" title="${esc(t.reason||'')}">${esc(flagLabel)}</span></td><td><button class="btn compact" type="button" data-ticket-audit-suggest="${esc(String(t.ticketId))}">Suggest Resolution</button></td><td>${ticketLink}<br><span class="muted">${esc(t.subject)}</span></td><td>${esc(t.status)}</td><td>${t.ageDays}d<br><span class="muted">Updated ${t.staleDays}d ago</span></td></tr>`;
+    const flag=ticketFlagPill(t);
+    return `<tr><td><b>${esc(t.employeeName)}</b><br><span class="muted">${esc(t.employeeEmail)}</span></td><td><span class="pill ${flag.cls}" title="${esc(flag.title)}">${esc(flag.label)}</span></td><td><button class="btn compact" type="button" data-ticket-audit-suggest="${esc(String(t.ticketId))}">Suggest Resolution</button></td><td>${ticketLink}<br><span class="muted">${esc(t.subject)}</span></td><td>${esc(t.status)}</td><td>${t.ageDays}d<br><span class="muted">Updated ${t.staleDays}d ago</span></td></tr>`;
   }).join('')||'<tr><td colspan="6">No open tickets for your team right now.</td></tr>';
 }
 $('ticketAuditBucketFilter').onchange=()=>{ticketAuditBucketFilter=$('ticketAuditBucketFilter').value;renderTicketAudit()};
@@ -3351,6 +3360,7 @@ async function assessAndShowCloseability(ticket,draftText){
     if(suggestResolutionTarget?.ticketId!==ticket.ticketId)return;
     if(closeable==null){$('suggestResolutionCloseability').hidden=true;return}
     ticket.aiCloseable=closeable;
+    ticket.aiCloseableReason=reason||'';
     $('suggestResolutionCloseability').innerHTML=`<span class="pill ${closeable?'status-ready':'status-pending'}">${closeable?'✅ Copilot: Likely closeable':'⏳ Copilot: Still needs follow-up'}</span>${reason?` <span class="muted">${esc(reason)}</span>`:''}`;
     renderTicketAudit();
   }catch(_){$('suggestResolutionCloseability').hidden=true}
