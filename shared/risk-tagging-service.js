@@ -111,3 +111,28 @@ ${ticketsText}
 Matching Help Center articles:
 ${kbText}`;
 }
+
+// Ticket Audit's Open-ticket closeability verdict, per direct instruction: detected ONLY via
+// real Copilot/AI judgment (never a text heuristic like the removed staleness-based "Likely
+// Closeable" check), and only ever run on demand for one specific ticket the rep is already
+// looking at - tsr-bot only answers from a browser, so there's no way to batch this across a
+// whole backlog the way the cheap Zendesk-status buckets are computed. Deliberately a SEPARATE,
+// lightweight follow-up call rather than folded into the main resolution prompt above, since
+// pre-run's own answerBody (a real account-research agent's output, not this prompt at all)
+// needs the same follow-up judgment applied to it - one shared assessment step for both paths.
+export function buildCloseabilityPrompt({ subject, draftResolution }) {
+  return `You are told a Zendesk support ticket is still open and a draft resolution has been prepared for it. Based ONLY on the draft below, decide: once the rep sends this reply and takes the actions it describes, will this ticket be ready to close, or does it still need further back-and-forth with the customer (e.g. waiting on more info, confirming something worked, an unresolved escalation)? Reply with EXACTLY one line in this format, nothing else: "CLOSEABLE: yes" or "CLOSEABLE: no" followed by " - " and a one-sentence reason.
+
+Ticket subject: ${subject || '(none)'}
+
+Draft resolution:
+${draftResolution || '(none)'}`;
+}
+// Parses the strict "CLOSEABLE: yes/no - reason" format buildCloseabilityPrompt asks for.
+// Copilot is still a free-text model underneath, so this validates rather than trusts the
+// shape - an unparseable reply is treated as "couldn't determine," never silently as "yes".
+export function parseCloseabilityResponse(raw) {
+  const match = String(raw || '').match(/CLOSEABLE:\s*(yes|no)\s*-?\s*(.*)/i);
+  if (!match) return { closeable: null, reason: '' };
+  return { closeable: match[1].toLowerCase() === 'yes', reason: match[2].trim() };
+}
