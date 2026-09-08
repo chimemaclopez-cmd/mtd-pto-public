@@ -686,6 +686,10 @@ async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi
 // CSAT_REFRESH_REQUESTS_KEY, just on zendesk-proxy's faster ~10s ticket-audit tick rather than
 // its ~10min general cloud-sync tick, since a TL is actively waiting on one specific ticket.
 async function loadTicketAuditSnapshot() { return getSnapshot('ticket-audit', 'mtdkpi:snapshot:ticket-audit', { generatedAt: '', tickets: [] }); }
+// Upsell Referrals: Excel (SharePoint) stays the system of record - zendesk-proxy.js reads it
+// periodically via msgraph-cli and pushes this snapshot (this server has no Microsoft Graph
+// credentials of its own), same pattern as loadTicketAuditSnapshot() above.
+async function loadUpsellReferralsSnapshot() { return getSnapshot('upsell-referrals', 'mtdkpi:snapshot:upsell-referrals', { generatedAt: '', referrals: [] }); }
 const TICKET_RESOLUTION_REQUESTS_KEY = 'mtdkpi:ticket-resolution-requests';
 const TICKET_RESOLUTION_RESULTS_KEY = 'mtdkpi:ticket-resolution-results';
 // Adds each highlighted employee's uploaded profile photo (if any) to their Spotlight Wall
@@ -3915,6 +3919,16 @@ const server = http.createServer(async (req, res) => {
       const results = await cloudStore.kvGetJson(TICKET_RESOLUTION_RESULTS_KEY, {});
       const result = results[ticketId] || null;
       return json(res, 200, { ok: true, ready: Boolean(result), result });
+    }
+
+    // Open to every rep (unlike Ticket Audit) - the SMB Referral Rewards Program is available to
+    // any Support/Onboarding rep, not just Mac's team. Each rep only ever sees their own rows,
+    // matched by employeeEmail (resolved server-side in zendesk-proxy.js against the roster from
+    // the sheet's free-text TSR Name column).
+    if (parsed.pathname === '/api/my/upsell-referrals' && req.method === 'GET') {
+      const snapshot = await loadUpsellReferralsSnapshot();
+      const referrals = (snapshot.referrals || []).filter(r => r.employeeEmail === identity);
+      return json(res, 200, { ok: true, generatedAt: snapshot.generatedAt || '', referrals });
     }
 
     // Probationary KPI Metrics: a running, live-computed table (Productivity/CSAT/Attendance/
