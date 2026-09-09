@@ -1324,6 +1324,16 @@ function ticketAuditAccess(identity, roster, session) {
   const allowed = Boolean(self) && ADMIN_EMAILS.has(ptoLogic.cleanEmail(self.teamLeadEmail));
   return { allowed, ownedEmails: allowed ? new Set([identity]) : new Set(), isTeamView: false };
 }
+// Spiff Programs is open to every rep (unlike Ticket Audit), but a Team Lead should see their
+// own reports' entries too - not just their own - and SOM sees everyone company-wide, same
+// "sees it all" scope isCompanyWideOverseer() already gives her for Team Attendance/Roster/KPI.
+// A plain rep with no reports just gets themselves. `null` ownedEmails means "no filter, show
+// every record" - distinct from an empty Set, which would hide everything.
+function upsellReferralsAccess(identity, roster, session) {
+  if (isCompanyWideOverseer(identity, session)) return { ownedEmails: null, isTeamView: true };
+  const teamEmails = scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail));
+  return { ownedEmails: new Set([identity, ...teamEmails]), isTeamView: teamEmails.length > 0 };
+}
 // The platform's own creator/admin can't otherwise see the QA/SOM/HR/TRAINING tabs - those
 // are each tied to one specific person's email, and Mac isn't any of them (he already gets
 // real Team Lead access on his own account since other active employees genuinely report to
@@ -3922,13 +3932,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Open to every rep (unlike Ticket Audit) - the SMB Referral Rewards Program is available to
-    // any Support/Onboarding rep, not just Mac's team. Each rep only ever sees their own rows,
-    // matched by employeeEmail (resolved server-side in zendesk-proxy.js against the roster from
-    // the sheet's free-text TSR Name column).
+    // any Support/Onboarding rep, not just Mac's team. Scope per upsellReferralsAccess(): a plain
+    // rep sees only their own rows, a Team Lead also sees their reports', and SOM sees everyone
+    // company-wide - all matched by employeeEmail (resolved server-side in zendesk-proxy.js
+    // against the roster from the sheet's free-text TSR Name column).
     if (parsed.pathname === '/api/my/upsell-referrals' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const access = upsellReferralsAccess(identity, roster, session);
       const snapshot = await loadUpsellReferralsSnapshot();
-      const referrals = (snapshot.referrals || []).filter(r => r.employeeEmail === identity);
-      return json(res, 200, { ok: true, generatedAt: snapshot.generatedAt || '', referrals });
+      const referrals = access.ownedEmails ? (snapshot.referrals || []).filter(r => access.ownedEmails.has(r.employeeEmail)) : (snapshot.referrals || []);
+      return json(res, 200, { ok: true, generatedAt: snapshot.generatedAt || '', isTeamView: access.isTeamView, referrals });
     }
 
     // Probationary KPI Metrics: a running, live-computed table (Productivity/CSAT/Attendance/
