@@ -1707,7 +1707,7 @@ function applyPortalRoleView(){
   // reload in between (single-page app) - so anything a previous role only ever *hid* and
   // never explicitly restored here would otherwise stay stuck for whichever role logs in
   // next. Reset everything to the default (REP) view first, then layer role restrictions on.
-  showTabs(['kpi','schedule','attendance','pto','announcements','coaching','disciplinary','alignment']);
+  showTabs(['kpi','schedule','attendance','pto','announcements','coaching','disciplinary','alignment','evaluations']);
   $('siteCoachingTabBtn').hidden=true;$('dsatReviewTabBtn').hidden=true;$('trainingTabBtn').hidden=true;
   // Admin-only, independent of portalRole/viewAsRole (same precedent as adminCopilotView/
   // adminAlignmentCheckView on the Profile page) - re-run every login so it isn't stuck hidden
