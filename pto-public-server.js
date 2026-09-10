@@ -1491,9 +1491,11 @@ function eligibleTrainingDestinations(roster) {
   const teamLeadEmails = new Set(active.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) && ptoLogic.cleanEmail(x.teamLeadEmail) !== ptoLogic.cleanEmail(x.employeeEmail)).map(x => ptoLogic.cleanEmail(x.teamLeadEmail)));
   return active.filter(x => teamLeadEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeName: x.employeeName, employeeEmail: ptoLogic.cleanEmail(x.employeeEmail) }));
 }
-// Only one Training Manager exists today, so "the training identity" for View-As preview and
-// for scoping training-scores reads is unambiguous - revisit this if a second one is added.
-function trainingManagerIdentity() { return [...TRAINING_MANAGER_EMAILS][0] || ''; }
+// Two Training Managers can share this role now (TRAINING_MANAGER_EMAILS), each with their own
+// real trainees - View-As preview has no way to pick which one, so it shows the union of real
+// trainees across all of them rather than hardcoding a single email (which silently showed
+// nothing once trainees were assigned to a Training Manager other than the first one in the Set).
+function isTrainingManagerScopeEmail(email) { return TRAINING_MANAGER_EMAILS.has(ptoLogic.cleanEmail(email)); }
 // Shared by team-coaching/team-disciplinary/team-attendance: a normal team lead's "my team" is
 // anyone whose teamLeadEmail/teamLeadName points to them, any kpiType - but the Training
 // Manager's access is intentionally narrower, restricted to actual trainees (kpiType
@@ -1510,8 +1512,7 @@ function scopedTeamMembers(roster, identity, session, employeeName, allowViewAs 
   const viewingAsTraining = allowViewAs && effectiveViewAsRole(identity, session) === 'TRAINING';
   const isRealTraining = portalRoleFor(identity) === 'TRAINING';
   if (viewingAsTraining || isRealTraining) {
-    const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : identity;
-    return (roster.records || []).filter(x => inScope(x) && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+    return (roster.records || []).filter(x => inScope(x) && x.kpiType === 'Trainee' && (viewingAsTraining ? isTrainingManagerScopeEmail(x.teamLeadEmail) : ptoLogic.cleanEmail(x.teamLeadEmail) === identity));
   }
   if (allowViewAs && isCompanyWideOverseer(identity, session)) {
     return (roster.records || []).filter(x => inScope(x) && ptoLogic.cleanEmail(x.employeeEmail) !== identity);
@@ -1550,8 +1551,7 @@ async function disciplinaryReviewAccess(identity, employeeName = '', viewAsRole 
   const isRealTraining = portalRoleFor(identity) === 'TRAINING';
   let memberEmails;
   if (viewingAsTraining || isRealTraining) {
-    const scopeIdentity = viewingAsTraining ? trainingManagerIdentity() : cleanIdentity;
-    memberEmails = new Set(records.filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+    memberEmails = new Set(records.filter(x => x.active !== false && x.kpiType === 'Trainee' && (viewingAsTraining ? isTrainingManagerScopeEmail(x.teamLeadEmail) : ptoLogic.cleanEmail(x.teamLeadEmail) === cleanIdentity)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
   } else {
     const self = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === cleanIdentity);
     const leaderName = String(self?.employeeName || employeeName || '').trim().toLowerCase();
@@ -4346,8 +4346,8 @@ const server = http.createServer(async (req, res) => {
     async function hasDirectReports(identity, employeeName, viewAsRole = '') {
       const roster = await loadRosterSnapshot();
       if (viewAsRole === 'TRAINING' || portalRoleFor(identity) === 'TRAINING') {
-        const scopeIdentity = viewAsRole === 'TRAINING' ? trainingManagerIdentity() : ptoLogic.cleanEmail(identity);
-        return (roster.records || []).some(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === scopeIdentity);
+        const viewingAsTraining = viewAsRole === 'TRAINING';
+        return (roster.records || []).some(x => x.active !== false && x.kpiType === 'Trainee' && (viewingAsTraining ? isTrainingManagerScopeEmail(x.teamLeadEmail) : ptoLogic.cleanEmail(x.teamLeadEmail) === ptoLogic.cleanEmail(identity)));
       }
       const signedInEmployee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity) || null;
       const leaderName = String(signedInEmployee?.employeeName || employeeName || '').trim();
@@ -4601,9 +4601,9 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/training/new-hires' && req.method === 'GET') {
       if (portalRoleFor(identity) !== 'TRAINING' && effectiveViewAsRole(identity, session) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const trainingIdentity = portalRoleFor(identity) === 'TRAINING' ? identity : trainingManagerIdentity();
+      const isRealTraining = portalRoleFor(identity) === 'TRAINING';
       const roster = await loadRosterSnapshot();
-      const trainees = (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && ptoLogic.cleanEmail(x.teamLeadEmail) === trainingIdentity)
+      const trainees = (roster.records || []).filter(x => x.active !== false && x.kpiType === 'Trainee' && (isRealTraining ? ptoLogic.cleanEmail(x.teamLeadEmail) === identity : isTrainingManagerScopeEmail(x.teamLeadEmail)))
         .sort((a, b) => (b.effectiveDate || '').localeCompare(a.effectiveDate || ''));
       return json(res, 200, { ok: true, trainees, destinations: eligibleTrainingDestinations(roster), productionKpiTypes: PRODUCTION_KPI_TYPES });
     }
@@ -4678,9 +4678,9 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/training/scores' && req.method === 'GET') {
       if (portalRoleFor(identity) !== 'TRAINING' && effectiveViewAsRole(identity, session) !== 'TRAINING') return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const trainingIdentity = portalRoleFor(identity) === 'TRAINING' ? identity : trainingManagerIdentity();
+      const isRealTraining = portalRoleFor(identity) === 'TRAINING';
       const roster = await loadRosterSnapshot();
-      const traineeEmails = new Set((roster.records || []).filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === trainingIdentity).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const traineeEmails = new Set((roster.records || []).filter(x => isRealTraining ? ptoLogic.cleanEmail(x.teamLeadEmail) === identity : isTrainingManagerScopeEmail(x.teamLeadEmail)).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
       const requestedEmail = ptoLogic.cleanEmail(parsed.searchParams.get('employeeEmail') || '');
       const data = await loadTrainingScores();
       const records = (data.records || []).filter(x => traineeEmails.has(ptoLogic.cleanEmail(x.employeeEmail)) && (!requestedEmail || ptoLogic.cleanEmail(x.employeeEmail) === requestedEmail))
