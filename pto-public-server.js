@@ -686,6 +686,7 @@ async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi
 // CSAT_REFRESH_REQUESTS_KEY, just on zendesk-proxy's faster ~10s ticket-audit tick rather than
 // its ~10min general cloud-sync tick, since a TL is actively waiting on one specific ticket.
 async function loadTicketAuditSnapshot() { return getSnapshot('ticket-audit', 'mtdkpi:snapshot:ticket-audit', { generatedAt: '', tickets: [] }); }
+async function loadEscalationReconciliationSnapshot() { return getSnapshot('escalation-reconciliation', 'mtdkpi:snapshot:escalation-reconciliation', { generatedAt: '', lookbackDays: 0, chatMessagesScanned: 0, chatMentionCount: 0, taggedCount: 0, missingTag: [], missingChatEndorsement: [] }); }
 // Upsell Referrals: Excel (SharePoint) stays the system of record - zendesk-proxy.js reads it
 // periodically via msgraph-cli and pushes this snapshot (this server has no Microsoft Graph
 // credentials of its own), same pattern as loadTicketAuditSnapshot() above.
@@ -3894,6 +3895,15 @@ const server = http.createServer(async (req, res) => {
       const snapshot = await loadTicketAuditSnapshot();
       const tickets = (snapshot.tickets || []).filter(t => access.ownedEmails.has(ptoLogic.cleanEmail(t.employeeEmail)));
       return json(res, 200, { ok: true, isTeamView: access.isTeamView, generatedAt: snapshot.generatedAt || '', tickets });
+    }
+
+    // Admin-only (Mac) - cross-checks the "Lofty TA Escalations" Teams GC against Zendesk's
+    // escalated_to_supervisor tag, run daily by zendesk-proxy.js. Not scoped per-rep like the
+    // other team-lead tabs since the whole point is a company-wide reconciliation view.
+    if (parsed.pathname === '/api/my/escalation-reconciliation' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const snapshot = await loadEscalationReconciliationSnapshot();
+      return json(res, 200, { ok: true, ...snapshot });
     }
 
     // Grounding data (recent comments, matching Help Center articles, matching Jira issues) for
