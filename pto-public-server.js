@@ -1405,9 +1405,14 @@ function ticketAuditAccess(identity, roster, session) {
 // and the existing BQA role (DSAT_REVIEWER_EMAIL, via portalRoleFor) always qualify too, so the
 // same reviewer doing DSAT triage can also use this without a second grant.
 const QA_SCORECARD_REVIEWER_EMAILS = new Set(['mac@lofty.com']);
-function canUseQaScorecard(email) {
+// session is optional (the fresh-login response has no view-as concept yet, viewAsRole always
+// starts at '') - passed wherever available (the /api/auth/session response, every route below)
+// so a non-reviewer previewing as BQA gets real reviewer data back, same widen-only symmetry
+// DSAT Review's own gate already relies on (effectiveViewAsRole never narrows real access).
+function canUseQaScorecard(email, session) {
   const clean = ptoLogic.cleanEmail(email);
-  return ADMIN_EMAILS.has(clean) || portalRoleFor(clean) === 'BQA' || QA_SCORECARD_REVIEWER_EMAILS.has(clean);
+  if (ADMIN_EMAILS.has(clean) || portalRoleFor(clean) === 'BQA' || QA_SCORECARD_REVIEWER_EMAILS.has(clean)) return true;
+  return session ? effectiveViewAsRole(clean, session) === 'BQA' : false;
 }
 // Spiff Programs is open to every rep (unlike Ticket Audit), but a Team Lead should see their
 // own reports' entries too - not just their own - and SOM sees everyone company-wide, same
@@ -1996,7 +2001,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity), canUseQaScorecard: canUseQaScorecard(identity) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity), canUseQaScorecard: canUseQaScorecard(identity, session) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -4432,7 +4437,7 @@ const server = http.createServer(async (req, res) => {
     // defined above (QA_SCORECARD_CATEGORIES/CRITICAL_ERRORS). Reviewer routes below are all
     // gated on canUseQaScorecard(); the self/team-lead read view is separate (/api/my/qa-scorecards).
     if (parsed.pathname === '/api/qa/scorecards/lookup-lists' && req.method === 'GET') {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const roster = await loadRosterSnapshot();
       return json(res, 200, {
         ok: true, categories: QA_SCORECARD_CATEGORIES, criticalErrors: QA_SCORECARD_CRITICAL_ERRORS,
@@ -4442,7 +4447,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/qa/scorecards/reporting' && req.method === 'GET') {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadQaScorecards();
       const from = String(parsed.searchParams.get('from') || ''), to = String(parsed.searchParams.get('to') || '');
       const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
@@ -4481,7 +4486,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/qa/scorecards/ticket-thread' && req.method === 'GET') {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const ticketId = String(parsed.searchParams.get('ticketId') || '').trim();
       if (!ticketId) return json(res, 400, { ok: false, error: 'ticketId is required.' });
       try {
@@ -4493,7 +4498,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/qa/scorecards' && req.method === 'GET') {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadQaScorecards();
       const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
       const ticketQuery = String(parsed.searchParams.get('ticketId') || '').trim();
@@ -4505,7 +4510,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parsed.pathname === '/api/qa/scorecards' && req.method === 'POST') {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const body = await readJsonBody(req);
       const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
       const evaluationDate = String(body.evaluationDate || '');
@@ -4539,7 +4544,7 @@ const server = http.createServer(async (req, res) => {
 
     const qaScorecardMatch = parsed.pathname.match(/^\/api\/qa\/scorecards\/([^/]+)$/);
     if (qaScorecardMatch) {
-      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const id = decodeURIComponent(qaScorecardMatch[1]);
       const data = await loadQaScorecards();
       const index = (data.records || []).findIndex(x => x.id === id);

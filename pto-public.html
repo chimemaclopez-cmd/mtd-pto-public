@@ -3476,9 +3476,14 @@ function renderQaScorecardLiveScore(){
 async function loadQaScorecardTab(){
   if(qaScorecardLoading)return;
   qaScorecardLoading=true;
-  $('qaScorecardFormSubView').hidden=!canUseQaScorecard;
+  // Mirrors the exact `!isTeamLeader||viewAsRole==='REP'` override every other team-lead-only
+  // surface uses (teamAttendanceTabBtn etc., applyPortalRoleView() above): real reviewer access
+  // widened by previewing as BQA, but suppressed while previewing as a bare Rep even if the
+  // real account is a genuine reviewer.
+  const qaScorecardReviewerView=(canUseQaScorecard||viewAsRole==='BQA')&&viewAsRole!=='REP';
+  $('qaScorecardFormSubView').hidden=!qaScorecardReviewerView;
   try{
-    if(canUseQaScorecard){
+    if(qaScorecardReviewerView){
       qaScorecardLookupLists=await getQaScorecardLookupLists();
       $('qaScorecardSubViewToggle').hidden=false;
       setQaScorecardSubView('form');
@@ -5389,6 +5394,12 @@ $('viewAsSelect').onchange=async()=>{
     // forced refresh, or a second preview in the same session would show the first role's
     // stale leftovers instead of this one's real data.
     dsatReviewAvailablePeriods=[];siteCoachingOverview=null;trainingNewHires=[];trainingScoresByEmail=new Map();expandedTraineeEmail=null;siteMetricsData=null;siteMetricsAvailablePeriods=[];
+    // Every other "fetch once, guarded by a truthy check" tab has the exact same stale-preview
+    // bug (confirmed live 2026-09-16: switching View-As repeatedly left old-role content on
+    // screen) unless its guard variable/DOM value is also cleared here - this list must stay in
+    // sync with every `if(next==='x'&&!xGuard)loadXTab()` guard in setTab().
+    serviceRecoveryAvailablePeriods=[];guidesData=null;escalationReconciliationData=null;qaScorecardLookupLists=null;
+    $('teamAttendanceMonth').value='';$('mbrReportMonth').value='';
     applyPortalRoleView();setTab(activeTab);
   }catch(error){setMessage(error.response?.error||error.message,'error');$('viewAsSelect').value=viewAsRole}
 };
