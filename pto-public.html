@@ -3528,8 +3528,8 @@ async function loadQaScorecardTab(){
       setQaScorecardSubView('form');
       $('qaScorecardPurpose').innerHTML=qaScorecardLookupLists.purposes.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
       $('qaScorecardChannel').innerHTML=qaScorecardLookupLists.channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-      $('qaScorecardAgent').innerHTML='<option value="">Select agent</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}</option>`).join('');
-      $('qaScorecardReportAgentFilter').innerHTML='<option value="">All agents</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}</option>`).join('');
+      $('qaScorecardAgent').innerHTML='<option value="">Select agent</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}${a.active?'':' (Inactive)'}</option>`).join('');
+      $('qaScorecardReportAgentFilter').innerHTML='<option value="">All agents</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}${a.active?'':' (Inactive)'}</option>`).join('');
       qaScorecardResetForm();
     }
     const myResult=await getMyQaScorecards();

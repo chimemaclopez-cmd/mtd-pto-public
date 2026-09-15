@@ -1613,13 +1613,16 @@ function eligibleTrainingDestinations(roster) {
   const teamLeadEmails = new Set(active.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) && ptoLogic.cleanEmail(x.teamLeadEmail) !== ptoLogic.cleanEmail(x.employeeEmail)).map(x => ptoLogic.cleanEmail(x.teamLeadEmail)));
   return active.filter(x => teamLeadEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeName: x.employeeName, employeeEmail: ptoLogic.cleanEmail(x.employeeEmail) }));
 }
-// QA Scorecard's "Evaluated agent" dropdown - every active employee, with their team lead
+// QA Scorecard's "Evaluated agent" dropdown - EVERY roster member, active or not (a separated
+// employee's old tickets can still need a retroactive QA pass, and the ticket-number auto-fill
+// should be able to match whoever Zendesk says was actually assigned) - with their team lead
 // carried alongside so the client can auto-fill Team Leader read-only once an agent is picked
-// (no separate manual team-leader dropdown to get out of sync with the roster).
+// (no separate manual team-leader dropdown to get out of sync with the roster). `active` is
+// included so the client can label former employees distinctly in the picker.
 function activeRosterAgents(roster) {
-  return (roster.records || []).filter(x => x.active !== false)
-    .map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, teamLeadEmail: ptoLogic.cleanEmail(x.teamLeadEmail), teamLeadName: x.teamLeadName || '' }))
-    .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  return (roster.records || [])
+    .map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, teamLeadEmail: ptoLogic.cleanEmail(x.teamLeadEmail), teamLeadName: x.teamLeadName || '', active: x.active !== false }))
+    .sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1) || a.employeeName.localeCompare(b.employeeName));
 }
 // Direct Zendesk REST API access (OAuth client_credentials, same ZENDESK_OAUTH_CLIENT_ID/SECRET
 // already configured on this Render service for other purposes) so the AI Pre-QA feature can
