@@ -209,7 +209,10 @@ if (!cloudStore.isConfigured()) {
 }
 
 const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js']);
-const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
+// moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
+// Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
+// silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
+const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/moatable-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -947,6 +950,35 @@ function computeQaScorecardScore(ratings, criticalErrors) {
   const rawPct = availablePoints > 0 ? Math.round((earnedPoints / availablePoints) * 100) : 0;
   const pct = hasCriticalError ? 0 : rawPct;
   return { earnedPoints, availablePoints, pct, sections, hasCriticalError, passed: pct >= QA_SCORECARD_PASSING_PCT };
+}
+// Lets the AI Pre-QA prompt keep calibrating itself against how THIS team is actually scoring
+// over time, not just the one-time snapshot pulled from the reference tool at launch - as real
+// evaluations pile up here, this reflects current practice instead of a frozen baseline.
+// Requires a small minimum sample before returning anything, so early on (or a slow week) the
+// client silently falls back to the static reference-tool notes instead of overfitting to 2-3
+// records.
+const QA_SCORECARD_LIVE_CALIBRATION_MIN_SAMPLE = 8;
+function computeQaScorecardLiveCalibration(records) {
+  const scored = (records || []).filter(r => r.status !== 'DRAFT');
+  if (scored.length < QA_SCORECARD_LIVE_CALIBRATION_MIN_SAMPLE) return null;
+  const criterionCounts = {};
+  for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) criterionCounts[criterion.key] = { yes: 0, partly: 0, no: 0, na: 0 };
+  let criticalCount = 0, scoreSum = 0;
+  for (const r of scored) {
+    scoreSum += r.score?.pct ?? 0;
+    if (r.score?.hasCriticalError) criticalCount++;
+    for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) {
+      const v = String(r.ratings?.[criterion.key] || '').toLowerCase();
+      if (criterionCounts[criterion.key][v] !== undefined) criterionCounts[criterion.key][v]++;
+    }
+  }
+  return {
+    sampleSize: scored.length, avgScore: Math.round(scoreSum / scored.length), criticalErrorRate: Math.round((criticalCount / scored.length) * 100),
+    criterionRates: Object.fromEntries(Object.entries(criterionCounts).map(([key, c]) => {
+      const total = c.yes + c.partly + c.no + c.na;
+      return [key, total ? { yesPct: Math.round((c.yes / total) * 100), partlyPct: Math.round((c.partly / total) * 100), noPct: Math.round((c.no / total) * 100), naPct: Math.round((c.na / total) * 100) } : null];
+    }))
+  };
 }
 const ALIGNMENT_KEY = 'mtdkpi:alignment-records';
 const ALIGNMENT_AUDIT_KEY = 'mtdkpi:alignment-audit';
@@ -4442,10 +4474,11 @@ const server = http.createServer(async (req, res) => {
     // The actual create/edit/reporting routes below stay canUseQaScorecard-gated.
     if (parsed.pathname === '/api/qa/scorecards/lookup-lists' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
+      const scorecardData = await loadQaScorecards();
       return json(res, 200, {
         ok: true, categories: QA_SCORECARD_CATEGORIES, criticalErrors: QA_SCORECARD_CRITICAL_ERRORS,
         purposes: QA_SCORECARD_PURPOSES, channels: QA_SCORECARD_CHANNELS, passingPct: QA_SCORECARD_PASSING_PCT,
-        agents: activeRosterAgents(roster)
+        agents: activeRosterAgents(roster), liveCalibration: computeQaScorecardLiveCalibration(scorecardData.records)
       });
     }
 
@@ -4537,7 +4570,7 @@ const server = http.createServer(async (req, res) => {
         employeeEmail, employeeName: employee.employeeName || employeeEmail, teamLeadEmail: ptoLogic.cleanEmail(employee.teamLeadEmail || ''), teamLeadName: employee.teamLeadName || '',
         evaluatorEmail: identity, evaluatorName: session.employeeName || identity,
         ratings, criticalErrors, feedback: String(body.feedback || '').trim(), actionPlan: String(body.actionPlan || '').trim(),
-        score, createdAt: now, createdBy: identity, updatedAt: now, updatedBy: identity
+        score, createdAt: now, createdBy: identity, updatedAt: now, updatedBy: identity, acknowledgment: null
       };
       data.sequenceByYear[year] = sequence;
       data.records.push(record);
@@ -4545,20 +4578,35 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, record });
     }
 
-    const qaScorecardMatch = parsed.pathname.match(/^\/api\/qa\/scorecards\/([^/]+)$/);
+    const qaScorecardMatch = parsed.pathname.match(/^\/api\/qa\/scorecards\/([^/]+)(?:\/(acknowledge))?$/);
     if (qaScorecardMatch) {
-      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
-      const id = decodeURIComponent(qaScorecardMatch[1]);
+      const id = decodeURIComponent(qaScorecardMatch[1]), action = qaScorecardMatch[2] || '';
       const data = await loadQaScorecards();
       const index = (data.records || []).findIndex(x => x.id === id);
       if (index < 0) return json(res, 404, { ok: false, error: 'QA scorecard not found.' });
       const current = data.records[index];
       const isOwner = current.createdBy === identity || ADMIN_EMAILS.has(identity);
+      const now = new Date().toISOString();
+      // Acknowledge is the one action the evaluated AGENT takes, not the reviewer - so it's
+      // gated on being that specific person, not canUseQaScorecard, mirroring Coaching's
+      // acknowledge action (ptoLogic.cleanEmail(current.employeeEmail) === identity).
+      if (action === 'acknowledge') {
+        if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only sign your own QA evaluation.' });
+        if (current.status !== 'PUBLISHED') return json(res, 409, { ok: false, error: 'Only a published evaluation can be acknowledged.' });
+        const body = await readJsonBody(req);
+        const signedName = String(body.signedName || '').trim();
+        if (!signedName) return json(res, 400, { ok: false, error: 'Please type your full name to sign.' });
+        const next = { ...current, status: 'ACKNOWLEDGED', updatedAt: now, acknowledgment: { signedName, signedAt: now, employeeComments: String(body.employeeComments || '').trim() } };
+        data.records[index] = next;
+        await saveQaScorecards(data);
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       if (req.method === 'GET') return json(res, 200, { ok: true, record: current });
       const body = await readJsonBody(req);
-      const now = new Date().toISOString();
       if (req.method === 'PUT') {
         if (!isOwner) return json(res, 403, { ok: false, error: 'Only the reviewer who created this scorecard can edit it.' });
+        if (current.status === 'ACKNOWLEDGED') return json(res, 409, { ok: false, error: 'An acknowledged evaluation can no longer be edited.' });
         const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] ?? current.ratings[criterion.key] ?? ''); ratings[criterion.key] = ['YES', 'PARTLY', 'NO', 'NA'].includes(v) ? v : null; }
         const criticalErrors = {}; for (const e of QA_SCORECARD_CRITICAL_ERRORS) criticalErrors[e.key] = body.criticalErrors ? Boolean(body.criticalErrors[e.key]) : Boolean(current.criticalErrors[e.key]);
         const score = computeQaScorecardScore(ratings, criticalErrors);
@@ -4575,6 +4623,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === 'DELETE') {
         if (!isOwner) return json(res, 403, { ok: false, error: 'Only the reviewer who created this scorecard can delete it.' });
+        if (current.status === 'ACKNOWLEDGED') return json(res, 409, { ok: false, error: 'An acknowledged evaluation cannot be deleted.' });
         data.records.splice(index, 1);
         data.deletedQaScorecardIds = [...new Set([...(data.deletedQaScorecardIds || []), id])];
         await saveQaScorecards(data);
