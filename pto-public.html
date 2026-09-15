@@ -330,6 +330,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
     <span class="sub" id="qaScorecardPreQaStatus"></span>
   </div>
   <div class="panel" id="qaScorecardLiveScoreBox" style="margin:0 0 14px;padding:10px 14px"></div>
+  <div class="formGrid" style="grid-template-columns:1fr 130px 150px;gap:10px;margin:0 0 6px">
+    <div></div>
+    <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">AI Suggestion</div>
+    <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Reviewer Rating</div>
+  </div>
   <div id="qaScorecardCategories"></div>
   <div class="panel" style="margin-top:14px">
     <div class="sectionTitle" style="font-size:14px">Critical Errors</div>
@@ -846,7 +851,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor95(good,bad){const needed=19*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardFormAiRatings={},qaScorecardFormAiCriticalErrors={},qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');$('lottiKnowledgeBodyFieldContainer').innerHTML=richTextFieldHtml('lottiKnowledgeBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -3441,22 +3446,29 @@ function renderEscalationReconciliation(){
   ).join('')||'<tr><td colspan="4">No gaps - every tagged escalation was endorsed in chat.</td></tr>';
 }
 function qaScorecardResetForm(){
-  editingQaScorecardId=null;qaScorecardFormAgentEmail='';qaScorecardFormRatings={};qaScorecardFormCriticalErrors={};qaScorecardFormReasons={};
+  editingQaScorecardId=null;qaScorecardFormAgentEmail='';qaScorecardFormRatings={};qaScorecardFormCriticalErrors={};qaScorecardFormReasons={};qaScorecardFormAiRatings={};qaScorecardFormAiCriticalErrors={};
   $('qaScorecardRegion').value='';$('qaScorecardEvaluationDate').value=todayET();$('qaScorecardTicketDate').value='';$('qaScorecardTicketId').value='';
   $('qaScorecardAgent').value='';$('qaScorecardTeamLeader').value='';$('qaScorecardFeedback').value='';$('qaScorecardActionPlan').value='';
   $('qaScorecardFormError').hidden=true;$('qaScorecardPreQaStatus').textContent='';
   renderQaScorecardCategories();renderQaScorecardCriticalErrors();renderQaScorecardLiveScore();
 }
-// AI Pre-QA reasons (qaScorecardFormReasons, keyed by criterion key) are shown inline right
-// under each criterion's own description whenever present - "I will then use that as my basis
-// to do the audit myself" is exactly this: the reviewer sees the AI's cited evidence next to the
-// rating it produced, before confirming or overriding it. Cleared on Reset/Save.
+// AI Pre-QA never writes into qaScorecardFormRatings directly - its per-criterion answer lives
+// in the separate qaScorecardFormAiRatings, shown as a reference badge (with the cited reason
+// underneath) next to an independent "Manual Score" select the reviewer must fill in themselves.
+// This is the explicit ask: "I will then use that as my basis to do the audit myself" - the AI's
+// call should inform the review, never silently become the recorded rating.
+function qaScorecardAiBadgeHtml(aiValue){
+  if(!aiValue)return '<span class="muted">—</span>';
+  const colors={YES:'#0f7a49',PARTLY:'#7a4a05',NO:'#b3261e',NA:'#5b6274'};
+  return `<span class="pill" style="background:${colors[aiValue]}1a;color:${colors[aiValue]};font-weight:800">${esc(QA_SCORECARD_RATING_LABELS[aiValue]||aiValue)}</span>`;
+}
 function qaScorecardCategoryHtml(category){
   return `<details open style="margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:10px 14px">
     <summary style="cursor:pointer;font-weight:800">${esc(category.groupLabel)} — ${esc(category.label)} <span class="muted">(${category.weight}%)</span></summary>
     <div style="margin-top:10px;display:grid;gap:10px">
-      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 150px;align-items:center;gap:10px;margin:0">
-        <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div>${qaScorecardFormReasons[c.key]?`<div class="sub" style="margin-top:4px;color:#2e46b8"><b>AI:</b> ${esc(qaScorecardFormReasons[c.key])}</div>`:''}</div>
+      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 130px 150px;align-items:start;gap:10px;margin:0">
+        <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div></div>
+        <div>${qaScorecardAiBadgeHtml(qaScorecardFormAiRatings[c.key])}${qaScorecardFormReasons[c.key]?`<div class="sub" style="margin-top:4px;color:#2e46b8">${esc(qaScorecardFormReasons[c.key])}</div>`:''}</div>
         <select data-qa-criterion="${esc(c.key)}"><option value="">Rate…</option><option value="YES">Yes</option><option value="PARTLY">Partly</option><option value="NO">No</option><option value="NA">N/A</option></select>
       </div>`).join('')}
     </div>
@@ -3472,7 +3484,7 @@ function renderQaScorecardCategories(){
 }
 function renderQaScorecardCriticalErrors(){
   const lists=qaScorecardLookupLists;if(!lists)return;
-  $('qaScorecardCriticalErrors').innerHTML=lists.criticalErrors.map(e=>`<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" data-qa-critical="${esc(e.key)}" ${qaScorecardFormCriticalErrors[e.key]?'checked':''}> ${esc(e.label)}</label>`).join('');
+  $('qaScorecardCriticalErrors').innerHTML=lists.criticalErrors.map(e=>`<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" data-qa-critical="${esc(e.key)}" ${qaScorecardFormCriticalErrors[e.key]?'checked':''}> ${esc(e.label)}${qaScorecardFormAiCriticalErrors[e.key]?' <span class="pill" style="background:#b3261e1a;color:#b3261e;font-weight:800">AI flagged this</span>':''}</label>`).join('');
 }
 function renderQaScorecardLiveScore(){
   const lists=qaScorecardLookupLists;if(!lists)return;
@@ -3679,6 +3691,28 @@ $('qaScorecardAgent').onchange=()=>{
   const agent=(qaScorecardLookupLists?.agents||[]).find(a=>a.employeeEmail===qaScorecardFormAgentEmail);
   $('qaScorecardTeamLeader').value=agent?.teamLeadName||'';
 };
+// Ticket number -> auto-fill Ticket Date/Channel/Evaluated Agent from the real Zendesk ticket,
+// triggered on blur (not per-keystroke) so a still-typed/incomplete number doesn't fire a lookup.
+// Silent on failure (a wrong/nonexistent ticket number while typing shouldn't be intrusive) other
+// than a small status note - Run AI Pre-QA still surfaces the real error if the reviewer does
+// intend to score by that ticket number.
+$('qaScorecardTicketId').addEventListener('change',async()=>{
+  const ticketId=$('qaScorecardTicketId').value.trim();
+  if(!ticketId)return;
+  try{
+    const thread=await getQaScorecardTicketThread(ticketId);
+    if(thread.createdAt)$('qaScorecardTicketDate').value=thread.createdAt;
+    if(thread.channel)$('qaScorecardChannel').value=thread.channel;
+    if(thread.assigneeEmail){
+      const agentSelect=$('qaScorecardAgent');
+      if([...agentSelect.options].some(o=>o.value===thread.assigneeEmail)){
+        agentSelect.value=thread.assigneeEmail;
+        agentSelect.dispatchEvent(new Event('change'));
+      }
+    }
+    $('qaScorecardPreQaStatus').textContent='Ticket details auto-filled from Zendesk.';
+  }catch(error){$('qaScorecardPreQaStatus').textContent=`Could not auto-fill from ticket #${ticketId}: ${error.message}`}
+});
 $('qaScorecardCategories').addEventListener('change',event=>{
   const key=event.target.dataset.qaCriterion;if(!key)return;
   qaScorecardFormRatings[key]=event.target.value||null;
@@ -3727,13 +3761,16 @@ async function qaScorecardRunPreQa(){
     const prompt=buildQaPreQaPrompt({categories:qaScorecardLookupLists.categories,criticalErrors:qaScorecardLookupLists.criticalErrors,subject:thread.subject,transcript:thread.transcript,liveCalibration:qaScorecardLookupLists.liveCalibration});
     const raw=await copilotChatWithRetry(copilotToken,prompt,{isBadAnswer:isQaPreQaBadAnswer});
     const parsed=parseQaPreQaResponse(copilotResponseText(raw),qaScorecardLookupLists.categories,qaScorecardLookupLists.criticalErrors);
-    qaScorecardFormRatings={...qaScorecardFormRatings,...parsed.ratings};
-    qaScorecardFormCriticalErrors={...qaScorecardFormCriticalErrors,...parsed.criticalErrors};
+    // Deliberately NOT merged into qaScorecardFormRatings/FormCriticalErrors - those are the
+    // reviewer's own recorded decision. The AI's answer only ever populates the separate
+    // qaScorecardFormAiRatings/FormAiCriticalErrors reference columns.
+    qaScorecardFormAiRatings={...qaScorecardFormAiRatings,...parsed.ratings};
+    qaScorecardFormAiCriticalErrors={...qaScorecardFormAiCriticalErrors,...parsed.criticalErrors};
     qaScorecardFormReasons={...qaScorecardFormReasons,...parsed.reasons};
     if(parsed.feedback)$('qaScorecardFeedback').value=parsed.feedback;
     if(parsed.actionPlan)$('qaScorecardActionPlan').value=parsed.actionPlan;
     renderQaScorecardCategories();renderQaScorecardCriticalErrors();renderQaScorecardLiveScore();
-    $('qaScorecardPreQaStatus').textContent='AI pre-QA applied — review every rating before saving.';
+    $('qaScorecardPreQaStatus').textContent='AI suggestions ready — rate each criterion yourself using them as a reference.';
   }catch(error){$('qaScorecardPreQaStatus').textContent=`AI Pre-QA failed: ${error.message}`}
   finally{qaScorecardPreQaLoading=false}
 }

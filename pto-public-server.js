@@ -1657,14 +1657,25 @@ async function fetchTicketTranscriptForQa(ticketId) {
   ]);
   const ticket = ticketData.ticket || {};
   const comments = commentsData.comments || [];
-  const authorIds = [...new Set(comments.map(c => c.author_id).filter(Boolean))];
-  let namesById = {};
-  if (authorIds.length) {
-    const usersData = await zendeskApiFetch(`/api/v2/users/show_many.json?ids=${authorIds.join(',')}`);
-    namesById = Object.fromEntries((usersData.users || []).map(u => [u.id, u.name]));
+  const authorIds = new Set(comments.map(c => c.author_id).filter(Boolean));
+  if (ticket.assignee_id) authorIds.add(ticket.assignee_id);
+  let usersById = {};
+  if (authorIds.size) {
+    const usersData = await zendeskApiFetch(`/api/v2/users/show_many.json?ids=${[...authorIds].join(',')}`);
+    usersById = Object.fromEntries((usersData.users || []).map(u => [u.id, u]));
   }
-  const transcript = comments.map(c => `[${c.created_at}] ${namesById[c.author_id] || 'Unknown'}${c.public ? '' : ' (internal)'}: ${stripHtmlForQaTranscript(c.html_body) || c.body || ''}`).join('\n\n');
-  return { subject: ticket.subject || '', status: ticket.status || '', transcript };
+  const transcript = comments.map(c => `[${c.created_at}] ${usersById[c.author_id]?.name || 'Unknown'}${c.public ? '' : ' (internal)'}: ${stripHtmlForQaTranscript(c.html_body) || c.body || ''}`).join('\n\n');
+  const assignee = ticket.assignee_id ? usersById[ticket.assignee_id] : null;
+  // Zendesk's via.channel is a much finer taxonomy (voice, chat, web, api, ...) than the 3-way
+  // Call/Email/Chat picker this rubric uses - map the common ones, default to Email for anything
+  // unmapped rather than guessing wrong into Call/Chat.
+  const channelMap = { voice: 'Call', phone: 'Call', chat: 'Chat', web_widget: 'Chat', email: 'Email', web: 'Email', api: 'Email' };
+  const channel = channelMap[ticket.via?.channel] || 'Email';
+  return {
+    subject: ticket.subject || '', status: ticket.status || '', transcript,
+    createdAt: ticket.created_at ? ticket.created_at.slice(0, 10) : '', channel,
+    assigneeEmail: assignee?.email ? ptoLogic.cleanEmail(assignee.email) : '', assigneeName: assignee?.name || ''
+  };
 }
 // Two Training Managers can share this role now (TRAINING_MANAGER_EMAILS), each with their own
 // real trainees - View-As preview has no way to pick which one, so it shows the union of real
