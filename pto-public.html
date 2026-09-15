@@ -331,7 +331,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
     <span class="sub" id="qaScorecardPreQaStatus"></span>
   </div>
   <div class="panel" id="qaScorecardLiveScoreBox" style="margin:0 0 14px;padding:10px 14px"></div>
-  <div class="formGrid" style="grid-template-columns:1fr 130px 150px;gap:10px;margin:0 0 6px">
+  <div class="formGrid" style="grid-template-columns:1fr 1.6fr 130px;gap:12px;margin:0 0 6px">
     <div></div>
     <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">AI Suggestion</div>
     <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Reviewer Rating</div>
@@ -3464,15 +3464,15 @@ function qaScorecardResetForm(){
 function qaScorecardAiBadgeHtml(aiValue){
   if(!aiValue)return '<span class="muted">—</span>';
   const colors={YES:'#0f7a49',PARTLY:'#7a4a05',NO:'#b3261e',NA:'#5b6274'};
-  return `<span class="pill" style="background:${colors[aiValue]}1a;color:${colors[aiValue]};font-weight:800">${esc(QA_SCORECARD_RATING_LABELS[aiValue]||aiValue)}</span>`;
+  return `<span class="pill" style="background:${colors[aiValue]}1a;color:${colors[aiValue]};font-weight:800;white-space:nowrap">${esc(QA_SCORECARD_RATING_LABELS[aiValue]||aiValue)}</span>`;
 }
 function qaScorecardCategoryHtml(category){
   return `<details open style="margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:10px 14px">
     <summary style="cursor:pointer;font-weight:800">${esc(category.groupLabel)} — ${esc(category.label)} <span class="muted">(${category.weight}%)</span></summary>
-    <div style="margin-top:10px;display:grid;gap:10px">
-      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 130px 150px;align-items:start;gap:10px;margin:0">
+    <div style="margin-top:10px;display:grid;gap:8px">
+      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 1.6fr 130px;align-items:center;gap:12px;margin:0;padding:6px 0;border-bottom:1px solid var(--line)">
         <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div></div>
-        <div>${qaScorecardAiBadgeHtml(qaScorecardFormAiRatings[c.key])}${qaScorecardFormReasons[c.key]?`<div class="sub" style="margin-top:4px;color:#2e46b8">${esc(qaScorecardFormReasons[c.key])}</div>`:''}</div>
+        <div class="sub" style="line-height:1.4">${qaScorecardAiBadgeHtml(qaScorecardFormAiRatings[c.key])}${qaScorecardFormReasons[c.key]?` ${esc(qaScorecardFormReasons[c.key])}`:''}</div>
         <select data-qa-criterion="${esc(c.key)}"><option value="">Rate…</option><option value="YES">Yes</option><option value="PARTLY">Partly</option><option value="NO">No</option><option value="NA">N/A</option></select>
       </div>`).join('')}
     </div>
