@@ -332,8 +332,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
     <div id="qaScorecardCriticalErrors" style="margin-top:10px;display:grid;gap:8px"></div>
   </div>
   <div class="formGrid" style="margin-top:14px">
-    <div class="field" style="grid-column:1/-1"><label>Feedback / Coaching Insights</label><textarea id="qaScorecardFeedback" rows="3" placeholder="Summarize strengths, opportunities, and supporting examples..."></textarea></div>
-    <div class="field" style="grid-column:1/-1"><label>Action Plan</label><textarea id="qaScorecardActionPlan" rows="2" placeholder="List the specific behavior, next step, and follow-up date..."></textarea></div>
+    <div class="field" style="grid-column:1/-1"><label>Feedback / Coaching Insights</label><textarea id="qaScorecardFeedback" rows="3" placeholder="Summarize strengths, opportunities, and supporting examples..."></textarea><button type="button" class="btn compact" data-rephrase-target="qaScorecardFeedback" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
+    <div class="field" style="grid-column:1/-1"><label>Action Plan</label><textarea id="qaScorecardActionPlan" rows="2" placeholder="List the specific behavior, next step, and follow-up date..."></textarea><button type="button" class="btn compact" data-rephrase-target="qaScorecardActionPlan" title="Fix grammar, spelling, and awkward wording" style="margin-top:6px">&#10024; Rephrase</button></div>
   </div>
   <div id="qaScorecardFormError" class="message error" hidden></div>
   <div class="actions" style="margin-top:14px">
@@ -362,7 +362,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="sectionTitle" style="margin-top:24px;font-size:14px" id="myQaScorecardsTitle">My QA Evaluations</div>
 <div class="tableWrap"><table><thead><tr><th>Ticket</th><th>Agent</th><th>Date</th><th>Score</th></tr></thead><tbody id="myQaScorecardsBody"></tbody></table></div>
 </section>
-<div class="modal" id="qaScorecardViewModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true"><div class="title">QA Scorecard</div><div id="qaScorecardViewBody" style="margin-top:10px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="qaScorecardViewClose">Close</button></div></div></div>
+<div class="modal" id="qaScorecardViewModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true"><div class="title">QA Scorecard</div><div id="qaScorecardViewBody" style="margin-top:10px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="qaScorecardPreviewPdfBtn">🖨️ Preview / Print PDF</button><button class="btn" type="button" id="qaScorecardViewClose">Close</button></div></div></div>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -3545,11 +3545,56 @@ async function openQaScorecardView(id){
   try{
     const record=(qaScorecardReporting?.history||[]).find(r=>r.id===id)||(await listQaScorecards()).records.find(r=>r.id===id);
     if(!record)return;
+    qaScorecardViewingRecord=record;
     $('qaScorecardViewBody').innerHTML=qaScorecardViewRecordHtml(record);
     $('qaScorecardViewModal').hidden=false;
   }catch(error){setMessage(`Could not open scorecard. ${error.message}`,'error')}
 }
 $('qaScorecardViewClose').onclick=()=>{$('qaScorecardViewModal').hidden=true};
+function qaScorecardPrintableHtml(record){
+  const lists=qaScorecardLookupLists;
+  const origin=location.origin;
+  const card=(title,body)=>`<div class="card"><div class="cardHeader">${esc(title)}</div><div class="cardBody">${body}</div></div>`;
+  const rows=lists?lists.categories.flatMap(cat=>cat.criteria.map(c=>`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[record.ratings[c.key]]||'—'}</td></tr>`)).join(''):'';
+  const criticalHit=lists?lists.criticalErrors.filter(e=>record.criticalErrors[e.key]).map(e=>esc(e.label)):[];
+  const scoreColor=record.score.hasCriticalError||!record.score.passed?'#c2313a':'#0f7a49';
+  const scoreLabel=record.score.hasCriticalError?'CRITICAL ERROR — score forced to 0':record.score.passed?'Passing':'Below passing';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>QA Evaluation - ${esc(record.employeeName)} - ${esc(record.evaluationDate)} - Ticket ${esc(String(record.ticketId||'NA'))}</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#202437;margin:40px;max-width:760px}
+.logos{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.logos img{height:40px}
+h1{font-size:22px;text-align:center;margin:0 0 4px}
+.subtitle{text-align:center;color:#5b6274;font-size:12px;font-style:italic;margin-bottom:22px}
+.card{border:1px solid #dfe2ea;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.cardHeader{background:#2e46b8;color:#fff;font-weight:bold;font-size:12px;padding:8px 12px;text-transform:uppercase;letter-spacing:.3px}
+.cardBody{padding:12px 14px;font-size:13px}
+.fieldLabel{font-size:10px;text-transform:uppercase;font-weight:bold;color:#5b6274;margin-bottom:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:4px;color:#fff;font-weight:bold;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:10px;text-transform:uppercase;color:#5b6274;padding:4px 6px;border-bottom:1px solid #dfe2ea}
+td{padding:4px 6px;border-bottom:1px solid #eef0f5}
+@media print{body{margin:0.5in}}
+</style></head><body>
+<div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
+<h1>QA SCORECARD</h1>
+<div class="subtitle">Ticket-handling quality evaluation.</div>
+${card('Evaluation Details',`<div class="grid2"><div><div class="fieldLabel">Scorecard ID</div>${esc(record.id)}</div><div><div class="fieldLabel">Evaluation Date</div>${esc(record.evaluationDate)}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluated Agent</div>${esc(record.employeeName)}</div><div style="margin-top:8px"><div class="fieldLabel">Team Leader</div>${esc(record.teamLeadName||'—')}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluator</div>${esc(record.evaluatorName)}</div><div style="margin-top:8px"><div class="fieldLabel">Ticket</div>#${esc(String(record.ticketId||'—'))} (${esc(record.ticketDate||'—')})</div><div style="margin-top:8px"><div class="fieldLabel">Purpose</div>${esc(record.purpose)}</div><div style="margin-top:8px"><div class="fieldLabel">Channel</div>${esc(record.channel)}</div></div>`)}
+${card('Score',`<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${record.score.earnedPoints}/${record.score.availablePoints} pts</b> (${record.score.pct}%)</div><span class="badge" style="background:${scoreColor}">${esc(scoreLabel)}</span></div>${criticalHit.length?`<div style="margin-top:8px;color:#c2313a"><b>Critical errors:</b> ${criticalHit.join(', ')}</div>`:''}`)}
+${card('Rubric',`<table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th></tr></thead><tbody>${rows}</tbody></table>`)}
+${card('Feedback / Coaching Insights',`<div style="white-space:pre-wrap">${esc(record.feedback||'—')}</div>`)}
+${card('Action Plan',`<div style="white-space:pre-wrap">${esc(record.actionPlan||'—')}</div>`)}
+</body></html>`;
+}
+function previewQaScorecardPdf(record){
+  const win=window.open('','_blank');
+  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  win.document.write(qaScorecardPrintableHtml(record));
+  win.document.close();
+  win.onload=()=>win.print();
+}
+$('qaScorecardPreviewPdfBtn').onclick=()=>{if(qaScorecardViewingRecord)previewQaScorecardPdf(qaScorecardViewingRecord)};
 $('qaScorecardHistoryBody').addEventListener('click',event=>{const id=event.target.dataset.qaView;if(id)openQaScorecardView(id)});
 $('qaScorecardSubViewToggle').addEventListener('click',event=>{const next=event.target.closest('[data-qa-subview]')?.dataset.qaSubview;if(next)setQaScorecardSubView(next)});
 $('qaScorecardReportRefreshBtn').onclick=()=>{qaScorecardReportingAgentFilter=$('qaScorecardReportAgentFilter').value;qaScorecardReportingFrom=$('qaScorecardReportFrom').value;qaScorecardReportingTo=$('qaScorecardReportTo').value;loadQaScorecardReporting()};
