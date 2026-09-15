@@ -50,7 +50,11 @@ const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
 // contradiction review. Set GROQ_API_KEY in this service's environment (Render dashboard, not
 // a committed file) - left blank, those features just show "not configured yet."
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+// Groq fully retired the llama-3.1/3.3 family (confirmed live against /openai/v1/models -
+// the old default 404s with "model does not exist"); gpt-oss-20b is their closest current
+// equivalent (small, fast, verified to support both plain and response_format:json_object
+// calls, which is all callGroq ever needs).
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 function callGroq(prompt, { maxTokens = 1024, json = false } = {}) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ model: GROQ_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }], ...(json ? { response_format: { type: 'json_object' } } : {}) });
