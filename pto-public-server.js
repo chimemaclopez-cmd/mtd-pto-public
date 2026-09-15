@@ -1653,13 +1653,34 @@ async function zendeskApiFetch(path) {
   return r.json();
 }
 function stripHtmlForQaTranscript(html) { return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim(); }
+// Ticket field definitions (id -> human title) change rarely and are shared across every
+// ticket - cached for an hour so a run of Pre-QA/auto-fill calls doesn't refetch all 50+ field
+// definitions every single time.
+let zendeskTicketFieldTitleCache = { map: null, fetchedAt: 0 };
+async function getZendeskTicketFieldTitles() {
+  if (zendeskTicketFieldTitleCache.map && Date.now() - zendeskTicketFieldTitleCache.fetchedAt < 3600000) return zendeskTicketFieldTitleCache.map;
+  const data = await zendeskApiFetch('/api/v2/ticket_fields.json');
+  const map = Object.fromEntries((data.ticket_fields || []).map(f => [f.id, f.title]));
+  zendeskTicketFieldTitleCache = { map, fetchedAt: Date.now() };
+  return map;
+}
 async function fetchTicketTranscriptForQa(ticketId) {
-  const [ticketData, commentsData] = await Promise.all([
+  const [ticketData, commentsData, fieldTitles] = await Promise.all([
     zendeskApiFetch(`/api/v2/tickets/${encodeURIComponent(ticketId)}.json`),
-    zendeskApiFetch(`/api/v2/tickets/${encodeURIComponent(ticketId)}/comments.json`)
+    zendeskApiFetch(`/api/v2/tickets/${encodeURIComponent(ticketId)}/comments.json`),
+    getZendeskTicketFieldTitles()
   ]);
   const ticket = ticketData.ticket || {};
   const comments = commentsData.comments || [];
+  // "Accurate Zendesk information" is a metadata check, not a conversation check - the AI has no
+  // real evidence for it without the actual field values (confirmed live: it defaulted to "Yes,
+  // no inaccuracy evident" on a ticket where the real Client ID field was wrong, because it only
+  // ever saw the conversation transcript). Only surface fields with a real value - most of the
+  // 50+ custom fields on a given ticket are blank/false and would just be noise.
+  const fieldsText = (ticket.custom_fields || [])
+    .filter(f => f.value !== null && f.value !== '' && f.value !== false)
+    .map(f => `${fieldTitles[f.id] || f.id}: ${f.value}`)
+    .join('\n');
   const authorIds = new Set(comments.map(c => c.author_id).filter(Boolean));
   if (ticket.assignee_id) authorIds.add(ticket.assignee_id);
   let usersById = {};
@@ -1675,7 +1696,7 @@ async function fetchTicketTranscriptForQa(ticketId) {
   const channelMap = { voice: 'Call', phone: 'Call', chat: 'Chat', web_widget: 'Chat', email: 'Email', web: 'Email', api: 'Email' };
   const channel = channelMap[ticket.via?.channel] || 'Email';
   return {
-    subject: ticket.subject || '', status: ticket.status || '', transcript,
+    subject: ticket.subject || '', status: ticket.status || '', transcript, fieldsText,
     createdAt: ticket.created_at ? ticket.created_at.slice(0, 10) : '', channel,
     assigneeEmail: assignee?.email ? ptoLogic.cleanEmail(assignee.email) : '', assigneeName: assignee?.name || ''
   };

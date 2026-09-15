@@ -79,10 +79,11 @@ export function buildQaLiveCalibrationNote(liveCalibration,categories){
 // AI Pre-QA: build the prompt for the shared Copilot connection (same tsr-bot token already
 // used by DSAT Review's AI triage) to pre-score a ticket transcript against this exact rubric,
 // and parse its JSON reply back into the same {ratings, criticalErrors} shape the form uses.
-export function buildQaPreQaPrompt({categories,criticalErrors,subject,transcript,liveCalibration,agentName}){
+export function buildQaPreQaPrompt({categories,criticalErrors,subject,transcript,liveCalibration,agentName,fieldsText}){
   const rubricText=categories.map(cat=>`${cat.label} (${cat.groupLabel}):\n`+cat.criteria.map(c=>`- ${c.key}: "${c.label}" - ${c.description} (${c.points} pts)`).join('\n')).join('\n\n');
   const criticalText=criticalErrors.map(e=>`- ${e.key}: ${e.label}`).join('\n');
   const agentLine=agentName?`\nThe agent being evaluated is: ${agentName}. Every criterion judges ONLY this person's own actions and wording.\n`:'';
+  const fieldsLine=fieldsText?`\nTicket fields as actually recorded in Zendesk (this is the ONLY evidence for "Accurate Zendesk information" - it is a metadata check, not a conversation check; you cannot judge it from the transcript alone):\n${fieldsText}\nCross-check these values against anything the customer or agent mentions in the transcript (account name, company, product, ID) - a mismatch (e.g. a Client ID that doesn't match the account discussed) or a required field left blank is a No, not a Yes.\n`:'';
   return `You are a QA analyst scoring one support ticket interaction against a fixed rubric. Read the ticket transcript below and rate EVERY criterion.
 ${agentLine}
 IMPORTANT - the transcript mixes messages from several kinds of sender: the actual human agent, the requester/customer, and automated system senders (e.g. "CS Integration", macros, triggers, auto-follow-up emails, workflow bots - anything that reads like a canned system-generated message rather than something a person typed live in the moment). Never credit or penalize the agent for an automated/system message - it is not something they personally wrote. If the only evidence for a criterion (e.g. a closing recap, an empathy statement) comes from an automated message rather than the human agent's own words, rate that criterion NA rather than No, since there is no real evidence of what the human agent themselves did. This also applies to the TICKET'S RESOLUTION ITSELF: if the ticket was auto-solved or auto-closed by the system after the customer stopped responding to automated follow-ups (not something the agent actively resolved or chose to close), do not treat that as the agent failing to resolve it or closing it before resolution - rate Correct resolution, Closing & recap, and the "closed before resolution" critical error based only on what the human agent actually did up to that point, not on the automated close itself.
@@ -97,6 +98,7 @@ ${criticalText}
 
 ${QA_SCORECARD_CALIBRATION_NOTE}
 ${buildQaLiveCalibrationNote(liveCalibration,categories)}
+${fieldsLine}
 Ticket subject: ${subject||'(none)'}
 
 Transcript:
@@ -125,4 +127,37 @@ export function parseQaPreQaResponse(raw,categories,criticalErrors){
   const criticalOut={};
   for(const e of criticalErrors)criticalOut[e.key]=Boolean(parsed.criticalErrors?.[e.key]);
   return {ratings,reasons,criticalErrors:criticalOut,feedback:String(parsed.feedback||'').trim(),actionPlan:String(parsed.actionPlan||'').trim()};
+}
+
+// "Generate Feedback & Action Plan": run AFTER the reviewer has finished their own manual
+// rating (qaScorecardFormRatings/FormCriticalErrors), not from the AI's original Pre-QA draft -
+// so the write-up reflects what the reviewer actually decided, even where they overrode the AI's
+// suggestion. Built purely from the confirmed ratings/labels, no ticket transcript needed.
+export function buildQaFeedbackPrompt({categories,criticalErrors,ratings,criticalErrorFlags,agentName}){
+  const lines=categories.flatMap(cat=>cat.criteria.map(c=>{
+    const v=ratings?.[c.key];
+    if(!v)return null;
+    return `- ${c.label} (${cat.label}): ${QA_SCORECARD_RATING_LABELS[v]||v}`;
+  })).filter(Boolean).join('\n');
+  const flagged=criticalErrors.filter(e=>criticalErrorFlags?.[e.key]).map(e=>e.label);
+  return `You are a QA analyst writing the final coaching write-up for a completed ticket-handling evaluation${agentName?` of ${agentName}`:''}. These are the reviewer's own FINAL confirmed ratings for this ticket, not a draft - write feedback strictly consistent with these ratings, don't introduce claims they don't support.
+
+Ratings:
+${lines||'(no criteria rated yet)'}
+${flagged.length?`\nCritical errors confirmed: ${flagged.join(', ')}`:''}
+
+Respond with ONLY a single JSON object, no prose, no markdown code fences, in exactly this shape:
+{"feedback":"2-4 sentence summary of strengths and gaps consistent with the ratings above","actionPlan":"1-2 concrete, specific coaching actions addressing the No/Partly-rated criteria (or acknowledging strong performance if there are none)"}`;
+}
+
+export function isQaFeedbackBadAnswer(raw){
+  return !/\{[\s\S]*\}/.test(String(raw||''));
+}
+
+export function parseQaFeedbackResponse(raw){
+  const match=String(raw||'').match(/\{[\s\S]*\}/);
+  if(!match)throw new Error('AI response did not contain a JSON object.');
+  let parsed;
+  try{parsed=JSON.parse(match[0])}catch{throw new Error('AI response JSON could not be parsed.')}
+  return {feedback:String(parsed.feedback||'').trim(),actionPlan:String(parsed.actionPlan||'').trim()};
 }
