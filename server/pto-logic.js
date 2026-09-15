@@ -337,10 +337,35 @@ function computeAttendanceForRange(roster, schedules, attendance, email, startDa
   };
 }
 
+// Day-by-day attendance trend over an arbitrary range, for the Evaluation Appendix (attendance
+// trend + reasons for absence, alongside KPI scores and coaching logs) - an additive sibling to
+// computeAttendanceForRange rather than a change to its return shape, so every existing caller
+// of that function is untouched. Only returns "notable" days (not ONSITE/WFH, since a plain
+// present day carries no information worth listing in a trend) - each entry pairs the coarse
+// status code with whatever free-text reason/minutesLate detail that day's record carries, via
+// the existing attendanceCodeOnDate/attendanceReasonOnDate/attendanceMinutesLateOnDate helpers
+// above (same lookup priority, so this can never disagree with them about which record wins).
+function buildAttendanceTrend(roster, schedules, attendance, email, startDate, endDate) {
+  const employee = roster.find(x => cleanEmail(x.employeeEmail) === cleanEmail(email));
+  if (!employee) return [];
+  const trend = [];
+  for (const date of dateRange(startDate, endDate)) {
+    if (!rosterActiveOn(employee, date)) continue;
+    const resolved = scheduleForDate(schedules, email, date);
+    if (resolved.missingSchedule || resolved.template?.off) continue;
+    const code = attendanceCodeOnDate(attendance, email, date);
+    if (!code || ['ONSITE', 'WFH'].includes(code)) continue;
+    const reason = attendanceReasonOnDate(attendance, email, date);
+    const minutesLate = attendanceMinutesLateOnDate(attendance, email, date);
+    trend.push({ date, code, reason, minutesLate });
+  }
+  return trend;
+}
+
 module.exports = {
   PTO_ACTIVE_STATUSES, PTO_KPI_GROUPS,
   cleanEmail, validDate, validTime, minutesOf, dateRange, weekdayForDate,
   rosterActiveOn, scheduleForDate, calculatePtoWorkdays, ptoConflictsFor,
   normalizePtoRequest, ptoThreshold, forecastStatus, attendanceCodeOnDate, attendanceMinutesLateOnDate, attendanceReasonOnDate, attendanceLocationOnDate,
-  buildPtoForecast, applyPtoCapacityLimits, computeAttendanceForRange
+  buildPtoForecast, applyPtoCapacityLimits, computeAttendanceForRange, buildAttendanceTrend
 };

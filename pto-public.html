@@ -5035,7 +5035,7 @@ const EVAL_COMMENTS_INTRO='Comments to Evaluator and Employee. Evaluators should
 const EVAL_ACKNOWLEDGMENT_SCRIPT='I have reviewed and discussed the contents with my supervisor. My signature means that I have been advised of my performance and that I agree with this evaluation with my own comments indicate on the above section.';
 function evalPctText(v){return v==null?'—':`${v.toFixed(1)}%`}
 function evaluationAppendixHtml(appendix){
-  const rows=appendix?.kpiRows||[],logs=appendix?.coachingLogs||[];
+  const rows=appendix?.kpiRows||[],logs=appendix?.coachingLogs||[],trend=appendix?.attendanceTrend||[];
   const kpiTable=rows.length?`<table class="appendixTable"><thead><tr><th>Period</th><th>Days Worked</th><th>Productivity</th><th>CSAT</th><th>Process Compliance</th><th>Attendance</th><th>Total Score</th></tr></thead><tbody>${rows.map(r=>{
     const kind=r.productivityKind==='calls'?'calls':'tickets';
     const productivity=r.productivityRaw==null?'—':`${r.productivityRaw} ${kind}/day<br><span class="appendixSub">${r.productivityTotal||0} total · Tier ${evalPctText(r.productivityTier)}</span>`;
@@ -5044,11 +5044,19 @@ function evaluationAppendixHtml(appendix){
     return `<tr><td>Month ${r.periodNumber}<br><span class="appendixSub">${esc(r.periodStart)} – ${esc(r.periodEnd)}</span></td><td>${r.workedDays??'—'}</td><td>${productivity}</td><td>${csat}</td><td>${evalPctText(r.complianceRaw)}</td><td>${evalPctText(r.attendanceRaw)}</td><td>${total}</td></tr>`;
   }).join('')}</tbody></table>`:'<div class="instructions">No KPI data available for this employee/period.</div>';
   const coachingTable=logs.length?`<table class="appendixTable"><thead><tr><th>Date</th><th>Category</th><th>Standing</th><th>Discussion Summary</th><th>Status</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${esc(l.coachingDate||'')}</td><td>${esc(l.category||'')}</td><td>${esc(l.standingSummary||'')}</td><td>${esc((l.discussionSummary||'').slice(0,400))}</td><td>${esc(l.status||'')}</td></tr>`).join('')}</tbody></table>`:'<div class="instructions">No coaching sessions on file for this period.</div>';
+  // Every non-Onsite/WFH day in the period, in order, with whatever reason/minutes-late detail
+  // that day's attendance record carries - anything that could plausibly explain a dip in the
+  // KPI score above (an absence, a run of lates, approved PTO) sits right next to it instead of
+  // being buried in a separate tab the reviewer has to go find.
+  const sortedTrend=[...trend].sort((a,b)=>a.date.localeCompare(b.date));
+  const trendTable=sortedTrend.length?`<table class="appendixTable"><thead><tr><th>Date</th><th>Status</th><th>Minutes Late</th><th>Reason</th></tr></thead><tbody>${sortedTrend.map(t=>`<tr><td>${esc(t.date)}</td><td>${esc(ATTENDANCE_LABELS[t.code]||t.code)}</td><td>${t.minutesLate??'—'}</td><td>${esc(t.reason||'—')}</td></tr>`).join('')}</tbody></table>`:'<div class="instructions">No absences, lates, or leave on file for this period - full attendance.</div>';
   return `<div class="pageBreak"></div>
-<h1>Appendix: Probationary KPI Metrics &amp; Coaching Logs</h1>
-<div class="instructions">Current-period KPI score and coaching history for this employee through the period covered by this evaluation, pulled from the portal at the time this evaluation was generated - not a live/updating record.</div>
+<h1>Appendix: Probationary KPI Metrics, Attendance Trend &amp; Coaching Logs</h1>
+<div class="instructions">Current-period KPI score, attendance trend, and coaching history for this employee through the period covered by this evaluation, pulled from the portal at the time this evaluation was generated - not a live/updating record.</div>
 <div class="sectionHeading">Current KPI Score</div>
 ${kpiTable}
+<div class="sectionHeading">Attendance Trend</div>
+${trendTable}
 <div class="sectionHeading">Coaching Logs</div>
 ${coachingTable}`;
 }

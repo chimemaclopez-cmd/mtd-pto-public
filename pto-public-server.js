@@ -4263,7 +4263,7 @@ const server = http.createServer(async (req, res) => {
       if (!isSelf && !isTeamLead) return json(res, 403, { ok: false, error: 'Not authorized to view this evaluation.' });
       const periodNumber = Number(String(record.evaluationPeriod || '').replace(/\D/g, '')) || null;
       const member = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === recordEmail);
-      if (!periodNumber || !member?.hireDate) return json(res, 200, { ok: true, kpiRows: [], coachingLogs: [] });
+      if (!periodNumber || !member?.hireDate) return json(res, 200, { ok: true, kpiRows: [], coachingLogs: [], attendanceTrend: [] });
       const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, coachingData] = await Promise.all([
         getSnapshot('probation-metrics', 'mtdkpi:snapshot:probation-metrics', { byEmployee: {} }),
         cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {}),
@@ -4280,6 +4280,7 @@ const server = http.createServer(async (req, res) => {
       const windowEnd = today < periodEndInclusive ? today : periodEndInclusive;
       const metrics = metricsSnapshot.byEmployee?.[recordEmail]?.[periodNumber] || null;
       const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, recordEmail, periodStart, windowEnd);
+      const attendanceTrend = ptoLogic.buildAttendanceTrend((roster.records || []), schedules, attendance, recordEmail, periodStart, windowEnd).map(t => ({ ...t, periodNumber }));
       const selectedKind = productivityKindStore?.[recordEmail]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
       const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
       const workedDays = attendanceRange?.scheduledWorkdays || null;
@@ -4307,7 +4308,7 @@ const server = http.createServer(async (req, res) => {
         .filter(c => c.status !== 'DRAFT' && ptoLogic.cleanEmail(c.employeeEmail) === recordEmail && c.coachingDate >= member.hireDate && c.coachingDate <= periodEndInclusive)
         .map(c => ({ coachingDate: c.coachingDate, category: c.category, standingSummary: c.currentStanding?.performanceStatus && c.currentStanding?.finalKpi != null ? `${c.currentStanding.performanceStatus} (${c.currentStanding.finalKpi}%)` : (c.currentStanding?.performanceStatus || ''), discussionSummary: c.discussionSummary, actionPlan: c.actionPlan, status: c.status }))
         .sort((a, b) => a.coachingDate.localeCompare(b.coachingDate));
-      return json(res, 200, { ok: true, kpiRows, coachingLogs });
+      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend });
     }
 
     const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);

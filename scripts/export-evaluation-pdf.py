@@ -322,6 +322,40 @@ def kpi_appendix_table(styles, kpi_rows):
     return table
 
 
+# Mirrors ATTENDANCE_LABELS in pto-public.html (line ~848) - kept as a separate copy here since
+# this script has no access to that client-side module, same as every other constant duplicated
+# between the two.
+ATTENDANCE_LABELS = {
+    'ONSITE': 'Onsite', 'WFH': 'Work From Home', 'LATE': 'Late', 'RD': 'Rest Day', 'PTO': 'PTO',
+    'PARTIAL_PTO': 'Partial PTO', 'SL': 'Sick Leave', 'SL-HD': 'Sick Leave (Half Day)',
+    'EL': 'Emergency Leave', 'EL-HD': 'Emergency Leave (Half Day)', 'NCNS': 'No Call No Show',
+    'A': 'Absent', 'BL': 'Bereavement Leave', 'SUSPENDED': 'Suspended',
+}
+
+
+def attendance_trend_table(styles, trend_rows):
+    if not trend_rows:
+        return Paragraph('No absences, lates, or leave on file for this period - full attendance.', styles['BodyText9'])
+    rows = [[Paragraph(h, styles['TableHeader']) for h in ['DATE', 'STATUS', 'MINUTES LATE', 'REASON']]]
+    for t in sorted(trend_rows, key=lambda x: x.get('date') or ''):
+        minutes_late = t.get('minutesLate')
+        rows.append([
+            Paragraph(xml_escape(t.get('date') or ''), styles['CellBody']),
+            Paragraph(xml_escape(ATTENDANCE_LABELS.get(t.get('code'), t.get('code') or '')), styles['CellBody']),
+            Paragraph('&mdash;' if minutes_late is None else str(minutes_late), styles['CellBody']),
+            Paragraph(xml_escape(t.get('reason') or ''), styles['CellBody']),
+        ])
+    widths = [PAGE_WIDTH * w for w in (0.16, 0.24, 0.16, 0.44)]
+    table = Table(rows, colWidths=widths)
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.75, LINE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5), ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    return table
+
+
 def coaching_appendix_table(styles, coaching_logs):
     if not coaching_logs:
         return Paragraph('No coaching sessions on file for this period.', styles['BodyText9'])
@@ -348,10 +382,11 @@ def coaching_appendix_table(styles, coaching_logs):
 def appendix_section(styles, appendix_data):
     kpi_rows = appendix_data.get('kpiRows') or []
     coaching_logs = appendix_data.get('coachingLogs') or []
-    flow = [Paragraph('Appendix: Probationary KPI Metrics &amp; Coaching Logs', styles['FormTitle'])]
+    attendance_trend = appendix_data.get('attendanceTrend') or []
+    flow = [Paragraph('Appendix: Probationary KPI Metrics, Attendance Trend &amp; Coaching Logs', styles['FormTitle'])]
     flow.append(Paragraph(
-        'Current-period KPI score and coaching history for this employee through the period covered by this evaluation, '
-        'pulled from the portal at the time this evaluation was generated - not a live/updating record.',
+        'Current-period KPI score, attendance trend, and coaching history for this employee through the period covered '
+        'by this evaluation, pulled from the portal at the time this evaluation was generated - not a live/updating record.',
         styles['BodyText9']
     ))
     flow.append(Spacer(1, 6))
@@ -360,6 +395,9 @@ def appendix_section(styles, appendix_data):
         flow.append(kpi_appendix_table(styles, kpi_rows))
     else:
         flow.append(Paragraph('No KPI data available for this employee/period.', styles['BodyText9']))
+    flow.append(Spacer(1, 12))
+    flow.append(Paragraph('Attendance Trend', styles['SectionHeading']))
+    flow.append(attendance_trend_table(styles, attendance_trend))
     flow.append(Spacer(1, 12))
     flow.append(Paragraph('Coaching Logs', styles['SectionHeading']))
     flow.append(coaching_appendix_table(styles, coaching_logs))
