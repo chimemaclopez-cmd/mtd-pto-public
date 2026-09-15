@@ -3762,7 +3762,8 @@ async function qaScorecardRunPreQa(){
   try{
     const thread=await getQaScorecardTicketThread(ticketId);
     $('qaScorecardPreQaStatus').textContent='Asking AI to pre-score the rubric…';
-    const prompt=buildQaPreQaPrompt({categories:qaScorecardLookupLists.categories,criticalErrors:qaScorecardLookupLists.criticalErrors,subject:thread.subject,transcript:thread.transcript,liveCalibration:qaScorecardLookupLists.liveCalibration});
+    const selectedAgent=(qaScorecardLookupLists.agents||[]).find(a=>a.employeeEmail===qaScorecardFormAgentEmail);
+    const prompt=buildQaPreQaPrompt({categories:qaScorecardLookupLists.categories,criticalErrors:qaScorecardLookupLists.criticalErrors,subject:thread.subject,transcript:thread.transcript,liveCalibration:qaScorecardLookupLists.liveCalibration,agentName:selectedAgent?.employeeName||thread.assigneeName||''});
     const raw=await copilotChatWithRetry(copilotToken,prompt,{isBadAnswer:isQaPreQaBadAnswer});
     const parsed=parseQaPreQaResponse(copilotResponseText(raw),qaScorecardLookupLists.categories,qaScorecardLookupLists.criticalErrors);
     // Deliberately NOT merged into qaScorecardFormRatings/FormCriticalErrors - those are the

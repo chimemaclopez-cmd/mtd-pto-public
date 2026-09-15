@@ -79,10 +79,13 @@ export function buildQaLiveCalibrationNote(liveCalibration,categories){
 // AI Pre-QA: build the prompt for the shared Copilot connection (same tsr-bot token already
 // used by DSAT Review's AI triage) to pre-score a ticket transcript against this exact rubric,
 // and parse its JSON reply back into the same {ratings, criticalErrors} shape the form uses.
-export function buildQaPreQaPrompt({categories,criticalErrors,subject,transcript,liveCalibration}){
+export function buildQaPreQaPrompt({categories,criticalErrors,subject,transcript,liveCalibration,agentName}){
   const rubricText=categories.map(cat=>`${cat.label} (${cat.groupLabel}):\n`+cat.criteria.map(c=>`- ${c.key}: "${c.label}" - ${c.description} (${c.points} pts)`).join('\n')).join('\n\n');
   const criticalText=criticalErrors.map(e=>`- ${e.key}: ${e.label}`).join('\n');
+  const agentLine=agentName?`\nThe agent being evaluated is: ${agentName}. Every criterion judges ONLY this person's own actions and wording.\n`:'';
   return `You are a QA analyst scoring one support ticket interaction against a fixed rubric. Read the ticket transcript below and rate EVERY criterion.
+${agentLine}
+IMPORTANT - the transcript mixes messages from several kinds of sender: the actual human agent, the requester/customer, and automated system senders (e.g. "CS Integration", macros, triggers, auto-follow-up emails, workflow bots - anything that reads like a canned system-generated message rather than something a person typed live in the moment). Never credit or penalize the agent for an automated/system message - it is not something they personally wrote. If the only evidence for a criterion (e.g. a closing recap, an empathy statement) comes from an automated message rather than the human agent's own words, rate that criterion NA rather than No, since there is no real evidence of what the human agent themselves did. This also applies to the TICKET'S RESOLUTION ITSELF: if the ticket was auto-solved or auto-closed by the system after the customer stopped responding to automated follow-ups (not something the agent actively resolved or chose to close), do not treat that as the agent failing to resolve it or closing it before resolution - rate Correct resolution, Closing & recap, and the "closed before resolution" critical error based only on what the human agent actually did up to that point, not on the automated close itself.
 
 Rubric criteria (rate each Yes / Partly / No / NA - use NA only if the criterion genuinely could not apply):
 ${rubricText}
