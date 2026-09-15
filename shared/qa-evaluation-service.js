@@ -98,7 +98,7 @@ Transcript:
 ${transcript||'(no transcript available)'}
 
 Respond with ONLY a single JSON object, no prose, no markdown code fences, in exactly this shape:
-{"ratings":{"<criterionKey>":"YES|PARTLY|NO|NA", ...one entry per criterion key above...},"reasons":{"<criterionKey>":"one short sentence citing the specific transcript evidence behind that rating", ...one entry per criterion key above, required even for NA (say why it doesn't apply)...},"criticalErrors":{"<errorKey>":true|false, ...one entry per critical error key above...},"feedback":"2-4 sentence summary of strengths and gaps, citing specific transcript evidence","actionPlan":"1-2 concrete, specific coaching actions"}`;
+{"ratings":{"<criterionKey>":"YES|PARTLY|NO|NA", ...one entry per criterion key above...},"reasons":{"<criterionKey>":"for YES/NA: one short sentence citing the specific transcript evidence behind that rating (for NA, say why it doesn't apply). For NO or PARTLY: that same evidence sentence PLUS a second sentence starting with 'Could have' giving one concrete, specific thing the agent should have said or done instead - not generic advice, something they could have literally said in this transcript.", ...one entry per criterion key above, required for every criterion...},"criticalErrors":{"<errorKey>":true|false, ...one entry per critical error key above...},"feedback":"2-4 sentence summary of strengths and gaps, citing specific transcript evidence","actionPlan":"1-2 concrete, specific coaching actions"}`;
 }
 
 export function isQaPreQaBadAnswer(raw){
