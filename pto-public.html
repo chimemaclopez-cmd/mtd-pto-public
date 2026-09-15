@@ -182,6 +182,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div></details>
 <details class="tabGroup tabGroup-tools"><summary class="tabGroupLabel"><svg class="groupIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.7" y="2.7" width="5.4" height="5.4" rx="1"/><rect x="9.9" y="2.7" width="5.4" height="5.4" rx="1"/><rect x="2.7" y="9.9" width="5.4" height="5.4" rx="1"/><rect x="9.9" y="9.9" width="5.4" height="5.4" rx="1"/></svg>Tools &amp; Reports</summary><div class="tabGroupButtons">
 <button class="btn" data-tab="dsatReview" id="dsatReviewTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v14"/><path d="M4 3h9l-2.3 3.2L13 9.4H4"/></svg>DSAT Review</button>
+<button class="btn" data-tab="qaScorecard" id="qaScorecardTabBtn"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.6 16.2 15.4H1.8Z"/><path d="M9 7.2V11"/><circle cx="9" cy="13" r=".3" fill="currentColor"/></svg>QA Scorecard</button>
 <button class="btn" data-tab="serviceRecovery" id="serviceRecoveryTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15.2S3.4 11.8 3.4 7.6A3.2 3.2 0 0 1 9 5.4a3.2 3.2 0 0 1 5.6 2.2c0 4.2-5.6 7.6-5.6 7.6z"/></svg>Service Recovery</button>
 <button class="btn" data-tab="ticketAudit" id="ticketAuditTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2.2" width="12" height="13.6" rx="1.3"/><path d="M6 6.4h6M6 9h6M6 11.6h3.5"/></svg>Ticket Audit</button>
 <button class="btn" data-tab="escalationReconciliation" id="escalationReconciliationTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.6 16.2 15.4H1.8Z"/><path d="M9 7.2V11"/><circle cx="9" cy="13" r=".3" fill="currentColor"/></svg>Escalation Reconciliation</button>
@@ -296,6 +297,72 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="sectionTitle" style="margin-top:24px;font-size:15px">Endorsed in chat, missing the tag</div><div class="sub">Escalated in the GC but never (or no longer) carries <code>escalated_to_supervisor</code> in Zendesk - invisible to any tag-based report.</div><div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Ticket</th><th>Status</th><th>Subject</th><th>Endorsed by</th><th>Endorsed at</th><th>Current tags</th></tr></thead><tbody id="escalationReconciliationMissingTagBody"></tbody></table></div>
 <div class="sectionTitle" style="margin-top:24px;font-size:15px">Tagged, never endorsed in chat</div><div class="sub">Carries the tag in Zendesk but has no record of ever being posted to the tracking GC.</div><div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Ticket</th><th>Status</th><th>Subject</th><th>Created</th></tr></thead><tbody id="escalationReconciliationMissingChatBody"></tbody></table></div>
 </section>
+<section id="qaScorecardView" hidden>
+<div class="sectionTitle">QA Scorecard</div>
+<div class="sub">Score a ticket interaction against the fixed rubric below. <span id="qaScorecardGeneratedAt" class="muted"></span></div>
+<div class="panel" style="margin:12px 0;padding:14px 16px;background:var(--brand-soft,#f1f3ff)">
+  <div style="font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">How scoring works</div>
+  <div class="sub"><b>Yes</b> earns full points, <b>Partly</b> earns half, and <b>No</b> earns zero. Use <b>N/A</b> only when a criterion genuinely does not apply - it's excluded from the available score. Any confirmed critical error automatically sets the final score to zero, regardless of points earned elsewhere. Passing score: <b id="qaScorecardPassingPctText">80%</b>.</div>
+</div>
+<div class="actions noPrint" id="qaScorecardSubViewToggle" style="margin-bottom:14px" hidden>
+  <button class="btn primary" type="button" data-qa-subview="form" id="qaScorecardFormTabBtn">New Evaluation</button>
+  <button class="btn" type="button" data-qa-subview="reporting" id="qaScorecardReportingTabBtn">Reporting</button>
+</div>
+
+<div id="qaScorecardFormSubView">
+  <div class="formGrid">
+    <div class="field"><label>Region</label><input id="qaScorecardRegion" placeholder="e.g. Manila"></div>
+    <div class="field"><label>Purpose of Evaluation</label><select id="qaScorecardPurpose"></select></div>
+    <div class="field"><label>Channel</label><select id="qaScorecardChannel"></select></div>
+    <div class="field"><label>Evaluation date</label><input id="qaScorecardEvaluationDate" type="date"></div>
+    <div class="field"><label>Ticket date</label><input id="qaScorecardTicketDate" type="date"></div>
+    <div class="field"><label>Ticket number</label><input id="qaScorecardTicketId" placeholder="e.g. 1630213"></div>
+    <div class="field"><label>Evaluated agent</label><select id="qaScorecardAgent"><option value="">Select agent</option></select></div>
+    <div class="field"><label>Team leader</label><input id="qaScorecardTeamLeader" disabled placeholder="Auto-filled from roster"></div>
+  </div>
+  <div class="actions noPrint" style="margin:12px 0;align-items:center">
+    <button class="btn" type="button" id="qaScorecardPreQaBtn">🤖 Run AI Pre-QA</button>
+    <span class="sub" id="qaScorecardPreQaStatus"></span>
+  </div>
+  <div class="panel" id="qaScorecardLiveScoreBox" style="margin:0 0 14px;padding:10px 14px"></div>
+  <div id="qaScorecardCategories"></div>
+  <div class="panel" style="margin-top:14px">
+    <div class="sectionTitle" style="font-size:14px">Critical Errors</div>
+    <div class="sub">Turn on only when the behavior clearly occurred.</div>
+    <div id="qaScorecardCriticalErrors" style="margin-top:10px;display:grid;gap:8px"></div>
+  </div>
+  <div class="formGrid" style="margin-top:14px">
+    <div class="field" style="grid-column:1/-1"><label>Feedback / Coaching Insights</label><textarea id="qaScorecardFeedback" rows="3" placeholder="Summarize strengths, opportunities, and supporting examples..."></textarea></div>
+    <div class="field" style="grid-column:1/-1"><label>Action Plan</label><textarea id="qaScorecardActionPlan" rows="2" placeholder="List the specific behavior, next step, and follow-up date..."></textarea></div>
+  </div>
+  <div id="qaScorecardFormError" class="message error" hidden></div>
+  <div class="actions" style="margin-top:14px">
+    <button class="btn" type="button" id="qaScorecardResetBtn">Reset</button>
+    <button class="btn" type="button" id="qaScorecardSaveDraftBtn">Save Draft</button>
+    <button class="btn primary" type="button" id="qaScorecardSaveBtn">Save Evaluation</button>
+  </div>
+</div>
+
+<div id="qaScorecardReportingSubView" hidden>
+  <div class="filters noPrint" style="margin:12px 0;align-items:flex-end">
+    <div class="field"><label>Agent</label><select id="qaScorecardReportAgentFilter"><option value="">All agents</option></select></div>
+    <div class="field"><label>From</label><input id="qaScorecardReportFrom" type="date"></div>
+    <div class="field"><label>To</label><input id="qaScorecardReportTo" type="date"></div>
+    <button class="btn compact" type="button" id="qaScorecardReportRefreshBtn">Apply</button>
+  </div>
+  <div class="cards" id="qaScorecardReportCards"></div>
+  <div class="sectionTitle" style="margin-top:20px;font-size:14px">Running score by agent</div>
+  <div class="tableWrap"><table><thead><tr><th>Agent</th><th>Running Average</th><th>Pass Rate</th><th>Evaluations</th><th>Latest</th></tr></thead><tbody id="qaScorecardAgentBody"></tbody></table></div>
+  <div class="sectionTitle" style="margin-top:20px;font-size:14px">Most common coaching opportunities</div>
+  <div id="qaScorecardOpportunities"></div>
+  <div class="sectionTitle" style="margin-top:20px;font-size:14px">Evaluation history</div>
+  <div class="tableWrap"><table><thead><tr><th>Ticket</th><th>Agent</th><th>Date</th><th>Score</th><th>Status</th><th>Action</th></tr></thead><tbody id="qaScorecardHistoryBody"></tbody></table></div>
+</div>
+
+<div class="sectionTitle" style="margin-top:24px;font-size:14px" id="myQaScorecardsTitle">My QA Evaluations</div>
+<div class="tableWrap"><table><thead><tr><th>Ticket</th><th>Agent</th><th>Date</th><th>Score</th></tr></thead><tbody id="myQaScorecardsBody"></tbody></table></div>
+</section>
+<div class="modal" id="qaScorecardViewModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true"><div class="title">QA Scorecard</div><div id="qaScorecardViewBody" style="margin-top:10px"></div><div class="actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" id="qaScorecardViewClose">Close</button></div></div></div>
 <section id="coachingView" hidden>
 <div class="sectionTitle">My Coaching</div>
 <div class="sub">Coaching sessions your team lead has shared with you. Review and sign to acknowledge.</div>
@@ -766,6 +833,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill,emptyState,emptyStateRow} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyGuides,getMyKpi,getMySeniorJiraActivity,getSeniorTsrSummary,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto,getMyTeamSchedule,saveMyTeamSchedule,saveMyTeamScheduleTemplate,getMyTicketAudit,requestTicketResolution,getTicketResolutionResult,getMyUpsellReferrals,getMyEscalationReconciliation} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChatWithRetry,isCopilotAuthError,getPreRunStatus,triggerPreRun,getPreRunResult} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt,buildResolutionPrompt,buildCloseabilityPrompt,parseCloseabilityResponse} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,clearLoftIqThread,searchLoftIqHelp,searchLoftIqAlignments,loadAllApprovedAlignments,buildAlignmentContradictionPrompt,isLoftIqBadAnswer,LOFTIQ_QUICK_ACTIONS,LOFTIQ_LEAD_QUICK_ACTIONS,buildLoftIqPrompt,searchLoftIqKnowledge,loadLottiKnowledge,createLottiKnowledge,updateLottiKnowledge,deleteLottiKnowledge} from './shared/loftiq-service.js';
+import {getQaScorecardLookupLists,listQaScorecards,createQaScorecard,updateQaScorecard,deleteQaScorecard,getQaScorecardReporting,getMyQaScorecards,getQaScorecardTicketThread,QA_SCORECARD_STATUS_LABELS,QA_SCORECARD_RATING_LABELS,computeQaScorecardScore as computeQaScorecardScoreLive,qaScorecardCompletedCount,buildQaPreQaPrompt,parseQaPreQaResponse,isQaPreQaBadAnswer} from './shared/qa-evaluation-service.js';
 import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview,clearCoachingFollowUp} from './shared/coaching-service.js';import {EVALUATION_STATUS_LABELS,EVALUATION_ATTRIBUTE_LABELS,EVALUATION_ATTRIBUTE_DESCRIPTIONS,evaluationAverageScore,loadMyTeamEvaluations,createTeamEvaluation,updateTeamEvaluation,deleteTeamEvaluation,sendTeamEvaluation,loadMyEvaluations,acknowledgeEvaluation,loadMyEvaluationAppendix,loadTeamProbationKpi,saveProbationCompliance,saveProbationProductivityKind} from './shared/evaluation-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {OPERATIONAL_NOTE_KPI_LABELS,OPERATIONAL_NOTE_SCOPE_LABELS,OPERATIONAL_NOTE_IMPACT_LABELS,OPERATIONAL_NOTE_STATUS_LABELS,loadOperationalNotes,createOperationalNote,updateOperationalNote,deleteOperationalNote} from './shared/operational-notes-service.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
@@ -773,7 +841,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor95(good,bad){const needed=19*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');$('lottiKnowledgeBodyFieldContainer').innerHTML=richTextFieldHtml('lottiKnowledgeBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -1436,8 +1504,8 @@ $('announcementList').addEventListener('click',async event=>{
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
-const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView'};
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='profile'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='profile'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('qaScorecardView').hidden=next!=='qaScorecard';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='qaScorecard'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
+const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView',qaScorecard:'qaScorecardView'};
 function applyTabFadeIn(next){const el=$(TAB_VIEW_IDS[next]);if(!el)return;el.classList.remove('tabViewActive');void el.offsetWidth;el.classList.add('tabViewActive');initSortableTables()}
 // WFE beta: interactive troubleshooting guides. guidesData is fetched once per session
 // (categories+steps); guidesTrail tracks where the viewer is in the tree - see the comment
@@ -3367,6 +3435,187 @@ function renderEscalationReconciliation(){
     `<tr><td>${ticketLink(t.ticketId)}</td><td>${esc(t.status)}</td><td>${esc(t.subject||'')}</td><td>${t.createdAt?esc(t.createdAt.slice(0,10)):''}</td></tr>`
   ).join('')||'<tr><td colspan="4">No gaps - every tagged escalation was endorsed in chat.</td></tr>';
 }
+function qaScorecardResetForm(){
+  editingQaScorecardId=null;qaScorecardFormAgentEmail='';qaScorecardFormRatings={};qaScorecardFormCriticalErrors={};
+  $('qaScorecardRegion').value='';$('qaScorecardEvaluationDate').value=todayET();$('qaScorecardTicketDate').value='';$('qaScorecardTicketId').value='';
+  $('qaScorecardAgent').value='';$('qaScorecardTeamLeader').value='';$('qaScorecardFeedback').value='';$('qaScorecardActionPlan').value='';
+  $('qaScorecardFormError').hidden=true;$('qaScorecardPreQaStatus').textContent='';
+  renderQaScorecardCategories();renderQaScorecardCriticalErrors();renderQaScorecardLiveScore();
+}
+function qaScorecardCategoryHtml(category){
+  return `<details open style="margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:10px 14px">
+    <summary style="cursor:pointer;font-weight:800">${esc(category.groupLabel)} — ${esc(category.label)} <span class="muted">(${category.weight}%)</span></summary>
+    <div style="margin-top:10px;display:grid;gap:10px">
+      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 150px;align-items:center;gap:10px;margin:0">
+        <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div></div>
+        <select data-qa-criterion="${esc(c.key)}"><option value="">Rate…</option><option value="YES">Yes</option><option value="PARTLY">Partly</option><option value="NO">No</option><option value="NA">N/A</option></select>
+      </div>`).join('')}
+    </div>
+  </details>`;
+}
+function renderQaScorecardCategories(){
+  const lists=qaScorecardLookupLists;if(!lists)return;
+  $('qaScorecardCategories').innerHTML=lists.categories.map(qaScorecardCategoryHtml).join('');
+  lists.categories.forEach(cat=>cat.criteria.forEach(c=>{
+    const el=$('qaScorecardCategories').querySelector(`[data-qa-criterion="${c.key}"]`);
+    if(el)el.value=qaScorecardFormRatings[c.key]||'';
+  }));
+}
+function renderQaScorecardCriticalErrors(){
+  const lists=qaScorecardLookupLists;if(!lists)return;
+  $('qaScorecardCriticalErrors').innerHTML=lists.criticalErrors.map(e=>`<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" data-qa-critical="${esc(e.key)}" ${qaScorecardFormCriticalErrors[e.key]?'checked':''}> ${esc(e.label)}</label>`).join('');
+}
+function renderQaScorecardLiveScore(){
+  const lists=qaScorecardLookupLists;if(!lists)return;
+  const score=computeQaScorecardScoreLive(lists.categories,qaScorecardFormRatings,qaScorecardFormCriticalErrors);
+  const {completed,total}=qaScorecardCompletedCount(lists.categories,qaScorecardFormRatings);
+  const passed=!score.hasCriticalError&&score.pct>=(lists.passingPct||80);
+  const sectionsText=lists.categories.map(cat=>`${esc(cat.label)} ${score.sections[cat.key].pct==null?'—':score.sections[cat.key].pct+'%'}`).join(' · ');
+  $('qaScorecardLiveScoreBox').innerHTML=`<b style="font-size:15px">${score.earnedPoints}/${score.availablePoints} pts (${score.pct}%)</b> · ${completed}/${total} rated · ${score.hasCriticalError?'<span style="color:#b3261e;font-weight:800">CRITICAL ERROR — score forced to 0</span>':passed?'<span style="color:#0f7a49;font-weight:800">Passing</span>':'<span style="color:#b3261e;font-weight:800">Below passing</span>'}<div class="sub" style="margin-top:4px">${sectionsText}</div>`;
+}
+async function loadQaScorecardTab(){
+  if(qaScorecardLoading)return;
+  qaScorecardLoading=true;
+  $('qaScorecardFormSubView').hidden=!canUseQaScorecard;
+  try{
+    if(canUseQaScorecard){
+      qaScorecardLookupLists=await getQaScorecardLookupLists();
+      $('qaScorecardSubViewToggle').hidden=false;
+      setQaScorecardSubView('form');
+      $('qaScorecardPassingPctText').textContent=`${qaScorecardLookupLists.passingPct}%`;
+      $('qaScorecardPurpose').innerHTML=qaScorecardLookupLists.purposes.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      $('qaScorecardChannel').innerHTML=qaScorecardLookupLists.channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      $('qaScorecardAgent').innerHTML='<option value="">Select agent</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}</option>`).join('');
+      $('qaScorecardReportAgentFilter').innerHTML='<option value="">All agents</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}</option>`).join('');
+      qaScorecardResetForm();
+    }
+    const myResult=await getMyQaScorecards();
+    myQaScorecardRecords=myResult.records||[];
+    renderMyQaScorecards();
+  }catch(error){setMessage(`Could not load QA Scorecard. ${error.message}`,'error')}
+  finally{qaScorecardLoading=false}
+}
+function renderMyQaScorecards(){
+  $('myQaScorecardsTitle').textContent=canUseQaScorecard?'My / My Team\'s QA Evaluations':'My QA Evaluations';
+  $('myQaScorecardsBody').innerHTML=myQaScorecardRecords.map(r=>
+    `<tr><td>${r.ticketId?esc(String(r.ticketId)):'—'}</td><td>${esc(r.employeeName)}</td><td>${esc(r.evaluationDate)}</td><td>${r.score.pct}% ${r.score.hasCriticalError?'<span class="muted">(critical error)</span>':r.score.passed?'':'<span class="muted">(below passing)</span>'}</td></tr>`
+  ).join('')||'<tr><td colspan="4">No published QA evaluations yet.</td></tr>';
+}
+function setQaScorecardSubView(next){
+  qaScorecardSubView=next;
+  $('qaScorecardFormTabBtn').classList.toggle('primary',next==='form');
+  $('qaScorecardReportingTabBtn').classList.toggle('primary',next==='reporting');
+  $('qaScorecardFormSubView').hidden=next!=='form';
+  $('qaScorecardReportingSubView').hidden=next!=='reporting';
+  if(next==='reporting')loadQaScorecardReporting();
+}
+async function loadQaScorecardReporting(){
+  try{
+    qaScorecardReporting=await getQaScorecardReporting({agentEmail:qaScorecardReportingAgentFilter,from:qaScorecardReportingFrom,to:qaScorecardReportingTo});
+    renderQaScorecardReporting();
+  }catch(error){setMessage(`Could not load QA reporting. ${error.message}`,'error')}
+}
+function renderQaScorecardReporting(){
+  const d=qaScorecardReporting;if(!d)return;
+  $('qaScorecardReportCards').innerHTML=[
+    ['Running Average',`${d.summary.runningAverage}%`],['Pass Rate',`${d.summary.passRate}%`],['Evaluations',d.summary.evaluations],['Critical Errors',d.summary.criticalErrors]
+  ].map(([a,b])=>`<div class="card"><div class="label">${esc(a)}</div><div class="value">${b}</div></div>`).join('');
+  $('qaScorecardAgentBody').innerHTML=d.byAgent.map(a=>
+    `<tr><td>${esc(a.employeeName)}</td><td>${a.runningAverage}%</td><td>${a.passRate}%</td><td>${a.total}</td><td>${esc(a.latestDate||'')}</td></tr>`
+  ).join('')||'<tr><td colspan="5">No published evaluations match these filters.</td></tr>';
+  $('qaScorecardOpportunities').innerHTML=d.opportunities.length?d.opportunities.map((o,i)=>
+    `<div class="attentionRow"><span><b>#${i+1} ${esc(o.label)}</b> <span class="muted">— ${esc(o.categoryLabel)}</span></span><span class="pill">${o.count} occurrence${o.count===1?'':'s'}</span></div>`
+  ).join(''):'<div class="sub">No coaching opportunities found in this selection.</div>';
+  $('qaScorecardHistoryBody').innerHTML=d.history.map(r=>
+    `<tr><td>${r.ticketId?esc(String(r.ticketId)):'—'}</td><td>${esc(r.employeeName)}</td><td>${esc(r.evaluationDate)}</td><td>${r.score.pct}%</td><td>${esc(QA_SCORECARD_STATUS_LABELS[r.status]||r.status)}</td><td><button class="btn compact" type="button" data-qa-view="${esc(r.id)}">View</button></td></tr>`
+  ).join('')||'<tr><td colspan="6">No evaluations yet.</td></tr>';
+}
+function qaScorecardViewRecordHtml(r){
+  const lists=qaScorecardLookupLists;
+  const rows=lists?lists.categories.flatMap(cat=>cat.criteria.map(c=>`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[r.ratings[c.key]]||'—'}</td></tr>`)).join(''):'';
+  const criticalHit=lists?lists.criticalErrors.filter(e=>r.criticalErrors[e.key]).map(e=>esc(e.label)).join(', '):'';
+  return `<div class="sub"><b>${esc(r.employeeName)}</b> — Ticket ${r.ticketId?esc(String(r.ticketId)):'—'} — ${esc(r.evaluationDate)}</div>
+    <div style="margin:8px 0"><b>${r.score.earnedPoints}/${r.score.availablePoints} pts (${r.score.pct}%)</b> ${r.score.hasCriticalError?'<span style="color:#b3261e;font-weight:800"> — CRITICAL ERROR</span>':r.score.passed?'<span style="color:#0f7a49"> — Passing</span>':'<span style="color:#b3261e"> — Below passing</span>'}</div>
+    ${criticalHit?`<div class="sub" style="color:#b3261e">Critical errors: ${criticalHit}</div>`:''}
+    <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${r.feedback?`<div style="margin-top:10px"><b>Feedback</b><div class="sub">${esc(r.feedback)}</div></div>`:''}
+    ${r.actionPlan?`<div style="margin-top:8px"><b>Action Plan</b><div class="sub">${esc(r.actionPlan)}</div></div>`:''}`;
+}
+async function openQaScorecardView(id){
+  try{
+    const record=(qaScorecardReporting?.history||[]).find(r=>r.id===id)||(await listQaScorecards()).records.find(r=>r.id===id);
+    if(!record)return;
+    $('qaScorecardViewBody').innerHTML=qaScorecardViewRecordHtml(record);
+    $('qaScorecardViewModal').hidden=false;
+  }catch(error){setMessage(`Could not open scorecard. ${error.message}`,'error')}
+}
+$('qaScorecardViewClose').onclick=()=>{$('qaScorecardViewModal').hidden=true};
+$('qaScorecardHistoryBody').addEventListener('click',event=>{const id=event.target.dataset.qaView;if(id)openQaScorecardView(id)});
+$('qaScorecardSubViewToggle').addEventListener('click',event=>{const next=event.target.closest('[data-qa-subview]')?.dataset.qaSubview;if(next)setQaScorecardSubView(next)});
+$('qaScorecardReportRefreshBtn').onclick=()=>{qaScorecardReportingAgentFilter=$('qaScorecardReportAgentFilter').value;qaScorecardReportingFrom=$('qaScorecardReportFrom').value;qaScorecardReportingTo=$('qaScorecardReportTo').value;loadQaScorecardReporting()};
+$('qaScorecardAgent').onchange=()=>{
+  qaScorecardFormAgentEmail=$('qaScorecardAgent').value;
+  const agent=(qaScorecardLookupLists?.agents||[]).find(a=>a.employeeEmail===qaScorecardFormAgentEmail);
+  $('qaScorecardTeamLeader').value=agent?.teamLeadName||'';
+};
+$('qaScorecardCategories').addEventListener('change',event=>{
+  const key=event.target.dataset.qaCriterion;if(!key)return;
+  qaScorecardFormRatings[key]=event.target.value||null;
+  renderQaScorecardLiveScore();
+});
+$('qaScorecardCriticalErrors').addEventListener('change',event=>{
+  const key=event.target.dataset.qaCritical;if(!key)return;
+  qaScorecardFormCriticalErrors[key]=event.target.checked;
+  renderQaScorecardLiveScore();
+});
+$('qaScorecardResetBtn').onclick=()=>qaScorecardResetForm();
+async function qaScorecardBuildPayload(status){
+  const lists=qaScorecardLookupLists;
+  const ratings={};lists.categories.forEach(cat=>cat.criteria.forEach(c=>{ratings[c.key]=qaScorecardFormRatings[c.key]||null}));
+  return {
+    status, employeeEmail:$('qaScorecardAgent').value, region:$('qaScorecardRegion').value, purpose:$('qaScorecardPurpose').value, channel:$('qaScorecardChannel').value,
+    evaluationDate:$('qaScorecardEvaluationDate').value, ticketDate:$('qaScorecardTicketDate').value, ticketId:$('qaScorecardTicketId').value,
+    ratings, criticalErrors:{...qaScorecardFormCriticalErrors}, feedback:$('qaScorecardFeedback').value, actionPlan:$('qaScorecardActionPlan').value
+  };
+}
+async function qaScorecardSave(status){
+  $('qaScorecardFormError').hidden=true;
+  if(!$('qaScorecardAgent').value){$('qaScorecardFormError').hidden=false;$('qaScorecardFormError').textContent='Select an evaluated agent.';return}
+  if(!$('qaScorecardEvaluationDate').value){$('qaScorecardFormError').hidden=false;$('qaScorecardFormError').textContent='Evaluation date is required.';return}
+  try{
+    const payload=await qaScorecardBuildPayload(status);
+    if(editingQaScorecardId)await updateQaScorecard(editingQaScorecardId,payload);
+    else await createQaScorecard(payload);
+    setMessage(status==='PUBLISHED'?'QA evaluation saved.':'Draft saved.','ok');
+    qaScorecardResetForm();
+    if(qaScorecardSubView==='reporting')loadQaScorecardReporting();
+  }catch(error){$('qaScorecardFormError').hidden=false;$('qaScorecardFormError').textContent=error.response?.error||error.message}
+}
+$('qaScorecardSaveDraftBtn').onclick=()=>qaScorecardSave('DRAFT');
+$('qaScorecardSaveBtn').onclick=()=>qaScorecardSave('PUBLISHED');
+async function qaScorecardRunPreQa(){
+  const ticketId=$('qaScorecardTicketId').value.trim();
+  if(!ticketId){$('qaScorecardPreQaStatus').textContent='Enter a ticket number first.';return}
+  if(!copilotConnected||!copilotToken){$('qaScorecardPreQaStatus').textContent='Copilot is not connected - connect it from your Profile to use AI Pre-QA.';return}
+  if(qaScorecardPreQaLoading)return;
+  qaScorecardPreQaLoading=true;
+  $('qaScorecardPreQaStatus').textContent='Fetching ticket transcript…';
+  try{
+    const thread=await getQaScorecardTicketThread(ticketId);
+    $('qaScorecardPreQaStatus').textContent='Asking AI to pre-score the rubric…';
+    const prompt=buildQaPreQaPrompt({categories:qaScorecardLookupLists.categories,criticalErrors:qaScorecardLookupLists.criticalErrors,subject:thread.subject,transcript:thread.transcript});
+    const raw=await copilotChatWithRetry(copilotToken,prompt,{isBadAnswer:isQaPreQaBadAnswer});
+    const parsed=parseQaPreQaResponse(copilotResponseText(raw),qaScorecardLookupLists.categories,qaScorecardLookupLists.criticalErrors);
+    qaScorecardFormRatings={...qaScorecardFormRatings,...parsed.ratings};
+    qaScorecardFormCriticalErrors={...qaScorecardFormCriticalErrors,...parsed.criticalErrors};
+    if(parsed.feedback)$('qaScorecardFeedback').value=parsed.feedback;
+    if(parsed.actionPlan)$('qaScorecardActionPlan').value=parsed.actionPlan;
+    renderQaScorecardCategories();renderQaScorecardCriticalErrors();renderQaScorecardLiveScore();
+    $('qaScorecardPreQaStatus').textContent='AI pre-QA applied — review every rating before saving.';
+  }catch(error){$('qaScorecardPreQaStatus').textContent=`AI Pre-QA failed: ${error.message}`}
+  finally{qaScorecardPreQaLoading=false}
+}
+$('qaScorecardPreQaBtn').onclick=()=>qaScorecardRunPreQa();
 async function loadUpsellReferralsTab(){
   if(upsellReferralsLoading)return;
   upsellReferralsLoading=true;
@@ -5073,10 +5322,10 @@ async function init(){
     session={authenticated:false};
   }
   if(!session.authenticated){showLogin();return}
-  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,nickname:session.nickname||'',tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);canUseViewAs=Boolean(session.canUseViewAs);viewAsRole=session.viewAsRole||'';myBetaFeatures=session.betaFeatures||[];canUseTicketAudit=Boolean(session.canUseTicketAudit);showApp();await load();if(mustChangePassword)openChangePassword(true);else{await runAlignmentBlockGate();showAnnouncementPopupIfNeeded()}
+  sessionUser={employeeEmail:session.employeeEmail,employeeName:session.employeeName,nickname:session.nickname||'',tourSeen:Boolean(session.tourSeen),lastSeenVersion:session.lastSeenVersion||''};portalVersion=session.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(session.mustChangePassword);portalRole=session.portalRole||'REP';isAdminUser=Boolean(session.isAdmin);canUseViewAs=Boolean(session.canUseViewAs);viewAsRole=session.viewAsRole||'';myBetaFeatures=session.betaFeatures||[];canUseTicketAudit=Boolean(session.canUseTicketAudit);canUseQaScorecard=Boolean(session.canUseQaScorecard);showApp();await load();if(mustChangePassword)openChangePassword(true);else{await runAlignmentBlockGate();showAnnouncementPopupIfNeeded()}
 }
 $('maintenanceRetryBtn').onclick=()=>{$('maintenanceView').hidden=true;init()};
-$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,nickname:result.nickname||'',tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);canUseViewAs=Boolean(result.canUseViewAs);viewAsRole=result.viewAsRole||'';myBetaFeatures=result.betaFeatures||[];canUseTicketAudit=Boolean(result.canUseTicketAudit);showApp();if(mustChangePassword){openChangePassword(true)}else{await load();await runAlignmentBlockGate();showAnnouncementPopupIfNeeded()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
+$('loginForm').onsubmit=async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));$('loginError').hidden=true;try{const result=await login(values.email,values.password);sessionUser={employeeEmail:result.employeeEmail,employeeName:result.employeeName,nickname:result.nickname||'',tourSeen:Boolean(result.tourSeen),lastSeenVersion:result.lastSeenVersion||''};portalVersion=result.portalVersion||portalVersion;renderAppCredit();mustChangePassword=Boolean(result.mustChangePassword);portalRole=result.portalRole||'REP';isAdminUser=Boolean(result.isAdmin);canUseViewAs=Boolean(result.canUseViewAs);viewAsRole=result.viewAsRole||'';myBetaFeatures=result.betaFeatures||[];canUseTicketAudit=Boolean(result.canUseTicketAudit);canUseQaScorecard=Boolean(result.canUseQaScorecard);showApp();if(mustChangePassword){openChangePassword(true)}else{await load();await runAlignmentBlockGate();showAnnouncementPopupIfNeeded()}}catch(error){if(isMaintenanceError(error)){showMaintenance();return}$('loginError').hidden=false;$('loginError').textContent=error.response?.error||error.message}};
 $('forgotPasswordLink').onclick=event=>{event.preventDefault();$('forgotPasswordHint').hidden=!$('forgotPasswordHint').hidden};
 $('logoutBtn').onclick=async()=>{try{await logout()}catch{}showLogin()};
 $('changePasswordBtn').onclick=()=>{closeHeaderMenu();openChangePassword(false)};

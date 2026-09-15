@@ -204,7 +204,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js']);
 const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
@@ -873,6 +873,77 @@ function normalizeEvaluationRatings(input) {
   }
   return out;
 }
+// QA Scorecard: a QA reviewer scores one ticket interaction against a fixed weighted rubric
+// (6 categories, 14 criteria, 100 pts) - distinct from the annual EVALUATION_* records above
+// (performance review) and from Coaching (behavioral log), so it gets its own store rather than
+// overloading either. No DRAFT->SENT->ACKNOWLEDGED signature chain like Coaching/Evaluations -
+// the source rubric this was modeled on has no agent counter-signature step, just Draft/Publish.
+const QA_SCORECARD_KEY = 'mtdkpi:qa-scorecards';
+const QA_SCORECARD_PURPOSES = ['Random QA', 'Bad CSAT', 'Good CSAT', 'Escalation', 'Requested for Review'];
+const QA_SCORECARD_CHANNELS = ['Call', 'Email', 'Chat'];
+const QA_SCORECARD_PASSING_PCT = 80;
+const QA_SCORECARD_CATEGORIES = [
+  { key: 'professionalism', label: 'Professionalism', groupLabel: 'Customer Experience', weight: 15, criteria: [
+    { key: 'properOpening', label: 'Proper opening', description: 'Used the approved greeting and introduced themselves.', points: 2 },
+    { key: 'respectfulProfessional', label: 'Respectful and professional', description: 'Maintained a courteous, confident, and helpful tone.', points: 4 },
+    { key: 'empathy', label: 'Empathy', description: "Acknowledged the client's situation or frustration appropriately.", points: 4 },
+    { key: 'closingRecap', label: 'Closing & recap', description: 'Summarized the resolution and next steps, offered further help, and closed professionally.', points: 5 }
+  ] },
+  { key: 'understanding', label: 'Understanding', groupLabel: 'Communication', weight: 15, criteria: [
+    { key: 'issueUnderstanding', label: 'Issue understanding & active listening', description: 'Reviewed the available details, accurately paraphrased the concern, and confirmed the expected outcome.', points: 9 },
+    { key: 'clearCommunication', label: 'Clear communication', description: 'Used clear, accurate language without unnecessary jargon or confusion.', points: 6 }
+  ] },
+  { key: 'accountability', label: 'Accountability', groupLabel: 'Ownership & Follow-Through', weight: 15, criteria: [
+    { key: 'ownershipReassurance', label: 'Ownership & reassurance', description: 'Took clear responsibility and proactively moved the concern toward resolution.', points: 5 },
+    { key: 'followUpExpectations', label: 'Follow-up & expectations', description: 'Provided a realistic turnaround time and a useful follow-up when needed.', points: 6 },
+    { key: 'allIssuesAddressed', label: 'All issues addressed', description: 'Covered every concern raised by the client, including secondary questions.', points: 4 }
+  ] },
+  { key: 'technicalPerformance', label: 'Technical Performance', groupLabel: 'Issue Resolution', weight: 35, criteria: [
+    { key: 'guidancePreventative', label: 'Guidance & preventative support', description: 'Provided actionable steps and relevant guidance to help prevent a repeat issue.', points: 10 },
+    { key: 'correctResolution', label: 'Correct resolution', description: 'Provided an accurate, complete resolution based on the available evidence.', points: 18 },
+    { key: 'correctJiraCreation', label: 'Correct JIRA creation', description: 'Created a JIRA only when appropriate and included complete evidence, examples, replication steps, and impact.', points: 7 }
+  ] },
+  { key: 'management', label: 'Management', groupLabel: 'Efficiency & Time Management', weight: 10, criteria: [
+    { key: 'efficiencyTimeManagement', label: 'Efficiency & time management', description: 'Managed holds well, used the right resources, and followed a focused troubleshooting path without avoidable delay.', points: 10 }
+  ] },
+  { key: 'dependability', label: 'Dependability', groupLabel: 'Process Accuracy', weight: 10, criteria: [
+    { key: 'accurateZendeskInfo', label: 'Accurate Zendesk information', description: 'Requester, subject, category, IDs, links, and other required fields were correct.', points: 10 }
+  ] }
+];
+const QA_SCORECARD_CRITICAL_ERRORS = [
+  { key: 'noVerification', label: 'Failed to verify the client when passcode verification was required' },
+  { key: 'closedBeforeResolution', label: 'Closed the ticket before resolution' },
+  { key: 'falseBillingExpectations', label: 'Set false billing expectations' },
+  { key: 'unprofessionalBehavior', label: 'Displayed unprofessional behavior' },
+  { key: 'intentionalDisconnect', label: 'Intentionally disconnected the interaction' },
+  { key: 'disconnectNoFollowup', label: 'Disconnected without follow-up' }
+];
+async function loadQaScorecards() { return cloudStore.kvGetJson(QA_SCORECARD_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
+async function saveQaScorecards(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(QA_SCORECARD_KEY, data); return data; }
+// Server-authoritative scoring - never trust a client-sent score. Mirrored client-side (for the
+// live-score sidebar as a reviewer clicks ratings) in shared/qa-evaluation-service.js; this is
+// the version actually persisted and used for reporting.
+function computeQaScorecardScore(ratings, criticalErrors) {
+  const r = ratings || {};
+  let earnedPoints = 0, availablePoints = 0;
+  const sections = {};
+  for (const category of QA_SCORECARD_CATEGORIES) {
+    let earned = 0, available = 0;
+    for (const criterion of category.criteria) {
+      const value = r[criterion.key];
+      if (value === 'NA') continue;
+      available += criterion.points;
+      if (value === 'YES') earned += criterion.points;
+      else if (value === 'PARTLY') earned += criterion.points / 2;
+    }
+    sections[category.key] = { earned, available, pct: available > 0 ? Math.round((earned / available) * 100) : null };
+    earnedPoints += earned; availablePoints += available;
+  }
+  const hasCriticalError = Object.values(criticalErrors || {}).some(Boolean);
+  const rawPct = availablePoints > 0 ? Math.round((earnedPoints / availablePoints) * 100) : 0;
+  const pct = hasCriticalError ? 0 : rawPct;
+  return { earnedPoints, availablePoints, pct, sections, hasCriticalError, passed: pct >= QA_SCORECARD_PASSING_PCT };
+}
 const ALIGNMENT_KEY = 'mtdkpi:alignment-records';
 const ALIGNMENT_AUDIT_KEY = 'mtdkpi:alignment-audit';
 const ALIGNMENT_CATEGORIES = ['SOP', 'Process Update', 'Feature Update', 'Attendance & Punctuality Policy', 'Schedule & Shift Policy', 'WFH/Onsite Policy', 'Compliance & Data Privacy', 'QA Scorecard Update', 'Client Policy / Script Update', 'KPI & Compensation Policy', 'Code of Conduct / HR Policy', 'Leave & PTO Policy', 'Business Continuity / Emergency Procedure', 'Security & Systems Access', 'Tool / System Migration'];
@@ -1325,6 +1396,15 @@ function ticketAuditAccess(identity, roster, session) {
   const allowed = Boolean(self) && ADMIN_EMAILS.has(ptoLogic.cleanEmail(self.teamLeadEmail));
   return { allowed, ownedEmails: allowed ? new Set([identity]) : new Set(), isTeamView: false };
 }
+// QA Scorecard reviewer access - generalizes the single-email DSAT_REVIEWER_EMAIL pattern into
+// a Set, since more than one person may score tickets against this rubric. Mac (ADMIN_EMAILS)
+// and the existing BQA role (DSAT_REVIEWER_EMAIL, via portalRoleFor) always qualify too, so the
+// same reviewer doing DSAT triage can also use this without a second grant.
+const QA_SCORECARD_REVIEWER_EMAILS = new Set(['mac@lofty.com']);
+function canUseQaScorecard(email) {
+  const clean = ptoLogic.cleanEmail(email);
+  return ADMIN_EMAILS.has(clean) || portalRoleFor(clean) === 'BQA' || QA_SCORECARD_REVIEWER_EMAILS.has(clean);
+}
 // Spiff Programs is open to every rep (unlike Ticket Audit), but a Team Lead should see their
 // own reports' entries too - not just their own - and SOM sees everyone company-wide, same
 // "sees it all" scope isCompanyWideOverseer() already gives her for Team Attendance/Roster/KPI.
@@ -1491,6 +1571,59 @@ function eligibleTrainingDestinations(roster) {
   const active = (roster.records || []).filter(x => x.active !== false);
   const teamLeadEmails = new Set(active.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) && ptoLogic.cleanEmail(x.teamLeadEmail) !== ptoLogic.cleanEmail(x.employeeEmail)).map(x => ptoLogic.cleanEmail(x.teamLeadEmail)));
   return active.filter(x => teamLeadEmails.has(ptoLogic.cleanEmail(x.employeeEmail))).map(x => ({ employeeName: x.employeeName, employeeEmail: ptoLogic.cleanEmail(x.employeeEmail) }));
+}
+// QA Scorecard's "Evaluated agent" dropdown - every active employee, with their team lead
+// carried alongside so the client can auto-fill Team Leader read-only once an agent is picked
+// (no separate manual team-leader dropdown to get out of sync with the roster).
+function activeRosterAgents(roster) {
+  return (roster.records || []).filter(x => x.active !== false)
+    .map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName, teamLeadEmail: ptoLogic.cleanEmail(x.teamLeadEmail), teamLeadName: x.teamLeadName || '' }))
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}
+// Direct Zendesk REST API access (OAuth client_credentials, same ZENDESK_OAUTH_CLIENT_ID/SECRET
+// already configured on this Render service for other purposes) so the AI Pre-QA feature can
+// pull a ticket's real transcript on demand - distinct from zendesk-proxy.js's own Zendesk
+// access, which is a separate LOCAL-ONLY process (runs on Mac's machine, not reachable from this
+// Render-hosted server) used for the daily sync jobs that feed KPI/site-metrics snapshots.
+// Requires ZENDESK_SUBDOMAIN to also be set in THIS server's own environment (Render) - the
+// OAuth client id/secret alone don't say which subdomain to authenticate against.
+let zendeskOAuthTokenCache = { token: null, expiresAt: 0 };
+async function getZendeskOAuthToken() {
+  if (zendeskOAuthTokenCache.token && Date.now() < zendeskOAuthTokenCache.expiresAt) return zendeskOAuthTokenCache.token;
+  const subdomain = process.env.ZENDESK_SUBDOMAIN, clientId = process.env.ZENDESK_OAUTH_CLIENT_ID, clientSecret = process.env.ZENDESK_OAUTH_CLIENT_SECRET;
+  if (!subdomain || !clientId || !clientSecret) throw new Error('Zendesk credentials are not configured on this server.');
+  const r = await fetch(`https://${subdomain}.zendesk.com/oauth/tokens`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope: 'read' })
+  });
+  if (!r.ok) throw new Error(`Zendesk OAuth token request returned HTTP ${r.status}.`);
+  const data = await r.json();
+  zendeskOAuthTokenCache = { token: data.access_token, expiresAt: Date.now() + (Number(data.expires_in || 3000) - 60) * 1000 };
+  return zendeskOAuthTokenCache.token;
+}
+async function zendeskApiFetch(path) {
+  const subdomain = process.env.ZENDESK_SUBDOMAIN;
+  const token = await getZendeskOAuthToken();
+  const r = await fetch(`https://${subdomain}.zendesk.com${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`Zendesk returned HTTP ${r.status}.`);
+  return r.json();
+}
+function stripHtmlForQaTranscript(html) { return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim(); }
+async function fetchTicketTranscriptForQa(ticketId) {
+  const [ticketData, commentsData] = await Promise.all([
+    zendeskApiFetch(`/api/v2/tickets/${encodeURIComponent(ticketId)}.json`),
+    zendeskApiFetch(`/api/v2/tickets/${encodeURIComponent(ticketId)}/comments.json`)
+  ]);
+  const ticket = ticketData.ticket || {};
+  const comments = commentsData.comments || [];
+  const authorIds = [...new Set(comments.map(c => c.author_id).filter(Boolean))];
+  let namesById = {};
+  if (authorIds.length) {
+    const usersData = await zendeskApiFetch(`/api/v2/users/show_many.json?ids=${authorIds.join(',')}`);
+    namesById = Object.fromEntries((usersData.users || []).map(u => [u.id, u.name]));
+  }
+  const transcript = comments.map(c => `[${c.created_at}] ${namesById[c.author_id] || 'Unknown'}${c.public ? '' : ' (internal)'}: ${stripHtmlForQaTranscript(c.html_body) || c.body || ''}`).join('\n\n');
+  return { subject: ticket.subject || '', status: ticket.status || '', transcript };
 }
 // Two Training Managers can share this role now (TRAINING_MANAGER_EMAILS), each with their own
 // real trainees - View-As preview has no way to pick which one, so it shows the union of real
@@ -1746,7 +1879,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail), canUseQaScorecard: canUseQaScorecard(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -1859,7 +1992,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity), canUseQaScorecard: canUseQaScorecard(identity) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -4289,6 +4422,163 @@ const server = http.createServer(async (req, res) => {
       const data = await loadEvaluations();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    // QA Scorecard: a QA reviewer scores one ticket interaction against the fixed rubric
+    // defined above (QA_SCORECARD_CATEGORIES/CRITICAL_ERRORS). Reviewer routes below are all
+    // gated on canUseQaScorecard(); the self/team-lead read view is separate (/api/my/qa-scorecards).
+    if (parsed.pathname === '/api/qa/scorecards/lookup-lists' && req.method === 'GET') {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const roster = await loadRosterSnapshot();
+      return json(res, 200, {
+        ok: true, categories: QA_SCORECARD_CATEGORIES, criticalErrors: QA_SCORECARD_CRITICAL_ERRORS,
+        purposes: QA_SCORECARD_PURPOSES, channels: QA_SCORECARD_CHANNELS, passingPct: QA_SCORECARD_PASSING_PCT,
+        agents: activeRosterAgents(roster)
+      });
+    }
+
+    if (parsed.pathname === '/api/qa/scorecards/reporting' && req.method === 'GET') {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadQaScorecards();
+      const from = String(parsed.searchParams.get('from') || ''), to = String(parsed.searchParams.get('to') || '');
+      const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
+      let records = (data.records || []).filter(x => x.status === 'PUBLISHED');
+      if (from) records = records.filter(x => x.evaluationDate >= from);
+      if (to) records = records.filter(x => x.evaluationDate <= to);
+      if (agentEmail) records = records.filter(x => ptoLogic.cleanEmail(x.employeeEmail) === agentEmail);
+      const byAgent = new Map();
+      const gapCounts = new Map(); // criterionKey -> occurrences of Partly/No
+      for (const r of records) {
+        const key = ptoLogic.cleanEmail(r.employeeEmail);
+        if (!byAgent.has(key)) byAgent.set(key, { employeeEmail: key, employeeName: r.employeeName, total: 0, sumPct: 0, passCount: 0, latestDate: '' });
+        const agent = byAgent.get(key);
+        agent.total++; agent.sumPct += (r.score?.pct ?? 0); if (r.score?.passed) agent.passCount++;
+        if (r.evaluationDate > agent.latestDate) agent.latestDate = r.evaluationDate;
+        for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) {
+          const value = r.ratings?.[criterion.key];
+          if (value === 'PARTLY' || value === 'NO') {
+            const gapKey = criterion.key;
+            if (!gapCounts.has(gapKey)) gapCounts.set(gapKey, { key: gapKey, label: criterion.label, categoryLabel: category.label, count: 0 });
+            gapCounts.get(gapKey).count++;
+          }
+        }
+      }
+      const byAgentList = [...byAgent.values()].map(a => ({ ...a, runningAverage: a.total ? Math.round(a.sumPct / a.total) : 0, passRate: a.total ? Math.round((a.passCount / a.total) * 100) : 0 })).sort((a, b) => b.runningAverage - a.runningAverage);
+      const totalPct = records.reduce((sum, r) => sum + (r.score?.pct ?? 0), 0);
+      const passCount = records.filter(r => r.score?.passed).length;
+      const criticalErrorCount = records.filter(r => r.score?.hasCriticalError).length;
+      return json(res, 200, {
+        ok: true,
+        summary: { evaluations: records.length, runningAverage: records.length ? Math.round(totalPct / records.length) : 0, passRate: records.length ? Math.round((passCount / records.length) * 100) : 0, criticalErrors: criticalErrorCount },
+        byAgent: byAgentList,
+        opportunities: [...gapCounts.values()].sort((a, b) => b.count - a.count).slice(0, 5),
+        history: records.slice().sort((a, b) => b.evaluationDate.localeCompare(a.evaluationDate) || b.createdAt.localeCompare(a.createdAt))
+      });
+    }
+
+    if (parsed.pathname === '/api/qa/scorecards/ticket-thread' && req.method === 'GET') {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const ticketId = String(parsed.searchParams.get('ticketId') || '').trim();
+      if (!ticketId) return json(res, 400, { ok: false, error: 'ticketId is required.' });
+      try {
+        const result = await fetchTicketTranscriptForQa(ticketId);
+        return json(res, 200, { ok: true, ...result });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: error.message || 'Could not fetch the ticket from Zendesk.' });
+      }
+    }
+
+    if (parsed.pathname === '/api/qa/scorecards' && req.method === 'GET') {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const data = await loadQaScorecards();
+      const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
+      const ticketQuery = String(parsed.searchParams.get('ticketId') || '').trim();
+      let records = data.records || [];
+      if (agentEmail) records = records.filter(x => ptoLogic.cleanEmail(x.employeeEmail) === agentEmail);
+      if (ticketQuery) records = records.filter(x => String(x.ticketId || '').includes(ticketQuery));
+      records = records.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { ok: true, records, lastUpdated: data.lastUpdated || '' });
+    }
+
+    if (parsed.pathname === '/api/qa/scorecards' && req.method === 'POST') {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const employeeEmail = ptoLogic.cleanEmail(body.employeeEmail || '');
+      const evaluationDate = String(body.evaluationDate || '');
+      if (!employeeEmail || !ptoLogic.validDate(evaluationDate)) return json(res, 400, { ok: false, error: 'A valid evaluated agent and evaluation date are required.' });
+      const roster = await loadRosterSnapshot();
+      const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail);
+      if (!employee) return json(res, 400, { ok: false, error: 'Evaluated agent not found in the roster.' });
+      const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] || ''); ratings[criterion.key] = ['YES', 'PARTLY', 'NO', 'NA'].includes(v) ? v : null; }
+      const criticalErrors = {}; for (const e of QA_SCORECARD_CRITICAL_ERRORS) criticalErrors[e.key] = Boolean(body.criticalErrors?.[e.key]);
+      const score = computeQaScorecardScore(ratings, criticalErrors);
+      const year = evaluationDate.slice(0, 4);
+      const data = await loadQaScorecards();
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const id = `QASC-${year}-${String(sequence).padStart(4, '0')}`;
+      const now = new Date().toISOString();
+      const record = {
+        id, status: body.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+        region: String(body.region || '').trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : QA_SCORECARD_PURPOSES[0],
+        channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : QA_SCORECARD_CHANNELS[0],
+        evaluationDate, ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : '', ticketId: String(body.ticketId || '').trim(),
+        employeeEmail, employeeName: employee.employeeName || employeeEmail, teamLeadEmail: ptoLogic.cleanEmail(employee.teamLeadEmail || ''), teamLeadName: employee.teamLeadName || '',
+        evaluatorEmail: identity, evaluatorName: session.employeeName || identity,
+        ratings, criticalErrors, feedback: String(body.feedback || '').trim(), actionPlan: String(body.actionPlan || '').trim(),
+        score, createdAt: now, createdBy: identity, updatedAt: now, updatedBy: identity
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveQaScorecards(data);
+      return json(res, 201, { ok: true, record });
+    }
+
+    const qaScorecardMatch = parsed.pathname.match(/^\/api\/qa\/scorecards\/([^/]+)$/);
+    if (qaScorecardMatch) {
+      if (!canUseQaScorecard(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const id = decodeURIComponent(qaScorecardMatch[1]);
+      const data = await loadQaScorecards();
+      const index = (data.records || []).findIndex(x => x.id === id);
+      if (index < 0) return json(res, 404, { ok: false, error: 'QA scorecard not found.' });
+      const current = data.records[index];
+      const isOwner = current.createdBy === identity || ADMIN_EMAILS.has(identity);
+      if (req.method === 'GET') return json(res, 200, { ok: true, record: current });
+      const body = await readJsonBody(req);
+      const now = new Date().toISOString();
+      if (req.method === 'PUT') {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the reviewer who created this scorecard can edit it.' });
+        const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] ?? current.ratings[criterion.key] ?? ''); ratings[criterion.key] = ['YES', 'PARTLY', 'NO', 'NA'].includes(v) ? v : null; }
+        const criticalErrors = {}; for (const e of QA_SCORECARD_CRITICAL_ERRORS) criticalErrors[e.key] = body.criticalErrors ? Boolean(body.criticalErrors[e.key]) : Boolean(current.criticalErrors[e.key]);
+        const score = computeQaScorecardScore(ratings, criticalErrors);
+        const next = {
+          ...current, region: String(body.region ?? current.region).trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : current.purpose,
+          channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : current.channel,
+          ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : current.ticketDate, ticketId: String(body.ticketId ?? current.ticketId).trim(),
+          ratings, criticalErrors, feedback: String(body.feedback ?? current.feedback).trim(), actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
+          score, status: body.status === 'PUBLISHED' ? 'PUBLISHED' : current.status, updatedAt: now, updatedBy: identity
+        };
+        data.records[index] = next;
+        await saveQaScorecards(data);
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE') {
+        if (!isOwner) return json(res, 403, { ok: false, error: 'Only the reviewer who created this scorecard can delete it.' });
+        data.records.splice(index, 1);
+        data.deletedQaScorecardIds = [...new Set([...(data.deletedQaScorecardIds || []), id])];
+        await saveQaScorecards(data);
+        return json(res, 200, { ok: true, deleted: id });
+      }
+      return json(res, 404, { ok: false, error: 'Unknown QA scorecard action.' });
+    }
+
+    // Self/team-lead read view - open to every employee (no canUseQaScorecard gate): a rep sees
+    // their own PUBLISHED scorecards, and a team lead additionally sees their direct reports'.
+    if (parsed.pathname === '/api/my/qa-scorecards' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const teamEmails = new Set(scopedTeamMembers(roster, identity, session, session.employeeName).map(x => ptoLogic.cleanEmail(x.employeeEmail)));
+      const data = await loadQaScorecards();
+      const records = (data.records || []).filter(x => x.status === 'PUBLISHED' && (ptoLogic.cleanEmail(x.employeeEmail) === identity || teamEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))).sort((a, b) => b.evaluationDate.localeCompare(a.evaluationDate));
+      return json(res, 200, { ok: true, records });
     }
 
     // SOM coaching oversight: company-wide read-only view of every coaching log across every
