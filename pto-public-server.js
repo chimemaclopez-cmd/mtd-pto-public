@@ -887,30 +887,30 @@ const QA_SCORECARD_PURPOSES = ['Random QA', 'Bad CSAT', 'Good CSAT', 'Escalation
 const QA_SCORECARD_CHANNELS = ['Call', 'Email', 'Chat'];
 const QA_SCORECARD_PASSING_PCT = 80;
 const QA_SCORECARD_CATEGORIES = [
-  { key: 'professionalism', label: 'Professionalism', groupLabel: 'Customer Experience', weight: 15, criteria: [
+  { key: 'professionalism', label: 'Professionalism', groupLabel: 'Customer Experience', weight: 15, summary: 'Professional opening, respectful tone, empathy, and a complete closing recap.', criteria: [
     { key: 'properOpening', label: 'Proper opening', description: 'Used the approved greeting and introduced themselves.', points: 2 },
     { key: 'respectfulProfessional', label: 'Respectful and professional', description: 'Maintained a courteous, confident, and helpful tone.', points: 4 },
     { key: 'empathy', label: 'Empathy', description: "Acknowledged the client's situation or frustration appropriately.", points: 4 },
     { key: 'closingRecap', label: 'Closing & recap', description: 'Summarized the resolution and next steps, offered further help, and closed professionally.', points: 5 }
   ] },
-  { key: 'understanding', label: 'Understanding', groupLabel: 'Communication', weight: 15, criteria: [
+  { key: 'understanding', label: 'Understanding', groupLabel: 'Communication', weight: 15, summary: 'Active listening, accurate issue understanding, and clear communication throughout the interaction.', criteria: [
     { key: 'issueUnderstanding', label: 'Issue understanding & active listening', description: 'Reviewed the available details, accurately paraphrased the concern, and confirmed the expected outcome.', points: 9 },
     { key: 'clearCommunication', label: 'Clear communication', description: 'Used clear, accurate language without unnecessary jargon or confusion.', points: 6 }
   ] },
-  { key: 'accountability', label: 'Accountability', groupLabel: 'Ownership & Follow-Through', weight: 15, criteria: [
+  { key: 'accountability', label: 'Accountability', groupLabel: 'Ownership & Follow-Through', weight: 15, summary: 'Responsibility, reassurance, follow-up expectations, and coverage of every issue raised.', criteria: [
     { key: 'ownershipReassurance', label: 'Ownership & reassurance', description: 'Took clear responsibility and proactively moved the concern toward resolution.', points: 5 },
     { key: 'followUpExpectations', label: 'Follow-up & expectations', description: 'Provided a realistic turnaround time and a useful follow-up when needed.', points: 6 },
     { key: 'allIssuesAddressed', label: 'All issues addressed', description: 'Covered every concern raised by the client, including secondary questions.', points: 4 }
   ] },
-  { key: 'technicalPerformance', label: 'Technical Performance', groupLabel: 'Issue Resolution', weight: 35, criteria: [
+  { key: 'technicalPerformance', label: 'Technical Performance', groupLabel: 'Issue Resolution', weight: 35, summary: 'Correct resolution, useful preventative guidance, and proper JIRA creation when escalation is required.', criteria: [
     { key: 'guidancePreventative', label: 'Guidance & preventative support', description: 'Provided actionable steps and relevant guidance to help prevent a repeat issue.', points: 10 },
     { key: 'correctResolution', label: 'Correct resolution', description: 'Provided an accurate, complete resolution based on the available evidence.', points: 18 },
     { key: 'correctJiraCreation', label: 'Correct JIRA creation', description: 'Created a JIRA only when appropriate and included complete evidence, examples, replication steps, and impact.', points: 7 }
   ] },
-  { key: 'management', label: 'Management', groupLabel: 'Efficiency & Time Management', weight: 10, criteria: [
+  { key: 'management', label: 'Management', groupLabel: 'Efficiency & Time Management', weight: 10, summary: 'Focused troubleshooting, appropriate resource use, and effective management of holds and time.', criteria: [
     { key: 'efficiencyTimeManagement', label: 'Efficiency & time management', description: 'Managed holds well, used the right resources, and followed a focused troubleshooting path without avoidable delay.', points: 10 }
   ] },
-  { key: 'dependability', label: 'Dependability', groupLabel: 'Process Accuracy', weight: 10, criteria: [
+  { key: 'dependability', label: 'Dependability', groupLabel: 'Process Accuracy', weight: 10, summary: 'Complete and accurate Zendesk information, required links, and dependable process execution.', criteria: [
     { key: 'accurateZendeskInfo', label: 'Accurate Zendesk information', description: 'Requester, subject, category, IDs, links, and other required fields were correct.', points: 10 }
   ] }
 ];
@@ -4436,8 +4436,11 @@ const server = http.createServer(async (req, res) => {
     // QA Scorecard: a QA reviewer scores one ticket interaction against the fixed rubric
     // defined above (QA_SCORECARD_CATEGORIES/CRITICAL_ERRORS). Reviewer routes below are all
     // gated on canUseQaScorecard(); the self/team-lead read view is separate (/api/my/qa-scorecards).
+    // Open to every signed-in employee, not just reviewers - this is read-only rubric metadata
+    // (the "Scoring breakdown" guide on the tab needs it regardless of role) plus a roster name
+    // list no more sensitive than what Team Roster/Alignment target pickers already share widely.
+    // The actual create/edit/reporting routes below stay canUseQaScorecard-gated.
     if (parsed.pathname === '/api/qa/scorecards/lookup-lists' && req.method === 'GET') {
-      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const roster = await loadRosterSnapshot();
       return json(res, 200, {
         ok: true, categories: QA_SCORECARD_CATEGORIES, criticalErrors: QA_SCORECARD_CRITICAL_ERRORS,

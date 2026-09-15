@@ -42,6 +42,25 @@ export function qaScorecardCompletedCount(categories,ratings){
   return {completed,total};
 }
 
+// Calibration notes derived from the 88 real evaluations already on file in the reference QA
+// tool this rubric was modeled on (pulled live via its /api/evaluations endpoint, 2026-09-16 -
+// avg score 94%, range 61-100%, zero critical errors recorded). Folded into the AI Pre-QA prompt
+// so the AI's grading tendencies match how this rubric is actually used in practice, not a naive
+// reading of the criteria text:
+// - "Partly" was used ZERO times across all 88 evaluations, on any criterion - real reviewers
+//   grade decisively Yes/No and use N/A liberally for what doesn't apply, not partial credit.
+// - N/A is the majority answer for several criteria depending on context: Empathy was N/A in
+//   87/88 (mostly email tickets with no visible distress to acknowledge), Follow-up & expectations
+//   N/A in 68/88 (no follow-up was actually needed), Correct JIRA creation N/A in 72/88 (nothing
+//   was escalated).
+// - The most common real "No": Accurate Zendesk information (12/88), typically wrong/incomplete
+//   account or client ID on the ticket - a concrete, checkable fact, not a judgment call.
+const QA_SCORECARD_CALIBRATION_NOTE = `Calibration notes from 88 real historical evaluations of this exact rubric (so your grading matches how it's actually used, not just a literal reading of the criteria):
+- "Partly" is almost never actually used in practice - grade decisively Yes or No. Reach for Partly only when the interaction is genuinely a mixed/half case, not as a default hedge.
+- Use N/A generously whenever a criterion truly doesn't apply to this specific ticket - e.g. Empathy is usually N/A when there's no visible frustration to acknowledge (very common on routine email tickets), Follow-up & expectations is N/A when no follow-up was actually needed, and Correct JIRA creation is N/A whenever nothing was escalated.
+- The most common real failure is Accurate Zendesk information (wrong/incomplete account or client ID, wrong category) - a checkable fact, not a subjective call. Check ticket metadata carefully for this one.
+- Typical scores run high (historical average ~94%, rarely below ~85%) when the agent's core resolution is correct - most real gaps are in a couple of specific criteria, not spread evenly across the whole rubric.`;
+
 // AI Pre-QA: build the prompt for the shared Copilot connection (same tsr-bot token already
 // used by DSAT Review's AI triage) to pre-score a ticket transcript against this exact rubric,
 // and parse its JSON reply back into the same {ratings, criticalErrors} shape the form uses.
@@ -55,6 +74,8 @@ ${rubricText}
 
 Critical errors (true only if clearly evidenced in the transcript, otherwise false):
 ${criticalText}
+
+${QA_SCORECARD_CALIBRATION_NOTE}
 
 Ticket subject: ${subject||'(none)'}
 

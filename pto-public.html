@@ -304,6 +304,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
   <div style="font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">How scoring works</div>
   <div class="sub"><b>Yes</b> earns full points, <b>Partly</b> earns half, and <b>No</b> earns zero. Use <b>N/A</b> only when a criterion genuinely does not apply - it's excluded from the available score. Any confirmed critical error automatically sets the final score to zero, regardless of points earned elsewhere. Passing score: <b id="qaScorecardPassingPctText">80%</b>.</div>
 </div>
+<div class="panel" style="margin:0 0 14px;padding:14px 16px">
+  <div style="font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">Scoring breakdown</div>
+  <div class="sub" style="margin-bottom:10px">Technical Performance carries the greatest weight because providing a correct and useful resolution is the most important part of the interaction.</div>
+  <div class="cards" id="qaScorecardBreakdownCards"></div>
+</div>
 <div class="actions noPrint" id="qaScorecardSubViewToggle" style="margin-bottom:14px" hidden>
   <button class="btn primary" type="button" data-qa-subview="form" id="qaScorecardFormTabBtn">New Evaluation</button>
   <button class="btn" type="button" data-qa-subview="reporting" id="qaScorecardReportingTabBtn">Reporting</button>
@@ -3473,6 +3478,15 @@ function renderQaScorecardLiveScore(){
   const sectionsText=lists.categories.map(cat=>`${esc(cat.label)} ${score.sections[cat.key].pct==null?'—':score.sections[cat.key].pct+'%'}`).join(' · ');
   $('qaScorecardLiveScoreBox').innerHTML=`<b style="font-size:15px">${score.earnedPoints}/${score.availablePoints} pts (${score.pct}%)</b> · ${completed}/${total} rated · ${score.hasCriticalError?'<span style="color:#b3261e;font-weight:800">CRITICAL ERROR — score forced to 0</span>':passed?'<span style="color:#0f7a49;font-weight:800">Passing</span>':'<span style="color:#b3261e;font-weight:800">Below passing</span>'}<div class="sub" style="margin-top:4px">${sectionsText}</div>`;
 }
+// Static rubric guide (weights + what each section measures + point total) - shown to every
+// employee, not just reviewers, mirroring the reference tool's own "Scoring Breakdown" cards.
+function renderQaScorecardBreakdownCards(){
+  const lists=qaScorecardLookupLists;if(!lists)return;
+  $('qaScorecardBreakdownCards').innerHTML=lists.categories.map(cat=>{
+    const totalPoints=cat.criteria.reduce((s,c)=>s+c.points,0);
+    return `<div class="card"><div class="label">${esc(cat.groupLabel)}<span style="float:right;font-weight:800">${cat.weight}%</span></div><div style="font-weight:800;font-size:14px;margin:4px 0">${esc(cat.label)}</div><div class="sub">${esc(cat.summary||'')}</div><div class="muted" style="margin-top:6px;font-size:11px">${totalPoints} of 100 pts</div></div>`;
+  }).join('');
+}
 async function loadQaScorecardTab(){
   if(qaScorecardLoading)return;
   qaScorecardLoading=true;
@@ -3483,11 +3497,15 @@ async function loadQaScorecardTab(){
   const qaScorecardReviewerView=(canUseQaScorecard||viewAsRole==='BQA')&&viewAsRole!=='REP';
   $('qaScorecardFormSubView').hidden=!qaScorecardReviewerView;
   try{
+    // Rubric metadata (categories/weights/passing score) is fetched for EVERYONE - the "Scoring
+    // breakdown" guide is informational, not reviewer-only. Only the reviewer form/reporting
+    // controls below stay gated on qaScorecardReviewerView.
+    qaScorecardLookupLists=await getQaScorecardLookupLists();
+    $('qaScorecardPassingPctText').textContent=`${qaScorecardLookupLists.passingPct}%`;
+    renderQaScorecardBreakdownCards();
     if(qaScorecardReviewerView){
-      qaScorecardLookupLists=await getQaScorecardLookupLists();
       $('qaScorecardSubViewToggle').hidden=false;
       setQaScorecardSubView('form');
-      $('qaScorecardPassingPctText').textContent=`${qaScorecardLookupLists.passingPct}%`;
       $('qaScorecardPurpose').innerHTML=qaScorecardLookupLists.purposes.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
       $('qaScorecardChannel').innerHTML=qaScorecardLookupLists.channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
       $('qaScorecardAgent').innerHTML='<option value="">Select agent</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}</option>`).join('');
@@ -3535,14 +3553,27 @@ function renderQaScorecardReporting(){
     `<tr><td>${r.ticketId?esc(String(r.ticketId)):'—'}</td><td>${esc(r.employeeName)}</td><td>${esc(r.evaluationDate)}</td><td>${r.score.pct}%</td><td>${esc(QA_SCORECARD_STATUS_LABELS[r.status]||r.status)}</td><td><button class="btn compact" type="button" data-qa-view="${esc(r.id)}">View</button></td></tr>`
   ).join('')||'<tr><td colspan="6">No evaluations yet.</td></tr>';
 }
+// Earned/possible points for one criterion given its rating - Yes=full, Partly=half, No=zero,
+// N/A=excluded (matches computeQaScorecardScore's own rule exactly, just rendered per-row so a
+// reviewer or agent can see the quantitative weight behind each rating, not just Yes/Partly/No).
+function qaScorecardPointsCellText(c,ratingValue){
+  if(ratingValue==='NA')return 'N/A';
+  if(ratingValue==='YES')return `${c.points} / ${c.points}`;
+  if(ratingValue==='PARTLY')return `${c.points/2} / ${c.points}`;
+  if(ratingValue==='NO')return `0 / ${c.points}`;
+  return `— / ${c.points}`;
+}
+function qaScorecardRubricRows(lists,ratings){
+  return lists.categories.flatMap(cat=>cat.criteria.map(c=>`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[ratings[c.key]]||'—'}</td><td>${qaScorecardPointsCellText(c,ratings[c.key])}</td></tr>`)).join('');
+}
 function qaScorecardViewRecordHtml(r){
   const lists=qaScorecardLookupLists;
-  const rows=lists?lists.categories.flatMap(cat=>cat.criteria.map(c=>`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[r.ratings[c.key]]||'—'}</td></tr>`)).join(''):'';
+  const rows=lists?qaScorecardRubricRows(lists,r.ratings):'';
   const criticalHit=lists?lists.criticalErrors.filter(e=>r.criticalErrors[e.key]).map(e=>esc(e.label)).join(', '):'';
   return `<div class="sub"><b>${esc(r.employeeName)}</b> — Ticket ${r.ticketId?esc(String(r.ticketId)):'—'} — ${esc(r.evaluationDate)}</div>
     <div style="margin:8px 0"><b>${r.score.earnedPoints}/${r.score.availablePoints} pts (${r.score.pct}%)</b> ${r.score.hasCriticalError?'<span style="color:#b3261e;font-weight:800"> — CRITICAL ERROR</span>':r.score.passed?'<span style="color:#0f7a49"> — Passing</span>':'<span style="color:#b3261e"> — Below passing</span>'}</div>
     ${criticalHit?`<div class="sub" style="color:#b3261e">Critical errors: ${criticalHit}</div>`:''}
-    <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${r.feedback?`<div style="margin-top:10px"><b>Feedback</b><div class="sub">${esc(r.feedback)}</div></div>`:''}
     ${r.actionPlan?`<div style="margin-top:8px"><b>Action Plan</b><div class="sub">${esc(r.actionPlan)}</div></div>`:''}`;
 }
