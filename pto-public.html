@@ -3598,7 +3598,7 @@ function renderQaScorecardReporting(){
     `<div class="attentionRow"><span><b>#${i+1} ${esc(o.label)}</b> <span class="muted">— ${esc(o.categoryLabel)}</span></span><span class="pill">${o.count} occurrence${o.count===1?'':'s'}</span></div>`
   ).join(''):'<div class="sub">No coaching opportunities found in this selection.</div>';
   $('qaScorecardHistoryBody').innerHTML=d.history.map(r=>
-    `<tr><td>${r.ticketId?esc(String(r.ticketId)):'—'}</td><td>${esc(r.employeeName)}</td><td>${esc(r.evaluationDate)}</td><td>${r.score.pct}%</td><td>${esc(QA_SCORECARD_STATUS_LABELS[r.status]||r.status)}</td><td><button class="btn compact" type="button" data-qa-view="${esc(r.id)}">View</button></td></tr>`
+    `<tr><td>${r.ticketId?esc(String(r.ticketId)):'—'}</td><td>${esc(r.employeeName)}</td><td>${esc(r.evaluationDate)}</td><td>${r.score.pct}%</td><td>${esc(QA_SCORECARD_STATUS_LABELS[r.status]||r.status)}</td><td><button class="btn compact" type="button" data-qa-view="${esc(r.id)}">View</button> ${r.status!=='ACKNOWLEDGED'?`<button class="btn compact danger" type="button" data-qa-delete="${esc(r.id)}">Delete</button>`:''}</td></tr>`
   ).join('')||'<tr><td colspan="6">No evaluations yet.</td></tr>';
 }
 // Earned/possible points for one criterion given its rating - Yes=full, Partly=half, No=zero,
@@ -3712,7 +3712,13 @@ function previewQaScorecardPdf(record){
   win.onload=()=>win.print();
 }
 $('qaScorecardPreviewPdfBtn').onclick=()=>{if(qaScorecardViewingRecord)previewQaScorecardPdf(qaScorecardViewingRecord)};
-$('qaScorecardHistoryBody').addEventListener('click',event=>{const id=event.target.dataset.qaView;if(id)openQaScorecardView(id)});
+$('qaScorecardHistoryBody').addEventListener('click',async event=>{
+  const viewId=event.target.dataset.qaView;if(viewId){openQaScorecardView(viewId);return}
+  const deleteId=event.target.dataset.qaDelete;if(!deleteId)return;
+  if(!confirm(`Delete QA scorecard ${deleteId}? This cannot be undone.`))return;
+  try{await deleteQaScorecard(deleteId);setMessage('QA scorecard deleted.','ok');loadQaScorecardReporting()}
+  catch(error){setMessage(error.response?.error||error.message,'error')}
+});
 $('qaScorecardSubViewToggle').addEventListener('click',event=>{const next=event.target.closest('[data-qa-subview]')?.dataset.qaSubview;if(next)setQaScorecardSubView(next)});
 $('qaScorecardReportRefreshBtn').onclick=()=>{qaScorecardReportingAgentFilter=$('qaScorecardReportAgentFilter').value;qaScorecardReportingFrom=$('qaScorecardReportFrom').value;qaScorecardReportingTo=$('qaScorecardReportTo').value;loadQaScorecardReporting()};
 $('qaScorecardAgent').onchange=()=>{
