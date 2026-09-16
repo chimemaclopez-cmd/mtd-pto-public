@@ -42,6 +42,7 @@ export function computeQaScorecardScore(categories,ratings,criticalErrors){
       if(value==='YES')earned+=criterion.points;
       else if(value==='PARTLY')earned+=criterion.points/2;
     }
+    if(category.key==='technicalPerformance'&&ratings?.correctResolution==='NO')earned=0;
     sections[category.key]={earned,available,pct:available>0?Math.round((earned/available)*100):null};
     earnedPoints+=earned;availablePoints+=available;
   }

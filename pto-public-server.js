@@ -208,7 +208,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js', 'learning-service.js']);
 // moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
 // Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
 // silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
@@ -903,7 +903,9 @@ const QA_SCORECARD_CATEGORIES = [
   { key: 'accountability', label: 'Accountability', groupLabel: 'Ownership & Follow-Through', weight: 15, summary: 'Responsibility, reassurance, follow-up expectations, and coverage of every issue raised.', criteria: [
     { key: 'ownershipReassurance', label: 'Ownership & reassurance', description: 'Took clear responsibility and proactively moved the concern toward resolution.', points: 5 },
     { key: 'followUpExpectations', label: 'Follow-up & expectations', description: 'Provided a realistic turnaround time and a useful follow-up when needed.', points: 6 },
-    { key: 'allIssuesAddressed', label: 'All issues addressed', description: 'Covered every concern raised by the client, including secondary questions.', points: 4 }
+    // Yes/No only, not Partly/N/A - covering every concern is binary: missing even one secondary
+    // question marks this down, there's no partial credit for a partially-addressed ticket.
+    { key: 'allIssuesAddressed', label: 'All issues addressed', description: 'Covered every concern raised by the client, including secondary questions.', points: 4, binary: true }
   ] },
   { key: 'technicalPerformance', label: 'Technical Performance', groupLabel: 'Issue Resolution', weight: 35, summary: 'Correct resolution, useful preventative guidance, and proper JIRA creation when escalation is required.', criteria: [
     { key: 'guidancePreventative', label: 'Guidance & preventative support', description: 'Provided actionable steps and relevant guidance to help prevent a repeat issue.', points: 10 },
@@ -914,16 +916,22 @@ const QA_SCORECARD_CATEGORIES = [
     { key: 'efficiencyTimeManagement', label: 'Efficiency & time management', description: 'Managed holds well, used the right resources, and followed a focused troubleshooting path without avoidable delay.', points: 10 }
   ] },
   { key: 'dependability', label: 'Dependability', groupLabel: 'Process Accuracy', weight: 10, summary: 'Complete and accurate Zendesk information, required links, and dependable process execution.', criteria: [
-    { key: 'accurateZendeskInfo', label: 'Accurate Zendesk information', description: 'Requester, subject, category, IDs, links, and other required fields were correct.', points: 10 }
+    { key: 'accurateZendeskInfo', label: 'Accurate Zendesk information', description: 'Requester, subject, category, IDs, required links, JIRA linkage, and other required fields were correct.', points: 10 }
   ] }
 ];
+function qaScorecardCriterionByKey(key) {
+  for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) if (criterion.key === key) return criterion;
+  return null;
+}
+function qaScorecardAllowedRatingValues(criterion) {
+  return criterion && criterion.binary ? ['YES', 'NO'] : ['YES', 'PARTLY', 'NO', 'NA'];
+}
 const QA_SCORECARD_CRITICAL_ERRORS = [
   { key: 'noVerification', label: 'Failed to verify the client when passcode verification was required' },
   { key: 'closedBeforeResolution', label: 'Closed the ticket before resolution' },
   { key: 'falseBillingExpectations', label: 'Set false billing expectations' },
   { key: 'unprofessionalBehavior', label: 'Displayed unprofessional behavior' },
-  { key: 'intentionalDisconnect', label: 'Intentionally disconnected the interaction' },
-  { key: 'disconnectNoFollowup', label: 'Disconnected without follow-up' }
+  { key: 'intentionalDisconnectOrNoFollowup', label: 'Intentionally disconnected the interaction or disconnected without follow-up' }
 ];
 async function loadQaScorecards() { return cloudStore.kvGetJson(QA_SCORECARD_KEY, { version: 1, sequenceByYear: {}, records: [] }); }
 async function saveQaScorecards(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(QA_SCORECARD_KEY, data); return data; }
@@ -943,6 +951,10 @@ function computeQaScorecardScore(ratings, criticalErrors) {
       if (value === 'YES') earned += criterion.points;
       else if (value === 'PARTLY') earned += criterion.points / 2;
     }
+    // An incorrect resolution means the interaction failed at its actual job, regardless of how
+    // well-guided or well-documented the wrong answer was - so the whole Technical Performance
+    // section (not just the Correct Resolution criterion) zeroes out, same as the reference tool.
+    if (category.key === 'technicalPerformance' && r.correctResolution === 'NO') earned = 0;
     sections[category.key] = { earned, available, pct: available > 0 ? Math.round((earned / available) * 100) : null };
     earnedPoints += earned; availablePoints += available;
   }
@@ -1244,6 +1256,40 @@ const OPERATIONAL_NOTE_IMPACT_VALUES = new Set(['NEGATIVE', 'POSITIVE', 'NEUTRAL
 const OPERATIONAL_NOTE_STATUS_VALUES = new Set(['ONGOING', 'MONITORING', 'RESOLVED']);
 async function loadOperationalNotes() { return cloudStore.kvGetJson(OPERATIONAL_NOTES_KEY, []); }
 async function saveOperationalNotes(list) { return cloudStore.kvSetJson(OPERATIONAL_NOTES_KEY, list); }
+// Learning Library: admin-curated list of narrated training videos (distinct from the
+// TRAINING_* new-hire onboarding/scoring system above - this is ongoing-education content any
+// employee can watch, not something a Training Manager assigns to a trainee). Each item is
+// hosted externally (unlisted YouTube) since a 70-100MB narrated video has no business being
+// read into Node memory on every request the way STATIC_SHARED_BINARY assets are - see
+// sendBinary() below. Completion is self-reported (LEARNING_PROGRESS_KEY), one record per
+// employee+material, same "the thing" vs "the per-user action on it" split QA Scorecard and
+// Coaching use for their own acknowledgment/publish flows.
+const LEARNING_MATERIALS_KEY = 'mtdkpi:learning-materials';
+const LEARNING_PROGRESS_KEY = 'mtdkpi:learning-progress';
+const DEFAULT_LEARNING_MATERIALS = [
+  {
+    id: 'zendesk-essentials-sop',
+    title: 'Zendesk Essentials & Support SOP',
+    description: 'How to navigate Zendesk day to day - views, tickets, replies, macros - plus the SOPs behind ticket status, SLAs, merging, escalations, and more.',
+    category: 'Zendesk',
+    durationLabel: '~11 min',
+    videoUrl: '',
+    createdAt: '2026-09-17T00:00:00.000Z'
+  },
+  {
+    id: 'intro-to-lofty',
+    title: 'Introduction to Lofty',
+    description: "What Lofty does, who it serves, its history from Chime, and how your role connects to the customer's experience.",
+    category: 'Company',
+    durationLabel: '~7 min',
+    videoUrl: '',
+    createdAt: '2026-09-17T00:00:00.000Z'
+  }
+];
+async function loadLearningMaterials() { return cloudStore.kvGetJson(LEARNING_MATERIALS_KEY, DEFAULT_LEARNING_MATERIALS); }
+async function saveLearningMaterials(list) { return cloudStore.kvSetJson(LEARNING_MATERIALS_KEY, list); }
+async function loadLearningProgress() { return cloudStore.kvGetJson(LEARNING_PROGRESS_KEY, { version: 1, records: [] }); }
+async function saveLearningProgress(data) { data.lastUpdated = new Date().toISOString(); return cloudStore.kvSetJson(LEARNING_PROGRESS_KEY, data); }
 // Snapshot of the employee's standing at the moment a coaching record is created - frozen
 // at creation time (never recomputed later), so the record stays an honest account of what
 // was true when the conversation happened, same principle as a PTO request's approvedDates.
@@ -3550,6 +3596,112 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, item: list[index] });
     }
 
+    // Learning Library: visible to every signed-in user (not gated - unlike Operational Notes
+    // above, this is content for everyone to watch, not a leadership log). Each item's progress
+    // is computed per the caller so the list view can show a status badge without a second round
+    // trip. canManageRewards' bar (HR/SOM/admin) doubles as "who can curate the video list" -
+    // publishing a company-wide resource is the same tier of call as publishing a reward.
+    if (parsed.pathname === '/api/learning/materials' && req.method === 'GET') {
+      const [materials, progress] = await Promise.all([loadLearningMaterials(), loadLearningProgress()]);
+      const mine = new Map((progress.records || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity).map(r => [r.materialId, r]));
+      const items = materials.map(m => ({ ...m, myStatus: mine.get(m.id)?.status || 'NOT_STARTED', myCompletedAt: mine.get(m.id)?.completedAt || null }));
+      return json(res, 200, { ok: true, items, canManage: canManageRewards(identity) });
+    }
+
+    if (parsed.pathname === '/api/learning/materials' && req.method === 'POST') {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage training materials.' });
+      const body = await readJsonBody(req);
+      const title = String(body.title || '').trim(), description = String(body.description || '').trim();
+      if (!title || !description) return json(res, 400, { ok: false, error: 'Title and description are required.' });
+      const item = {
+        id: `LEARN-${Date.now()}`,
+        title, description,
+        category: String(body.category || '').trim() || 'General',
+        durationLabel: String(body.durationLabel || '').trim(),
+        videoUrl: String(body.videoUrl || '').trim(),
+        createdAt: new Date().toISOString()
+      };
+      const list = await loadLearningMaterials();
+      list.push(item);
+      await saveLearningMaterials(list);
+      return json(res, 201, { ok: true, item });
+    }
+
+    const learningMaterialMatch = parsed.pathname.match(/^\/api\/learning\/materials\/([^/]+)$/);
+    if (learningMaterialMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage training materials.' });
+      const id = decodeURIComponent(learningMaterialMatch[1]);
+      const list = await loadLearningMaterials();
+      const index = list.findIndex(x => x.id === id);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Training material not found.' });
+      if (req.method === 'DELETE') {
+        list.splice(index, 1);
+        await saveLearningMaterials(list);
+        return json(res, 200, { ok: true, deleted: id });
+      }
+      const body = await readJsonBody(req), current = list[index];
+      const title = String(body.title ?? current.title).trim(), description = String(body.description ?? current.description).trim();
+      if (!title || !description) return json(res, 400, { ok: false, error: 'Title and description are required.' });
+      list[index] = {
+        ...current, title, description,
+        category: body.category !== undefined ? (String(body.category || '').trim() || 'General') : current.category,
+        durationLabel: body.durationLabel !== undefined ? String(body.durationLabel || '').trim() : current.durationLabel,
+        videoUrl: body.videoUrl !== undefined ? String(body.videoUrl || '').trim() : current.videoUrl
+      };
+      await saveLearningMaterials(list);
+      return json(res, 200, { ok: true, item: list[index] });
+    }
+
+    // Self-reported completion - the employee is asserting they watched it, same trust model as
+    // an Alignment/Coaching acknowledgment signature. One record per employee+material; watching
+    // it again just re-stamps completedAt rather than creating a duplicate.
+    const learningCompleteMatch = parsed.pathname.match(/^\/api\/learning\/materials\/([^/]+)\/complete$/);
+    if (learningCompleteMatch && req.method === 'POST') {
+      const materialId = decodeURIComponent(learningCompleteMatch[1]);
+      const materials = await loadLearningMaterials();
+      if (!materials.some(m => m.id === materialId)) return json(res, 404, { ok: false, error: 'Training material not found.' });
+      const data = await loadLearningProgress();
+      const now = new Date().toISOString();
+      let record = (data.records || []).find(r => r.materialId === materialId && ptoLogic.cleanEmail(r.employeeEmail) === identity);
+      if (record) {
+        record.status = 'COMPLETED';
+        record.completedAt = now;
+      } else {
+        record = { id: `LEARNPROG-${Date.now()}`, materialId, employeeEmail: identity, employeeName: session.employeeName || identity, status: 'COMPLETED', startedAt: now, completedAt: now };
+        data.records = data.records || [];
+        data.records.push(record);
+      }
+      await saveLearningProgress(data);
+      return json(res, 200, { ok: true, record });
+    }
+
+    // Team-lead/leadership view: completion status for the caller's own direct reports, plus
+    // (HR/SOM/admin) a company-wide rollup - same my-vs-team split as /api/my/qa-scorecards and
+    // /api/som/coaching-overview above, reusing scopedTeamMembers rather than a bespoke query.
+    if (parsed.pathname === '/api/learning/team-progress' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const isLeadership = await isLeadershipRole(identity, session);
+      const members = isLeadership ? activeRosterAgents(roster) : scopedTeamMembers(roster, identity, session, session.employeeName);
+      const [materials, progress] = await Promise.all([loadLearningMaterials(), loadLearningProgress()]);
+      const byEmployee = new Map();
+      for (const r of (progress.records || [])) {
+        const key = ptoLogic.cleanEmail(r.employeeEmail);
+        if (!byEmployee.has(key)) byEmployee.set(key, new Map());
+        byEmployee.get(key).set(r.materialId, r);
+      }
+      const rows = members.map(m => {
+        const email = ptoLogic.cleanEmail(m.employeeEmail);
+        const mine = byEmployee.get(email) || new Map();
+        const completed = materials.filter(mat => mine.get(mat.id)?.status === 'COMPLETED').length;
+        return {
+          employeeEmail: email, employeeName: m.employeeName,
+          completed, total: materials.length,
+          materials: materials.map(mat => ({ materialId: mat.id, status: mine.get(mat.id)?.status || 'NOT_STARTED', completedAt: mine.get(mat.id)?.completedAt || null }))
+        };
+      });
+      return json(res, 200, { ok: true, materials: materials.map(m => ({ id: m.id, title: m.title })), rows, isLeadership });
+    }
+
     // Lotti's search over the admin-only knowledge base above - any signed-in employee's Lotti
     // question can trigger this (same reach as alignment-search), even though only admins can
     // see/manage the content itself via the Lotti Knowledge tab.
@@ -4511,10 +4663,12 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/qa/scorecards/lookup-lists' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
       const scorecardData = await loadQaScorecards();
+      const agents = activeRosterAgents(roster);
+      const teamLeaders = [...new Map(agents.filter(a => a.teamLeadEmail).map(a => [a.teamLeadEmail, { employeeEmail: a.teamLeadEmail, employeeName: a.teamLeadName || a.teamLeadEmail }])).values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
       return json(res, 200, {
         ok: true, categories: QA_SCORECARD_CATEGORIES, criticalErrors: QA_SCORECARD_CRITICAL_ERRORS,
         purposes: QA_SCORECARD_PURPOSES, channels: QA_SCORECARD_CHANNELS, passingPct: QA_SCORECARD_PASSING_PCT,
-        agents: activeRosterAgents(roster), liveCalibration: computeQaScorecardLiveCalibration(scorecardData.records)
+        agents, teamLeaders, liveCalibration: computeQaScorecardLiveCalibration(scorecardData.records)
       });
     }
 
@@ -4523,10 +4677,12 @@ const server = http.createServer(async (req, res) => {
       const data = await loadQaScorecards();
       const from = String(parsed.searchParams.get('from') || ''), to = String(parsed.searchParams.get('to') || '');
       const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
+      const teamLeadEmail = ptoLogic.cleanEmail(parsed.searchParams.get('teamLeadEmail') || '');
       let records = (data.records || []).filter(x => x.status === 'PUBLISHED');
       if (from) records = records.filter(x => x.evaluationDate >= from);
       if (to) records = records.filter(x => x.evaluationDate <= to);
       if (agentEmail) records = records.filter(x => ptoLogic.cleanEmail(x.employeeEmail) === agentEmail);
+      if (teamLeadEmail) records = records.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === teamLeadEmail);
       const byAgent = new Map();
       const gapCounts = new Map(); // criterionKey -> occurrences of Partly/No
       for (const r of records) {
@@ -4590,7 +4746,8 @@ const server = http.createServer(async (req, res) => {
       const roster = await loadRosterSnapshot();
       const employee = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === employeeEmail);
       if (!employee) return json(res, 400, { ok: false, error: 'Evaluated agent not found in the roster.' });
-      const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] || ''); ratings[criterion.key] = ['YES', 'PARTLY', 'NO', 'NA'].includes(v) ? v : null; }
+      const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] || ''); ratings[criterion.key] = qaScorecardAllowedRatingValues(criterion).includes(v) ? v : null; }
+      const reasons = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) reasons[criterion.key] = String(body.reasons?.[criterion.key] || '').trim();
       const criticalErrors = {}; for (const e of QA_SCORECARD_CRITICAL_ERRORS) criticalErrors[e.key] = Boolean(body.criticalErrors?.[e.key]);
       const score = computeQaScorecardScore(ratings, criticalErrors);
       const year = evaluationDate.slice(0, 4);
@@ -4602,11 +4759,11 @@ const server = http.createServer(async (req, res) => {
         id, status: body.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
         region: String(body.region || '').trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : QA_SCORECARD_PURPOSES[0],
         channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : QA_SCORECARD_CHANNELS[0],
-        evaluationDate, ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : '', ticketId: String(body.ticketId || '').trim(),
+        evaluationDate, assignmentDate: ptoLogic.validDate(body.assignmentDate) ? body.assignmentDate : '', ticketId: String(body.ticketId || '').trim(),
         ticketStatus: String(body.ticketStatus || '').trim().toLowerCase(),
         employeeEmail, employeeName: employee.employeeName || employeeEmail, teamLeadEmail: ptoLogic.cleanEmail(employee.teamLeadEmail || ''), teamLeadName: employee.teamLeadName || '',
         evaluatorEmail: identity, evaluatorName: session.employeeName || identity,
-        ratings, criticalErrors, feedback: String(body.feedback || '').trim(), actionPlan: String(body.actionPlan || '').trim(),
+        ratings, reasons, criticalErrors, feedback: String(body.feedback || '').trim(), actionPlan: String(body.actionPlan || '').trim(),
         score, createdAt: now, createdBy: identity, updatedAt: now, updatedBy: identity, acknowledgment: null
       };
       data.sequenceByYear[year] = sequence;
@@ -4644,15 +4801,16 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'PUT') {
         if (!isOwner) return json(res, 403, { ok: false, error: 'Only the reviewer who created this scorecard can edit it.' });
         if (current.status === 'ACKNOWLEDGED') return json(res, 409, { ok: false, error: 'An acknowledged evaluation can no longer be edited.' });
-        const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] ?? current.ratings[criterion.key] ?? ''); ratings[criterion.key] = ['YES', 'PARTLY', 'NO', 'NA'].includes(v) ? v : null; }
+        const ratings = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) { const v = String(body.ratings?.[criterion.key] ?? current.ratings[criterion.key] ?? ''); ratings[criterion.key] = qaScorecardAllowedRatingValues(criterion).includes(v) ? v : null; }
+        const reasons = {}; for (const category of QA_SCORECARD_CATEGORIES) for (const criterion of category.criteria) reasons[criterion.key] = String(body.reasons?.[criterion.key] ?? current.reasons?.[criterion.key] ?? '').trim();
         const criticalErrors = {}; for (const e of QA_SCORECARD_CRITICAL_ERRORS) criticalErrors[e.key] = body.criticalErrors ? Boolean(body.criticalErrors[e.key]) : Boolean(current.criticalErrors[e.key]);
         const score = computeQaScorecardScore(ratings, criticalErrors);
         const next = {
           ...current, region: String(body.region ?? current.region).trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : current.purpose,
           channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : current.channel,
-          ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : current.ticketDate, ticketId: String(body.ticketId ?? current.ticketId).trim(),
+          assignmentDate: ptoLogic.validDate(body.assignmentDate) ? body.assignmentDate : current.assignmentDate, ticketId: String(body.ticketId ?? current.ticketId).trim(),
           ticketStatus: body.ticketStatus !== undefined ? String(body.ticketStatus || '').trim().toLowerCase() : current.ticketStatus,
-          ratings, criticalErrors, feedback: String(body.feedback ?? current.feedback).trim(), actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
+          ratings, reasons, criticalErrors, feedback: String(body.feedback ?? current.feedback).trim(), actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
           score, status: body.status === 'PUBLISHED' ? 'PUBLISHED' : current.status, updatedAt: now, updatedBy: identity
         };
         data.records[index] = next;

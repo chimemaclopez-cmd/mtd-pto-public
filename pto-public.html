@@ -169,6 +169,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn" data-tab="upsellReferrals" id="upsellReferralsTabBtn"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 5.4v7.2M11.3 7.2c0-.9-1-1.6-2.3-1.6s-2.3.6-2.3 1.5c0 2.1 4.6.9 4.6 3 0 .9-1 1.5-2.3 1.5s-2.3-.7-2.3-1.6"/></svg>Spiff Programs</button>
 <button class="btn" data-tab="seniorJira" id="seniorJiraTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.3 9.5h2.6l1.7-4.5 2.6 9 1.7-4.5h3.8"/></svg>Jira Activity</button>
 <button class="btn" data-tab="guides" id="guidesTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 11.4v-.6c0-.8.5-1.2 1-1.6.6-.4 1-.9 1-1.7A2 2 0 0 0 9 5.5a2 2 0 0 0-2 1.8"/><circle cx="9" cy="12.9" r=".3" fill="currentColor"/></svg>WorkFlow Engine</button>
+<button class="btn" data-tab="learning" id="learningTabBtn"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.4 9 2.5l6.5 2.9L9 8.3Z"/><path d="M4.9 6.6v4c0 1 1.8 2.3 4.1 2.3s4.1-1.3 4.1-2.3v-4"/><path d="M15.5 5.4v4.8"/></svg>Training Materials</button>
 </div></details>
 <details class="tabGroup tabGroup-team"><summary class="tabGroupLabel"><svg class="groupIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.3" cy="6.2" r="2.2"/><circle cx="12.1" cy="6.2" r="2.2"/><path d="M2.2 14.8c.4-2.5 2.1-4 4.1-4s3.6 1.4 4 3.6"/><path d="M9.8 14.4c.4-2.1 1.9-3.4 3.5-3.4 1.7 0 3.2 1.2 3.5 3.4"/></svg>Team Management</summary><div class="tabGroupButtons">
 <button class="btn" data-tab="teamAttendance" id="teamAttendanceTabBtn" hidden><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 5.4V9l2.7 1.8"/></svg>Team Attendance</button>
@@ -321,7 +322,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
     <div class="field"><label>Purpose of Evaluation</label><select id="qaScorecardPurpose"></select></div>
     <div class="field"><label>Channel</label><select id="qaScorecardChannel"></select></div>
     <div class="field"><label>Evaluation date</label><input id="qaScorecardEvaluationDate" type="date"></div>
-    <div class="field"><label>Ticket date</label><input id="qaScorecardTicketDate" type="date"></div>
+    <div class="field"><label>Assignment date</label><input id="qaScorecardAssignmentDate" type="date"></div>
     <div class="field"><label>Ticket number</label><input id="qaScorecardTicketId" placeholder="e.g. 1630213" autocomplete="off"></div>
     <div class="field"><label>Evaluated agent</label><select id="qaScorecardAgent"><option value="">Select agent</option></select></div>
     <div class="field"><label>Team leader</label><input id="qaScorecardTeamLeader" disabled placeholder="Auto-filled from roster"></div>
@@ -363,6 +364,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div id="qaScorecardReportingSubView" hidden>
   <div class="filters noPrint" style="margin:12px 0;align-items:flex-end">
     <div class="field"><label>Agent</label><select id="qaScorecardReportAgentFilter"><option value="">All agents</option></select></div>
+    <div class="field"><label>Team leader</label><select id="qaScorecardReportTeamLeaderFilter"><option value="">All team leaders</option></select></div>
     <div class="field"><label>From</label><input id="qaScorecardReportFrom" type="date"></div>
     <div class="field"><label>To</label><input id="qaScorecardReportTo" type="date"></div>
     <button class="btn compact" type="button" id="qaScorecardReportRefreshBtn">Apply</button>
@@ -705,6 +707,34 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn primary" type="submit">Save</button>
 </div>
 </form></div>
+<section id="learningView" hidden>
+<div class="actions noPrint" style="justify-content:space-between;align-items:center">
+<div class="sectionTitle" style="margin:0">Training Materials</div>
+<button class="btn primary noPrint" id="newLearningMaterialBtn" hidden>Add Training Material</button>
+</div>
+<div class="sub">Narrated training videos covering Zendesk usage, Lofty, and other onboarding topics. Watch a video, then mark it complete to track your own progress.</div>
+<div id="learningMessage" class="message" hidden></div>
+<div class="cards" id="learningMaterialsGrid" style="margin-top:12px"></div>
+<div id="learningTeamProgressWrap" hidden style="margin-top:22px">
+<div class="sectionTitle">Team Progress</div>
+<div class="tableWrap" style="margin-top:10px"><table><thead><tr id="learningTeamProgressHeadRow"><th>Employee</th><th>Completed</th></tr></thead><tbody id="learningTeamProgressBody"></tbody></table></div>
+</div>
+</section>
+<div class="modal" id="learningMaterialFormModal" hidden><form class="dialog" id="learningMaterialForm" role="dialog" aria-modal="true" style="max-width:640px">
+<div class="title" id="learningMaterialFormTitle">Add Training Material</div>
+<div class="formGrid" style="margin-top:12px">
+<div class="field" style="grid-column:1/-1"><label>Title *</label><input name="title" required></div>
+<div class="field" style="grid-column:1/-1"><label>Description *</label><textarea name="description" required></textarea></div>
+<div class="field"><label>Category</label><input name="category" placeholder="e.g. Zendesk, Company"></div>
+<div class="field"><label>Duration</label><input name="durationLabel" placeholder="e.g. ~11 min"></div>
+<div class="field" style="grid-column:1/-1"><label>Video URL</label><input name="videoUrl" placeholder="https://youtu.be/..."></div>
+</div>
+<div id="learningMaterialFormError" class="message error" hidden style="margin-top:10px"></div>
+<div class="actions" style="justify-content:flex-end;margin-top:14px">
+<button class="btn" type="button" id="learningMaterialFormCancel">Cancel</button>
+<button class="btn primary" type="submit">Save</button>
+</div>
+</form></div>
 <div class="modal" id="draftAssistModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true">
 <div class="title" id="draftAssistTitle">Rephrase</div>
 <div class="sub" id="draftAssistLoading">Thinking...</div>
@@ -851,14 +881,14 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <script type="module">
 import {$,esc,fmt,setMessage,statusPill,emptyState,emptyStateRow} from './shared/ui-utils.js';import {todayET,weekday,daysInMonth} from './shared/date-utils.js';import {PTO_STATUS_LABELS,loadPtoRequests,loadTeamPtoRequests,loadPtoTeamCalendar,loadPtoLeadershipCalendar,createPtoRequest,updatePtoRequest,ptoAction,loadPtoForecast} from './shared/pto-service.js';import {getSession,login,logout,changePassword,markTourComplete,markWhatsNewSeen,setViewAsRole} from './shared/auth-service.js';import {getMyProfile,getMyGuides,getMyKpi,getMySeniorJiraActivity,getSeniorTsrSummary,getMySchedule,getMyAttendance,updateMyContact,getMyStatus,setMyStatus,clockInStatus,clockOutStatus,getMyNotifications,getMyTeamAttendance,saveMyTeamAttendance,uploadTeamAttendanceAttachment,getMyTeamRoster,updateTeamMemberProfile,getMyProfilePhoto,uploadMyProfilePhoto,deleteMyProfilePhoto,getMyTeamSchedule,saveMyTeamSchedule,saveMyTeamScheduleTemplate,getMyTicketAudit,requestTicketResolution,getTicketResolutionResult,getMyUpsellReferrals,getMyEscalationReconciliation} from './shared/my-data-service.js';import {getSiteMetrics,getSiteTrainees} from './shared/site-metrics-service.js';import {getDsatReview,decideDsatTicket,requestDsatRefresh,getQaCoachingHistory,saveDsatAnalysis,getCopilotStatus,saveCopilotConnection,disconnectCopilot,copilotSendCode,copilotVerifyCode,copilotResponseText,copilotChatWithRetry,isCopilotAuthError,getPreRunStatus,triggerPreRun,getPreRunResult} from './shared/qa-dsat-service.js';import {getPointsLeaderboard,getRewardCatalog,createReward,updateReward,deleteReward,redeemReward,getMyRedemptions,getAllRedemptions,decideRedemption} from './shared/rewards-service.js';import {generateMbrDeck,generateExecutiveReportPdf,monthLabel as mbrMonthLabel} from './shared/mbr-report.js';import {loadMyServiceRecovery,loadServiceRecoverySummary,saveServiceRecoveryAnalysis} from './shared/service-recovery-service.js';import {buildRiskTaggingPrompt,parseRiskTaggingResponse,computeCompositeRiskScore,buildDraftReplyPrompt,buildResolutionPrompt,buildCloseabilityPrompt,parseCloseabilityResponse} from './shared/risk-tagging-service.js';import {loadLoftIqContext,loadLoftIqThread,saveLoftIqExchange,markLoftIqViewed,clearLoftIqThread,searchLoftIqHelp,searchLoftIqAlignments,loadAllApprovedAlignments,buildAlignmentContradictionPrompt,isLoftIqBadAnswer,LOFTIQ_QUICK_ACTIONS,LOFTIQ_LEAD_QUICK_ACTIONS,buildLoftIqPrompt,searchLoftIqKnowledge,loadLottiKnowledge,createLottiKnowledge,updateLottiKnowledge,deleteLottiKnowledge} from './shared/loftiq-service.js';
 import {getQaScorecardLookupLists,listQaScorecards,createQaScorecard,updateQaScorecard,deleteQaScorecard,getQaScorecardReporting,getMyQaScorecards,getQaScorecardTicketThread,acknowledgeQaScorecard,QA_SCORECARD_STATUS_LABELS,QA_SCORECARD_RATING_LABELS,computeQaScorecardScore as computeQaScorecardScoreLive,qaScorecardCompletedCount,buildQaPreQaPrompt,parseQaPreQaResponse,isQaPreQaBadAnswer,buildQaFeedbackPrompt,parseQaFeedbackResponse,isQaFeedbackBadAnswer,isQaScorecardTicketUnresolved,qaScorecardTicketStatusWarning} from './shared/qa-evaluation-service.js';
-import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview,clearCoachingFollowUp} from './shared/coaching-service.js';import {EVALUATION_STATUS_LABELS,EVALUATION_ATTRIBUTE_LABELS,EVALUATION_ATTRIBUTE_DESCRIPTIONS,evaluationAverageScore,loadMyTeamEvaluations,createTeamEvaluation,updateTeamEvaluation,deleteTeamEvaluation,sendTeamEvaluation,loadMyEvaluations,acknowledgeEvaluation,loadMyEvaluationAppendix,loadTeamProbationKpi,saveProbationCompliance,saveProbationProductivityKind} from './shared/evaluation-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {OPERATIONAL_NOTE_KPI_LABELS,OPERATIONAL_NOTE_SCOPE_LABELS,OPERATIONAL_NOTE_IMPACT_LABELS,OPERATIONAL_NOTE_STATUS_LABELS,loadOperationalNotes,createOperationalNote,updateOperationalNote,deleteOperationalNote} from './shared/operational-notes-service.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
+import {KPI_TYPES,PRIMARY_CHANNELS} from './shared/kpi-config.js';import {loadChatMessages,sendChatMessage,sendChatHeartbeat,loadChatPresence,deleteChatMessage} from './shared/chat-service.js';import {loadMyAnnouncements,createMyAnnouncement,updateMyAnnouncement,deleteMyAnnouncement} from './shared/announcement-service.js';import {ALIGNMENT_STATUS_LABELS,loadMyTeamAlignment,createTeamAlignment,updateTeamAlignment,deleteTeamAlignment,submitTeamAlignment,loadAlignmentReviewQueue,decideAlignment,loadMyAlignment,acknowledgeAlignment,generateAlignmentQuiz,updateAlignmentDueDate} from './shared/alignment-service.js';import {sanitizeRichHtml,plainTextFromHtml,richTextFieldHtml,wireRichTextToolbar,wireRephraseButtons,getRichTextValue,setRichTextValue,draftAssist} from './shared/rich-text.js';import {loadMyCsatDisputes,createCsatDispute} from './shared/csat-dispute-service.js';import {SCHEDULE_REQUEST_STATUS_LABELS,loadMyScheduleRequests,createScheduleRequest,updateScheduleRequest,scheduleRequestAction} from './shared/schedule-request-service.js';import {COACHING_STATUS_LABELS,loadMyTeamCoaching,createTeamCoaching,loadTeamCoachingRecord,updateTeamCoaching,deleteTeamCoaching,sendTeamCoaching,loadMyCoaching,acknowledgeCoaching,loadSiteCoachingOverview,clearCoachingFollowUp} from './shared/coaching-service.js';import {EVALUATION_STATUS_LABELS,EVALUATION_ATTRIBUTE_LABELS,EVALUATION_ATTRIBUTE_DESCRIPTIONS,evaluationAverageScore,loadMyTeamEvaluations,createTeamEvaluation,updateTeamEvaluation,deleteTeamEvaluation,sendTeamEvaluation,loadMyEvaluations,acknowledgeEvaluation,loadMyEvaluationAppendix,loadTeamProbationKpi,saveProbationCompliance,saveProbationProductivityKind} from './shared/evaluation-service.js';import {DISCIPLINARY_STATUS_LABELS,loadMyTeamDisciplinary,fileDisciplinary,loadTeamDisciplinaryRecord,updateTeamDisciplinary,withdrawTeamDisciplinary,preDecideDisciplinary,decideDisciplinary,loadMyDisciplinary,acknowledgeDisciplinary} from './shared/disciplinary-service.js';import {BUILTIN_ACTIVITIES,activityMap,activityGroups,consolidateScheduleBlocks,formatTimeRangeLabel,defaultAssignmentFor} from './shared/activity-config.js';import {populatePhoneCodeSelect,formatPhoneLocal,parsePhoneNumber,combinePhoneNumber} from './shared/phone-utils.js';import {createLoadingStatus} from './shared/loading-status.js';import {OPERATIONAL_NOTE_KPI_LABELS,OPERATIONAL_NOTE_SCOPE_LABELS,OPERATIONAL_NOTE_IMPACT_LABELS,OPERATIONAL_NOTE_STATUS_LABELS,loadOperationalNotes,createOperationalNote,updateOperationalNote,deleteOperationalNote} from './shared/operational-notes-service.js';import {LEARNING_STATUS_LABELS,loadLearningMaterials,createLearningMaterial,updateLearningMaterial,deleteLearningMaterial,markLearningMaterialComplete,loadLearningTeamProgress} from './shared/learning-service.js';import {loadTrainingNewHires,createTrainingNewHire,endorseTrainingNewHire,loadTrainingScores,createTrainingScore,deleteTrainingScore} from './shared/training-service.js';import {downloadXlsx} from './shared/xlsx-writer.js';
 const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tickets:'Tickets',frt:'First Reply Time',team:'Team Score',bonus:'Bonus'};
 // Exact integer arithmetic (not floating-point division) so this can't be off by one from
 // IEEE754 rounding - 90% and 5% both reduce to whole-number ratios (9/10, 1/20).
 function goodNeededFor95(good,bad){const needed=19*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardFormAiRatings={},qaScorecardFormAiCriticalErrors={},qaScorecardFormTicketStatus='',qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.2.0',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,probationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardFormAiRatings={},qaScorecardFormAiCriticalErrors={},qaScorecardFormTicketStatus='',qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingTeamLeadFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null,learningMaterials=[],learningCanManage=false,learningLoading=false,learningTeamProgress=null,learningTeamProgressLoading=false,editingLearningMaterialId=null,completingLearningMaterialId=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');$('lottiKnowledgeBodyFieldContainer').innerHTML=richTextFieldHtml('lottiKnowledgeBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -1521,8 +1551,8 @@ $('announcementList').addEventListener('click',async event=>{
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='copilotConnection'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('qaScorecardView').hidden=next!=='qaScorecard';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='qaScorecard'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
-const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView',qaScorecard:'qaScorecardView',copilotConnection:'adminCopilotView'};
+function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='copilotConnection'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('qaScorecardView').hidden=next!=='qaScorecard';$('learningView').hidden=next!=='learning';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='qaScorecard'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='learning'&&!learningMaterials.length)loadLearningTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
+const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView',qaScorecard:'qaScorecardView',learning:'learningView',copilotConnection:'adminCopilotView'};
 function applyTabFadeIn(next){const el=$(TAB_VIEW_IDS[next]);if(!el)return;el.classList.remove('tabViewActive');void el.offsetWidth;el.classList.add('tabViewActive');initSortableTables()}
 // WFE beta: interactive troubleshooting guides. guidesData is fetched once per session
 // (categories+steps); guidesTrail tracks where the viewer is in the tree - see the comment
@@ -2970,6 +3000,111 @@ $('operationalNotesBody').addEventListener('click',async event=>{
 $('operationalNotesCategoryFilter').onchange=renderOperationalNotes;
 $('operationalNotesKpiFilter').onchange=renderOperationalNotes;
 $('operationalNotesStatusFilter').onchange=renderOperationalNotes;
+function youtubeEmbedUrl(url){
+  if(!url)return '';
+  const m=String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{11})/);
+  return m?`https://www.youtube.com/embed/${m[1]}`:'';
+}
+function learningMaterialCardHtml(item){
+  const embed=youtubeEmbedUrl(item.videoUrl);
+  const completed=item.myStatus==='COMPLETED';
+  const video=embed?`<div style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"><iframe src="${esc(embed)}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>`:'<div class="sub" style="margin-bottom:8px">Video coming soon.</div>';
+  const manageBtns=learningCanManage?`<div class="actions" style="margin-top:8px"><button class="btn compact" type="button" data-edit-learning="${esc(item.id)}">Edit</button> <button class="btn compact danger" type="button" data-delete-learning="${esc(item.id)}">Remove</button></div>`:'';
+  const completeBtn=completed?`<div class="sub" style="margin-top:8px;color:#0f7a49;font-weight:700">✓ Completed${item.myCompletedAt?` on ${esc(String(item.myCompletedAt).slice(0,10))}`:''}</div>`:`<button class="btn primary" type="button" data-complete-learning="${esc(item.id)}"${completingLearningMaterialId===item.id?' disabled':''}>Mark as Complete</button>`;
+  return`<div class="card">${video}<div class="label">${esc(item.title)}</div><div class="sub" style="margin:6px 0;min-height:32px">${esc(item.description||'')}</div><div class="sub">${esc(item.category||'')}${item.durationLabel?` · ${esc(item.durationLabel)}`:''}</div>${completeBtn}${manageBtns}</div>`;
+}
+function renderLearningMaterials(){
+  $('learningMaterialsGrid').innerHTML=learningMaterials.map(learningMaterialCardHtml).join('')||'<div class="muted">No training materials yet.</div>';
+  $('newLearningMaterialBtn').hidden=!learningCanManage;
+}
+function renderLearningTeamProgress(){
+  if(!learningTeamProgress||!(learningTeamProgress.rows||[]).length){$('learningTeamProgressWrap').hidden=true;return}
+  $('learningTeamProgressWrap').hidden=false;
+  const materials=learningTeamProgress.materials||[];
+  $('learningTeamProgressHeadRow').innerHTML='<th>Employee</th><th>Completed</th>'+materials.map(m=>`<th>${esc(m.title)}</th>`).join('');
+  $('learningTeamProgressBody').innerHTML=learningTeamProgress.rows.map(row=>{
+    const cells=materials.map(m=>{
+      const rec=(row.materials||[]).find(x=>x.materialId===m.id);
+      return`<td>${rec&&rec.status==='COMPLETED'?'✓':'—'}</td>`;
+    }).join('');
+    return`<tr><td>${esc(row.employeeName)}</td><td>${row.completed}/${row.total}</td>${cells}</tr>`;
+  }).join('');
+}
+async function loadLearningTeamProgressSection(){
+  learningTeamProgressLoading=true;
+  try{
+    learningTeamProgress=await loadLearningTeamProgress();
+    renderLearningTeamProgress();
+  }catch(error){
+    // bonus panel for team leads/admins - a failed fetch (e.g. caller has no direct reports) shouldn't block the material list above
+  }finally{learningTeamProgressLoading=false}
+}
+async function loadLearningTab(){
+  learningLoading=true;
+  $('learningMessage').hidden=true;
+  try{
+    const result=await loadLearningMaterials();
+    learningMaterials=result.items||[];
+    learningCanManage=!!result.canManage;
+    renderLearningMaterials();
+    await loadLearningTeamProgressSection();
+  }catch(error){
+    $('learningMessage').hidden=false;$('learningMessage').className='message error';$('learningMessage').textContent=error.response?.error||error.message;
+  }finally{learningLoading=false}
+}
+function openLearningMaterialForm(item){
+  editingLearningMaterialId=item?item.id:null;
+  const form=$('learningMaterialForm');
+  form.reset();
+  $('learningMaterialFormTitle').textContent=item?'Edit Training Material':'Add Training Material';
+  if(item){
+    form.elements.title.value=item.title||'';
+    form.elements.description.value=item.description||'';
+    form.elements.category.value=item.category||'';
+    form.elements.durationLabel.value=item.durationLabel||'';
+    form.elements.videoUrl.value=item.videoUrl||'';
+  }
+  $('learningMaterialFormError').hidden=true;
+  $('learningMaterialFormModal').hidden=false;
+}
+$('newLearningMaterialBtn').onclick=()=>openLearningMaterialForm(null);
+$('learningMaterialFormCancel').onclick=()=>{$('learningMaterialFormModal').hidden=true};
+let learningMaterialFormSubmitting=false;
+$('learningMaterialForm').onsubmit=async event=>{
+  event.preventDefault();
+  if(learningMaterialFormSubmitting)return;learningMaterialFormSubmitting=true;
+  const button=event.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+  const values=Object.fromEntries(new FormData(event.currentTarget));
+  $('learningMaterialFormError').hidden=true;
+  try{
+    if(editingLearningMaterialId)await updateLearningMaterial(editingLearningMaterialId,values);
+    else await createLearningMaterial(values);
+    $('learningMaterialFormModal').hidden=true;
+    setMessage('Training material saved.','ok');
+    await loadLearningTab();
+  }catch(error){
+    $('learningMaterialFormError').hidden=false;$('learningMaterialFormError').textContent=error.response?.error||error.message;
+  }finally{learningMaterialFormSubmitting=false;button.disabled=false}
+};
+$('learningMaterialsGrid').addEventListener('click',async event=>{
+  const editId=event.target.dataset.editLearning;
+  const deleteId=event.target.dataset.deleteLearning;
+  const completeId=event.target.dataset.completeLearning;
+  if(editId){const item=learningMaterials.find(x=>x.id===editId);if(item)openLearningMaterialForm(item);return}
+  if(deleteId){
+    if(!confirm('Remove this training material? This cannot be undone.'))return;
+    try{await deleteLearningMaterial(deleteId);setMessage('Training material removed.','ok');await loadLearningTab()}
+    catch(error){$('learningMessage').hidden=false;$('learningMessage').className='message error';$('learningMessage').textContent=error.response?.error||error.message}
+    return;
+  }
+  if(completeId){
+    completingLearningMaterialId=completeId;
+    event.target.disabled=true;
+    try{await markLearningMaterialComplete(completeId);await loadLearningTab()}
+    catch(error){$('learningMessage').hidden=false;$('learningMessage').className='message error';$('learningMessage').textContent=error.response?.error||error.message}
+    finally{completingLearningMaterialId=null}
+  }
+});
 function quizReviewHtml(quiz){
   if(!quiz||!quiz.length)return'';
   return coachCard(`Quiz (${quiz.length} question${quiz.length===1?'':'s'})`,quiz.map((q,i)=>`<div class="coachField" style="margin-bottom:10px"><b>${i+1}. ${esc(q.text)}</b><div style="margin-top:4px">${q.options.map(o=>`<div style="color:${o.correct?'var(--green)':'inherit'}">${o.correct?'✓':'–'} ${esc(o.text)}</div>`).join('')}</div></div>`).join(''));
@@ -3457,7 +3592,7 @@ function renderEscalationReconciliation(){
 }
 function qaScorecardResetForm(){
   editingQaScorecardId=null;qaScorecardFormAgentEmail='';qaScorecardFormRatings={};qaScorecardFormCriticalErrors={};qaScorecardFormReasons={};qaScorecardFormAiRatings={};qaScorecardFormAiCriticalErrors={};qaScorecardFormTicketStatus='';
-  $('qaScorecardRegion').value='';$('qaScorecardEvaluationDate').value=todayET();$('qaScorecardTicketDate').value='';$('qaScorecardTicketId').value='';
+  $('qaScorecardRegion').value='';$('qaScorecardEvaluationDate').value=todayET();$('qaScorecardAssignmentDate').value='';$('qaScorecardTicketId').value='';
   $('qaScorecardAgent').value='';$('qaScorecardTeamLeader').value='';$('qaScorecardFeedback').value='';$('qaScorecardActionPlan').value='';
   $('qaScorecardFormError').hidden=true;$('qaScorecardPreQaStatus').textContent='';
   renderQaScorecardCategories();renderQaScorecardCriticalErrors();renderQaScorecardLiveScore();renderQaScorecardTicketStatusWarning();
@@ -3486,11 +3621,21 @@ function qaScorecardCategoryHtml(category){
   return `<details open style="margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:10px 14px">
     <summary style="cursor:pointer;font-weight:800">${esc(category.groupLabel)} — ${esc(category.label)} <span class="muted">(${category.weight}%)</span></summary>
     <div style="margin-top:10px;display:grid;gap:8px">
-      ${category.criteria.map(c=>`<div class="formGrid" style="grid-template-columns:1fr 1.6fr 130px;align-items:center;gap:12px;margin:0;padding:6px 0;border-bottom:1px solid var(--line)">
-        <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div></div>
-        <div class="sub" style="line-height:1.4">${qaScorecardAiBadgeHtml(qaScorecardFormAiRatings[c.key])}${qaScorecardFormReasons[c.key]?` ${esc(qaScorecardFormReasons[c.key])}`:''}</div>
-        <select data-qa-criterion="${esc(c.key)}"><option value="">Rate…</option><option value="YES">Yes</option><option value="PARTLY">Partly</option><option value="NO">No</option><option value="NA">N/A</option></select>
-      </div>`).join('')}
+      ${category.criteria.map(c=>{
+        const rating=qaScorecardFormRatings[c.key]||'';
+        const showReason=rating==='PARTLY'||rating==='NO';
+        const options=c.binary
+          ?'<option value="">Rate…</option><option value="YES">Yes</option><option value="NO">No</option>'
+          :'<option value="">Rate…</option><option value="YES">Yes</option><option value="PARTLY">Partly</option><option value="NO">No</option><option value="NA">N/A</option>';
+        return`<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+        <div class="formGrid" style="grid-template-columns:1fr 1.6fr 130px;align-items:center;gap:12px;margin:0">
+          <div><b>${esc(c.label)}</b> <span class="muted">(${c.points} pts)</span><div class="sub">${esc(c.description)}</div></div>
+          <div class="sub" style="line-height:1.4">${qaScorecardAiBadgeHtml(qaScorecardFormAiRatings[c.key])}</div>
+          <select data-qa-criterion="${esc(c.key)}">${options}</select>
+        </div>
+        ${showReason?`<div style="margin-top:8px"><label class="sub" style="font-weight:700;text-transform:uppercase;font-size:10px;display:block;margin-bottom:4px">Reason it was marked down</label><textarea data-qa-reason="${esc(c.key)}" placeholder="Explain what caused this item to be marked down…" style="min-height:52px">${esc(qaScorecardFormReasons[c.key]||'')}</textarea></div>`:''}
+      </div>`;
+      }).join('')}
     </div>
   </details>`;
 }
@@ -3566,6 +3711,7 @@ async function loadQaScorecardTab(){
       $('qaScorecardChannel').innerHTML=qaScorecardLookupLists.channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
       $('qaScorecardAgent').innerHTML='<option value="">Select agent</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}${a.active?'':' (Inactive)'}</option>`).join('');
       $('qaScorecardReportAgentFilter').innerHTML='<option value="">All agents</option>'+qaScorecardLookupLists.agents.map(a=>`<option value="${esc(a.employeeEmail)}">${esc(a.employeeName)}${a.active?'':' (Inactive)'}</option>`).join('');
+      $('qaScorecardReportTeamLeaderFilter').innerHTML='<option value="">All team leaders</option>'+(qaScorecardLookupLists.teamLeaders||[]).map(t=>`<option value="${esc(t.employeeEmail)}">${esc(t.employeeName)}</option>`).join('');
       qaScorecardResetForm();
     }
     const myResult=await getMyQaScorecards();
@@ -3593,7 +3739,7 @@ function setQaScorecardSubView(next){
 }
 async function loadQaScorecardReporting(){
   try{
-    qaScorecardReporting=await getQaScorecardReporting({agentEmail:qaScorecardReportingAgentFilter,from:qaScorecardReportingFrom,to:qaScorecardReportingTo});
+    qaScorecardReporting=await getQaScorecardReporting({agentEmail:qaScorecardReportingAgentFilter,teamLeadEmail:qaScorecardReportingTeamLeadFilter,from:qaScorecardReportingFrom,to:qaScorecardReportingTo});
     renderQaScorecardReporting();
   }catch(error){setMessage(`Could not load QA reporting. ${error.message}`,'error')}
 }
@@ -3622,8 +3768,11 @@ function qaScorecardPointsCellText(c,ratingValue){
   if(ratingValue==='NO')return `0 / ${c.points}`;
   return `— / ${c.points}`;
 }
-function qaScorecardRubricRows(lists,ratings){
-  return lists.categories.flatMap(cat=>cat.criteria.map(c=>`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[ratings[c.key]]||'—'}</td><td>${qaScorecardPointsCellText(c,ratings[c.key])}</td></tr>`)).join('');
+function qaScorecardRubricRows(lists,ratings,reasons){
+  return lists.categories.flatMap(cat=>cat.criteria.map(c=>{
+    const rating=ratings[c.key],showReason=rating==='PARTLY'||rating==='NO';
+    return`<tr><td>${esc(cat.label)}</td><td>${esc(c.label)}</td><td>${QA_SCORECARD_RATING_LABELS[rating]||'—'}</td><td>${qaScorecardPointsCellText(c,rating)}</td><td>${showReason&&reasons?.[c.key]?esc(reasons[c.key]):''}</td></tr>`;
+  })).join('');
 }
 const QA_SCORECARD_INTRO='A record of a QA reviewer\'s evaluation of one ticket interaction, scored against the fixed rubric below.';
 const QA_SCORECARD_ACK_SCRIPT='I acknowledge that I have reviewed this QA evaluation of my ticket handling. I understand the ratings, feedback, and action plan outlined above, and I have had the opportunity to share my own comments. My electronic signature below confirms that this review took place.';
@@ -3644,14 +3793,14 @@ function qaScorecardAckBodyHtml(r,allowSign){
 }
 function qaScorecardViewRecordHtml(r,allowSign){
   const lists=qaScorecardLookupLists;
-  const rows=lists?qaScorecardRubricRows(lists,r.ratings):'';
+  const rows=lists?qaScorecardRubricRows(lists,r.ratings,r.reasons):'';
   const criticalHit=lists?lists.criticalErrors.filter(e=>r.criticalErrors[e.key]).map(e=>esc(e.label)).join(', '):'';
   return `<div class="sub">${esc(QA_SCORECARD_INTRO)}</div>
     <div class="sub" style="margin-top:6px"><b>${esc(r.employeeName)}</b> — Ticket ${r.ticketId?esc(String(r.ticketId)):'—'} — ${esc(r.evaluationDate)}</div>
     ${isQaScorecardTicketUnresolved(r.ticketStatus)?`<div class="message error" style="margin:8px 0">⚠️ ${esc(qaScorecardTicketStatusWarning(r.ticketStatus))}</div>`:''}
     <div style="margin:8px 0"><b>${r.score.earnedPoints}/${r.score.availablePoints} pts (${r.score.pct}%)</b> ${r.score.hasCriticalError?'<span style="color:#b3261e;font-weight:800"> — CRITICAL ERROR</span>':r.score.passed?'<span style="color:#0f7a49"> — Passing</span>':'<span style="color:#b3261e"> — Below passing</span>'}</div>
     ${criticalHit?`<div class="sub" style="color:#b3261e">Critical errors: ${criticalHit}</div>`:''}
-    <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th><th>Points</th><th>Reason</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${r.feedback?`<div style="margin-top:10px"><b>Feedback</b><div class="sub">${esc(r.feedback)}</div></div>`:''}
     ${r.actionPlan?`<div style="margin-top:8px"><b>Action Plan</b><div class="sub">${esc(r.actionPlan)}</div></div>`:''}
     <div class="panel" style="margin-top:14px;padding:12px 14px"><div class="sectionTitle" style="font-size:13px">Acknowledgment</div>${qaScorecardAckBodyHtml(r,allowSign)}</div>`;
@@ -3683,7 +3832,7 @@ function qaScorecardPrintableHtml(record){
   const lists=qaScorecardLookupLists;
   const origin=location.origin;
   const card=(title,body)=>`<div class="card"><div class="cardHeader">${esc(title)}</div><div class="cardBody">${body}</div></div>`;
-  const rows=lists?qaScorecardRubricRows(lists,record.ratings):'';
+  const rows=lists?qaScorecardRubricRows(lists,record.ratings,record.reasons):'';
   const criticalHit=lists?lists.criticalErrors.filter(e=>record.criticalErrors[e.key]).map(e=>esc(e.label)):[];
   const scoreColor=record.score.hasCriticalError||!record.score.passed?'#c2313a':'#0f7a49';
   const scoreLabel=record.score.hasCriticalError?'CRITICAL ERROR — score forced to 0':record.score.passed?'Passing':'Below passing';
@@ -3708,10 +3857,10 @@ td{padding:4px 6px;border-bottom:1px solid #eef0f5}
 <div class="logos"><img src="${origin}/shared/img/lofty-logo.png"><img src="${origin}/shared/img/moatable-logo.png"></div>
 <h1>LOFTY QA EVALUATION</h1>
 <div class="subtitle">${esc(QA_SCORECARD_INTRO)}</div>
-${card('Evaluation Details',`<div class="grid2"><div><div class="fieldLabel">Scorecard ID</div>${esc(record.id)}</div><div><div class="fieldLabel">Evaluation Date</div>${esc(record.evaluationDate)}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluated Agent</div>${esc(record.employeeName)}</div><div style="margin-top:8px"><div class="fieldLabel">Team Leader</div>${esc(record.teamLeadName||'—')}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluator</div>${esc(record.evaluatorName)}</div><div style="margin-top:8px"><div class="fieldLabel">Ticket</div>#${esc(String(record.ticketId||'—'))} (${esc(record.ticketDate||'—')})</div><div style="margin-top:8px"><div class="fieldLabel">Purpose</div>${esc(record.purpose)}</div><div style="margin-top:8px"><div class="fieldLabel">Channel</div>${esc(record.channel)}</div></div>`)}
+${card('Evaluation Details',`<div class="grid2"><div><div class="fieldLabel">Scorecard ID</div>${esc(record.id)}</div><div><div class="fieldLabel">Evaluation Date</div>${esc(record.evaluationDate)}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluated Agent</div>${esc(record.employeeName)}</div><div style="margin-top:8px"><div class="fieldLabel">Team Leader</div>${esc(record.teamLeadName||'—')}</div><div style="margin-top:8px"><div class="fieldLabel">Evaluator</div>${esc(record.evaluatorName)}</div><div style="margin-top:8px"><div class="fieldLabel">Ticket</div>#${esc(String(record.ticketId||'—'))} (${esc(record.assignmentDate||'—')})</div><div style="margin-top:8px"><div class="fieldLabel">Purpose</div>${esc(record.purpose)}</div><div style="margin-top:8px"><div class="fieldLabel">Channel</div>${esc(record.channel)}</div></div>`)}
 ${isQaScorecardTicketUnresolved(record.ticketStatus)?`<div style="margin:0 0 14px;padding:10px 14px;border:1px solid #f0b3b3;background:#fdecec;border-radius:8px;color:#9c2a2a;font-size:12px">⚠️ ${esc(qaScorecardTicketStatusWarning(record.ticketStatus))}</div>`:''}
 ${card('Score',`<div style="display:flex;justify-content:space-between;align-items:center"><div><b>${record.score.earnedPoints}/${record.score.availablePoints} pts</b> (${record.score.pct}%)</div><span class="badge" style="background:${scoreColor}">${esc(scoreLabel)}</span></div>${criticalHit.length?`<div style="margin-top:8px;color:#c2313a"><b>Critical errors:</b> ${criticalHit.join(', ')}</div>`:''}`)}
-${card('Rubric',`<table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th><th>Points</th></tr></thead><tbody>${rows}</tbody></table>`)}
+${card('Rubric',`<table><thead><tr><th>Category</th><th>Criterion</th><th>Rating</th><th>Points</th><th>Reason</th></tr></thead><tbody>${rows}</tbody></table>`)}
 ${card('Feedback / Coaching Insights',`<div style="white-space:pre-wrap">${esc(record.feedback||'—')}</div>`)}
 ${card('Action Plan',`<div style="white-space:pre-wrap">${esc(record.actionPlan||'—')}</div>`)}
 ${card('Acknowledgment',qaScorecardAckBodyHtml(record,false))}
@@ -3733,13 +3882,13 @@ $('qaScorecardHistoryBody').addEventListener('click',async event=>{
   catch(error){setMessage(error.response?.error||error.message,'error')}
 });
 $('qaScorecardSubViewToggle').addEventListener('click',event=>{const next=event.target.closest('[data-qa-subview]')?.dataset.qaSubview;if(next)setQaScorecardSubView(next)});
-$('qaScorecardReportRefreshBtn').onclick=()=>{qaScorecardReportingAgentFilter=$('qaScorecardReportAgentFilter').value;qaScorecardReportingFrom=$('qaScorecardReportFrom').value;qaScorecardReportingTo=$('qaScorecardReportTo').value;loadQaScorecardReporting()};
+$('qaScorecardReportRefreshBtn').onclick=()=>{qaScorecardReportingAgentFilter=$('qaScorecardReportAgentFilter').value;qaScorecardReportingTeamLeadFilter=$('qaScorecardReportTeamLeaderFilter').value;qaScorecardReportingFrom=$('qaScorecardReportFrom').value;qaScorecardReportingTo=$('qaScorecardReportTo').value;loadQaScorecardReporting()};
 $('qaScorecardAgent').onchange=()=>{
   qaScorecardFormAgentEmail=$('qaScorecardAgent').value;
   const agent=(qaScorecardLookupLists?.agents||[]).find(a=>a.employeeEmail===qaScorecardFormAgentEmail);
   $('qaScorecardTeamLeader').value=agent?.teamLeadName||'';
 };
-// Ticket number -> auto-fill Ticket Date/Channel/Evaluated Agent from the real Zendesk ticket,
+// Ticket number -> auto-fill Assignment Date/Channel/Evaluated Agent from the real Zendesk ticket,
 // triggered on blur (not per-keystroke) so a still-typed/incomplete number doesn't fire a lookup.
 // Silent on failure (a wrong/nonexistent ticket number while typing shouldn't be intrusive) other
 // than a small status note - Run AI Pre-QA still surfaces the real error if the reviewer does
@@ -3749,7 +3898,7 @@ $('qaScorecardTicketId').addEventListener('change',async()=>{
   if(!ticketId)return;
   try{
     const thread=await getQaScorecardTicketThread(ticketId);
-    if(thread.createdAt)$('qaScorecardTicketDate').value=thread.createdAt;
+    if(thread.createdAt)$('qaScorecardAssignmentDate').value=thread.createdAt;
     if(thread.channel)$('qaScorecardChannel').value=thread.channel;
     if(thread.assigneeEmail){
       const agentSelect=$('qaScorecardAgent');
@@ -3765,7 +3914,12 @@ $('qaScorecardTicketId').addEventListener('change',async()=>{
 $('qaScorecardCategories').addEventListener('change',event=>{
   const key=event.target.dataset.qaCriterion;if(!key)return;
   qaScorecardFormRatings[key]=event.target.value||null;
+  renderQaScorecardCategories();
   renderQaScorecardLiveScore();
+});
+$('qaScorecardCategories').addEventListener('input',event=>{
+  const key=event.target.dataset.qaReason;if(!key)return;
+  qaScorecardFormReasons[key]=event.target.value;
 });
 $('qaScorecardCriticalErrors').addEventListener('change',event=>{
   const key=event.target.dataset.qaCritical;if(!key)return;
@@ -3778,8 +3932,8 @@ async function qaScorecardBuildPayload(status){
   const ratings={};lists.categories.forEach(cat=>cat.criteria.forEach(c=>{ratings[c.key]=qaScorecardFormRatings[c.key]||null}));
   return {
     status, employeeEmail:$('qaScorecardAgent').value, region:$('qaScorecardRegion').value, purpose:$('qaScorecardPurpose').value, channel:$('qaScorecardChannel').value,
-    evaluationDate:$('qaScorecardEvaluationDate').value, ticketDate:$('qaScorecardTicketDate').value, ticketId:$('qaScorecardTicketId').value, ticketStatus:qaScorecardFormTicketStatus,
-    ratings, criticalErrors:{...qaScorecardFormCriticalErrors}, feedback:$('qaScorecardFeedback').value, actionPlan:$('qaScorecardActionPlan').value
+    evaluationDate:$('qaScorecardEvaluationDate').value, assignmentDate:$('qaScorecardAssignmentDate').value, ticketId:$('qaScorecardTicketId').value, ticketStatus:qaScorecardFormTicketStatus,
+    ratings, reasons:{...qaScorecardFormReasons}, criticalErrors:{...qaScorecardFormCriticalErrors}, feedback:$('qaScorecardFeedback').value, actionPlan:$('qaScorecardActionPlan').value
   };
 }
 async function qaScorecardSave(status){
