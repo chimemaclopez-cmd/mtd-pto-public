@@ -14,6 +14,20 @@ export const acknowledgeQaScorecard=(id,payload)=>api(`/api/qa/scorecards/${enco
 export const QA_SCORECARD_STATUS_LABELS={DRAFT:'Draft',PUBLISHED:'Published',ACKNOWLEDGED:'Acknowledged'};
 export const QA_SCORECARD_RATING_LABELS={YES:'Yes',PARTLY:'Partly',NO:'No',NA:'N/A'};
 
+// A QA audit is meant to judge a completed interaction - scoring a still-open ticket (open,
+// pending, hold, new) risks marking the agent down for steps they simply haven't gotten to yet
+// (a follow-up not sent, a resolution not confirmed). Used both live (warn before/while scoring)
+// and on saved records (so a scorecard created before the ticket was resolved still carries the
+// caveat later, in the view modal, printable PDF, and history).
+export const QA_SCORECARD_RESOLVED_TICKET_STATUSES=new Set(['solved','closed']);
+export function isQaScorecardTicketUnresolved(ticketStatus){
+  const s=String(ticketStatus||'').trim().toLowerCase();
+  return Boolean(s)&&!QA_SCORECARD_RESOLVED_TICKET_STATUSES.has(s);
+}
+export function qaScorecardTicketStatusWarning(ticketStatus){
+  return `This ticket's status is currently "${ticketStatus}" — it isn't solved or closed yet. This audit may not be fully accurate until the ticket is resolved.`;
+}
+
 // Pure mirror of the server's computeQaScorecardScore (pto-public-server.js) - used for the
 // live-score sidebar as a reviewer clicks ratings, before anything is saved. The server always
 // recomputes and persists its own authoritative result on save; this is display-only.

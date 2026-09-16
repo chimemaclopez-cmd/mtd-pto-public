@@ -4603,6 +4603,7 @@ const server = http.createServer(async (req, res) => {
         region: String(body.region || '').trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : QA_SCORECARD_PURPOSES[0],
         channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : QA_SCORECARD_CHANNELS[0],
         evaluationDate, ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : '', ticketId: String(body.ticketId || '').trim(),
+        ticketStatus: String(body.ticketStatus || '').trim().toLowerCase(),
         employeeEmail, employeeName: employee.employeeName || employeeEmail, teamLeadEmail: ptoLogic.cleanEmail(employee.teamLeadEmail || ''), teamLeadName: employee.teamLeadName || '',
         evaluatorEmail: identity, evaluatorName: session.employeeName || identity,
         ratings, criticalErrors, feedback: String(body.feedback || '').trim(), actionPlan: String(body.actionPlan || '').trim(),
@@ -4650,6 +4651,7 @@ const server = http.createServer(async (req, res) => {
           ...current, region: String(body.region ?? current.region).trim(), purpose: QA_SCORECARD_PURPOSES.includes(body.purpose) ? body.purpose : current.purpose,
           channel: QA_SCORECARD_CHANNELS.includes(body.channel) ? body.channel : current.channel,
           ticketDate: ptoLogic.validDate(body.ticketDate) ? body.ticketDate : current.ticketDate, ticketId: String(body.ticketId ?? current.ticketId).trim(),
+          ticketStatus: body.ticketStatus !== undefined ? String(body.ticketStatus || '').trim().toLowerCase() : current.ticketStatus,
           ratings, criticalErrors, feedback: String(body.feedback ?? current.feedback).trim(), actionPlan: String(body.actionPlan ?? current.actionPlan).trim(),
           score, status: body.status === 'PUBLISHED' ? 'PUBLISHED' : current.status, updatedAt: now, updatedBy: identity
         };
