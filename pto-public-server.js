@@ -1273,7 +1273,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     description: 'How to navigate Zendesk day to day - views, tickets, replies, macros - plus the SOPs behind ticket status, SLAs, merging, escalations, and more.',
     category: 'Zendesk',
     durationLabel: '~11 min',
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/1BjRt-Oroeg',
     createdAt: '2026-09-17T00:00:00.000Z'
   },
   {
@@ -1282,7 +1282,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     description: "What Lofty does, who it serves, its history from Chime, and how your role connects to the customer's experience.",
     category: 'Company',
     durationLabel: '~7 min',
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/2qflX85_3RY',
     createdAt: '2026-09-17T00:00:00.000Z'
   }
 ];
