@@ -3627,6 +3627,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, item });
     }
 
+    // Display order is just the array's own order - the client sends the full id list in the
+    // order it wants, we resort the stored array to match. Any id the client didn't send (a
+    // concurrent add/delete it hadn't seen yet) is kept, appended at the end, rather than lost.
+    if (parsed.pathname === '/api/learning/materials/reorder' && req.method === 'POST') {
+      if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage training materials.' });
+      const body = await readJsonBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+      const list = await loadLearningMaterials();
+      const byId = new Map(list.map(x => [x.id, x]));
+      const reordered = ids.map(id => byId.get(id)).filter(Boolean);
+      for (const item of list) if (!ids.includes(item.id)) reordered.push(item);
+      await saveLearningMaterials(reordered);
+      return json(res, 200, { ok: true, items: reordered });
+    }
+
     const learningMaterialMatch = parsed.pathname.match(/^\/api\/learning\/materials\/([^/]+)$/);
     if (learningMaterialMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
       if (!canManageRewards(identity)) return json(res, 403, { ok: false, error: 'Not authorized to manage training materials.' });
