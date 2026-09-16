@@ -337,6 +337,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
     <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Reviewer Rating</div>
   </div>
   <div id="qaScorecardCategories"></div>
+  <div class="panel" id="qaScorecardAiScoreBox" style="margin:0 0 14px;padding:10px 14px" hidden></div>
   <div class="panel" style="margin-top:14px">
     <div class="sectionTitle" style="font-size:14px">Critical Errors</div>
     <div class="sub">Turn on only when the behavior clearly occurred.</div>
@@ -3501,6 +3502,18 @@ function renderQaScorecardLiveScore(){
   const passed=!score.hasCriticalError&&score.pct>=(lists.passingPct||80);
   const sectionsText=lists.categories.map(cat=>`${esc(cat.label)} ${score.sections[cat.key].pct==null?'—':score.sections[cat.key].pct+'%'}`).join(' · ');
   $('qaScorecardLiveScoreBox').innerHTML=`<b style="font-size:15px">${score.earnedPoints}/${score.availablePoints} pts (${score.pct}%)</b> · ${completed}/${total} rated · ${score.hasCriticalError?'<span style="color:#b3261e;font-weight:800">CRITICAL ERROR — score forced to 0</span>':passed?'<span style="color:#0f7a49;font-weight:800">Passing</span>':'<span style="color:#b3261e;font-weight:800">Below passing</span>'}<div class="sub" style="margin-top:4px">${sectionsText}</div>`;
+  // Mirrors the box above, but computed from the AI's own suggested ratings (qaScorecardFormAiRatings)
+  // instead of the reviewer's confirmed ones - lets the reviewer see at a glance how far their own
+  // judgment landed from the AI's, without having to add it up themselves. Hidden until Pre-QA has
+  // actually suggested something.
+  const {completed:aiCompleted,total:aiTotal}=qaScorecardCompletedCount(lists.categories,qaScorecardFormAiRatings);
+  if(!aiCompleted){$('qaScorecardAiScoreBox').hidden=true}
+  else{
+    const aiScore=computeQaScorecardScoreLive(lists.categories,qaScorecardFormAiRatings,qaScorecardFormAiCriticalErrors);
+    const aiPassed=!aiScore.hasCriticalError&&aiScore.pct>=(lists.passingPct||80);
+    $('qaScorecardAiScoreBox').hidden=false;
+    $('qaScorecardAiScoreBox').innerHTML=`<span class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">AI Suggested Score</span><div style="margin-top:2px"><b style="font-size:15px">${aiScore.earnedPoints}/${aiScore.availablePoints} pts (${aiScore.pct}%)</b> · ${aiCompleted}/${aiTotal} rated · ${aiScore.hasCriticalError?'<span style="color:#b3261e;font-weight:800">Critical error flagged</span>':aiPassed?'<span style="color:#0f7a49;font-weight:800">Passing</span>':'<span style="color:#b3261e;font-weight:800">Below passing</span>'}</div>`;
+  }
 }
 // Static rubric guide (weights + what each section measures + point total) - shown to every
 // employee, not just reviewers, mirroring the reference tool's own "Scoring Breakdown" cards.
