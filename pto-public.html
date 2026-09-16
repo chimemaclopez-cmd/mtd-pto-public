@@ -3004,7 +3004,10 @@ $('operationalNotesStatusFilter').onchange=renderOperationalNotes;
 function youtubeEmbedUrl(url){
   if(!url)return '';
   const m=String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{11})/);
-  return m?`https://www.youtube.com/embed/${m[1]}`:'';
+  // vq hints the player to start at the highest quality instead of YouTube's conservative
+  // initial-bandwidth guess (often 360p) - not officially documented anymore but still honored
+  // by the embed player, and harmless if ignored (it just falls back to normal auto behavior).
+  return m?`https://www.youtube.com/embed/${m[1]}?vq=hd1080`:'';
 }
 function learningMaterialCardHtml(item,index,total){
   const embed=youtubeEmbedUrl(item.videoUrl);
