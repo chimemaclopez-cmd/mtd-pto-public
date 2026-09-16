@@ -728,6 +728,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field"><label>Category</label><input name="category" placeholder="e.g. Zendesk, Company"></div>
 <div class="field"><label>Duration</label><input name="durationLabel" placeholder="e.g. ~11 min"></div>
 <div class="field" style="grid-column:1/-1"><label>Video URL</label><input name="videoUrl" placeholder="https://youtu.be/..."></div>
+<div class="field" style="grid-column:1/-1"><label>Thumbnail URL (optional)</label><input name="thumbnailUrl" placeholder="/shared/img/... or https://..."></div>
 </div>
 <div id="learningMaterialFormError" class="message error" hidden style="margin-top:10px"></div>
 <div class="actions" style="justify-content:flex-end;margin-top:14px">
@@ -3008,7 +3009,23 @@ function youtubeEmbedUrl(url){
 function learningMaterialCardHtml(item,index,total){
   const embed=youtubeEmbedUrl(item.videoUrl);
   const completed=item.myStatus==='COMPLETED';
-  const video=embed?`<div style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"><iframe src="${esc(embed)}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>`:'<div class="sub" style="margin-bottom:8px">Video coming soon.</div>';
+  // With a thumbnailUrl on file (the video's real title slide, not whatever mid-video frame
+  // YouTube auto-picked), show that as a static poster with a play button and only swap in the
+  // live iframe once clicked - keeps the title page visible until the viewer actually presses
+  // play, instead of YouTube's own embed choosing its own preview frame. Falls back to embedding
+  // the iframe directly (old behavior) when no thumbnail is on file for this material.
+  let video;
+  if(embed&&item.thumbnailUrl){
+    video=`<div class="sub" data-learning-poster="${esc(item.id)}" data-embed-src="${esc(embed)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000 url('${esc(item.thumbnailUrl)}') center/cover no-repeat;cursor:pointer">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15)">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-style:solid;border-width:12px 0 12px 20px;border-color:transparent transparent transparent #fff;margin-left:4px"></div></div>
+      </div>
+    </div>`;
+  }else if(embed){
+    video=`<div style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"><iframe src="${esc(embed)}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>`;
+  }else{
+    video='<div class="sub" style="margin-bottom:8px">Video coming soon.</div>';
+  }
   const manageBtns=learningCanManage?`<div class="actions" style="margin-top:8px;flex-wrap:wrap">
     <button class="btn compact" type="button" data-move-up-learning="${esc(item.id)}" title="Move up" ${index===0?'disabled':''}>↑</button>
     <button class="btn compact" type="button" data-move-down-learning="${esc(item.id)}" title="Move down" ${index===total-1?'disabled':''}>↓</button>
@@ -3068,6 +3085,7 @@ function openLearningMaterialForm(item){
     form.elements.category.value=item.category||'';
     form.elements.durationLabel.value=item.durationLabel||'';
     form.elements.videoUrl.value=item.videoUrl||'';
+    form.elements.thumbnailUrl.value=item.thumbnailUrl||'';
   }
   $('learningMaterialFormError').hidden=true;
   $('learningMaterialFormModal').hidden=false;
@@ -3092,6 +3110,19 @@ $('learningMaterialForm').onsubmit=async event=>{
   }finally{learningMaterialFormSubmitting=false;button.disabled=false}
 };
 $('learningMaterialsGrid').addEventListener('click',async event=>{
+  const poster=event.target.closest('[data-learning-poster]');
+  if(poster){
+    const iframe=document.createElement('iframe');
+    iframe.src=poster.dataset.embedSrc+(poster.dataset.embedSrc.includes('?')?'&':'?')+'autoplay=1';
+    iframe.allow='autoplay; encrypted-media; fullscreen';
+    iframe.allowFullscreen=true;
+    iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
+    poster.innerHTML='';
+    poster.style.cursor='default';
+    poster.removeAttribute('data-learning-poster');
+    poster.appendChild(iframe);
+    return;
+  }
   const editId=event.target.dataset.editLearning;
   const deleteId=event.target.dataset.deleteLearning;
   const completeId=event.target.dataset.completeLearning;

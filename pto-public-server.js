@@ -212,7 +212,7 @@ const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 
 // moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
 // Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
 // silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
-const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/moatable-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
+const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/moatable-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'img/learning-thumb-zendesk-sop.png', 'img/learning-thumb-intro-lofty.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1274,6 +1274,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     category: 'Zendesk',
     durationLabel: '~11 min',
     videoUrl: 'https://youtu.be/1BjRt-Oroeg',
+    thumbnailUrl: '/shared/img/learning-thumb-zendesk-sop.png',
     createdAt: '2026-09-17T00:00:00.000Z'
   },
   {
@@ -1283,6 +1284,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     category: 'Company',
     durationLabel: '~7 min',
     videoUrl: 'https://youtu.be/2qflX85_3RY',
+    thumbnailUrl: '/shared/img/learning-thumb-intro-lofty.png',
     createdAt: '2026-09-17T00:00:00.000Z'
   }
 ];
@@ -3619,6 +3621,7 @@ const server = http.createServer(async (req, res) => {
         category: String(body.category || '').trim() || 'General',
         durationLabel: String(body.durationLabel || '').trim(),
         videoUrl: String(body.videoUrl || '').trim(),
+        thumbnailUrl: String(body.thumbnailUrl || '').trim(),
         createdAt: new Date().toISOString()
       };
       const list = await loadLearningMaterials();
@@ -3661,7 +3664,8 @@ const server = http.createServer(async (req, res) => {
         ...current, title, description,
         category: body.category !== undefined ? (String(body.category || '').trim() || 'General') : current.category,
         durationLabel: body.durationLabel !== undefined ? String(body.durationLabel || '').trim() : current.durationLabel,
-        videoUrl: body.videoUrl !== undefined ? String(body.videoUrl || '').trim() : current.videoUrl
+        videoUrl: body.videoUrl !== undefined ? String(body.videoUrl || '').trim() : current.videoUrl,
+        thumbnailUrl: body.thumbnailUrl !== undefined ? String(body.thumbnailUrl || '').trim() : current.thumbnailUrl
       };
       await saveLearningMaterials(list);
       return json(res, 200, { ok: true, item: list[index] });
