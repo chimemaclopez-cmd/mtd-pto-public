@@ -3504,11 +3504,19 @@ function renderQaScorecardLiveScore(){
 }
 // Static rubric guide (weights + what each section measures + point total) - shown to every
 // employee, not just reviewers, mirroring the reference tool's own "Scoring Breakdown" cards.
+// One super-light tint + matching accent per category, so the six cards are easy to tell apart
+// at a glance and the weight badge (the number that actually matters when reading this table)
+// pops instead of sitting as plain gray float-right text.
+const QA_SCORECARD_BREAKDOWN_COLORS=[
+  {bg:'#eef2ff',accent:'#3b5bdb'},{bg:'#eefaf3',accent:'#12805c'},{bg:'#fff8ec',accent:'#b45309'},
+  {bg:'#fdeef0',accent:'#be123c'},{bg:'#f2eefe',accent:'#6d28d9'},{bg:'#eafcfa',accent:'#0e7490'}
+];
 function renderQaScorecardBreakdownCards(){
   const lists=qaScorecardLookupLists;if(!lists)return;
-  $('qaScorecardBreakdownCards').innerHTML=lists.categories.map(cat=>{
+  $('qaScorecardBreakdownCards').innerHTML=lists.categories.map((cat,i)=>{
     const totalPoints=cat.criteria.reduce((s,c)=>s+c.points,0);
-    return `<div class="card"><div class="label">${esc(cat.groupLabel)}<span style="float:right;font-weight:800">${cat.weight}%</span></div><div style="font-weight:800;font-size:14px;margin:4px 0">${esc(cat.label)}</div><div class="sub">${esc(cat.summary||'')}</div><div class="muted" style="margin-top:6px;font-size:11px">${totalPoints} of 100 pts</div></div>`;
+    const {bg,accent}=QA_SCORECARD_BREAKDOWN_COLORS[i%QA_SCORECARD_BREAKDOWN_COLORS.length];
+    return `<div class="card" style="background:${bg};border-color:${accent}33"><div class="label" style="color:${accent}">${esc(cat.groupLabel)}<span class="pill" style="float:right;background:${accent};color:#fff;font-weight:800">${cat.weight}%</span></div><div style="font-weight:800;font-size:14px;margin:4px 0">${esc(cat.label)}</div><div class="sub">${esc(cat.summary||'')}</div><div class="muted" style="margin-top:6px;font-size:11px">${totalPoints} of 100 pts</div></div>`;
   }).join('');
 }
 async function loadQaScorecardTab(){
