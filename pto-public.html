@@ -710,7 +710,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <section id="learningView" hidden>
 <div class="actions noPrint" style="justify-content:space-between;align-items:center">
 <div class="sectionTitle" style="margin:0">Lofty Academy</div>
-<button class="btn primary noPrint" id="newLearningMaterialBtn" hidden>Add Training Material</button>
+<button class="btn primary noPrint" id="newLearningMaterialBtn" hidden>Add to Lofty Academy</button>
 </div>
 <div class="sub">Narrated training videos covering Zendesk, Jira, Lofty, and other onboarding and process topics — hosted by Max, your Lofty Training Assistant. Watch a video, then mark it complete to track your own progress.</div>
 <div id="learningMessage" class="message" hidden></div>
@@ -721,7 +721,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 </section>
 <div class="modal" id="learningMaterialFormModal" hidden><form class="dialog" id="learningMaterialForm" role="dialog" aria-modal="true" style="max-width:640px">
-<div class="title" id="learningMaterialFormTitle">Add Training Material</div>
+<div class="title" id="learningMaterialFormTitle">Add to Lofty Academy</div>
 <div class="formGrid" style="margin-top:12px">
 <div class="field" style="grid-column:1/-1"><label>Title *</label><input name="title" required></div>
 <div class="field" style="grid-column:1/-1"><label>Description *</label><textarea name="description" required></textarea></div>
@@ -3081,7 +3081,7 @@ function openLearningMaterialForm(item){
   editingLearningMaterialId=item?item.id:null;
   const form=$('learningMaterialForm');
   form.reset();
-  $('learningMaterialFormTitle').textContent=item?'Edit Training Material':'Add Training Material';
+  $('learningMaterialFormTitle').textContent=item?'Edit Lofty Academy Video':'Add to Lofty Academy';
   if(item){
     form.elements.title.value=item.title||'';
     form.elements.description.value=item.description||'';
