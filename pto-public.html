@@ -3034,16 +3034,15 @@ function mountPlainYoutubeIframe(mountEl,videoId,autoplay){
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
 }
-// The YT.Player() iframe ships an `allow` list that omits "fullscreen" - since an explicit
-// allow attribute replaces the default policy rather than extending it, that silently
-// disables the player's own fullscreen button. Patch it back in once the iframe exists.
-function enableIframeFullscreen(player){
-  try{
-    const iframe=player.getIframe();
-    const allow=iframe.getAttribute('allow')||'';
-    if(!/\bfullscreen\b/.test(allow))iframe.setAttribute('allow',(allow?allow+'; ':'')+'fullscreen');
-  }catch(e){}
-}
+let _ytIframeSeq=0;
+// YT.Player(mountEl, ...), given a plain container, builds its OWN iframe with a default
+// `allow` list that omits "fullscreen" - and a browser's Permissions Policy for an iframe is
+// locked in at load time, not re-read if JS mutates the `allow` attribute afterward. Patching
+// it post-hoc (the previous approach) silently no-ops on that class of browser, which is why
+// the player's fullscreen button still didn't show up on affected mobile browsers. Instead,
+// pre-create the iframe ourselves with the correct `allow`/`allowfullscreen` already set,
+// *then* hand its id to YT.Player() - the API's documented behavior is to adopt an existing
+// iframe target in place rather than replace it, so our permissions stick.
 async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
   const withTimeout=new Promise(resolve=>{
     loadYoutubeIframeApi().then(resolve);
@@ -3054,13 +3053,22 @@ async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
     if(mountEl.isConnected)mountPlainYoutubeIframe(mountEl,videoId,autoplay);
     return null;
   }
-  return new YT.Player(mountEl,{
+  const iframeId=`yt-player-${++_ytIframeSeq}`;
+  const iframe=document.createElement('iframe');
+  iframe.id=iframeId;
+  iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
+  iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+  iframe.setAttribute('allowfullscreen','');
+  mountEl.appendChild(iframe);
+  return new YT.Player(iframeId,{
     videoId,
     // playsinline keeps mobile Safari playing the video in place instead of kicking it into
-    // its own native fullscreen player, which was the "mobile doesn't work as well" report.
+    // its own native fullscreen player, which was the "mobile doesn't work as well" report -
+    // it still exposes the player's own fullscreen button (fs:1) for the viewer to tap when
+    // they actually want it, now that the allow policy above actually grants it.
     playerVars:{autoplay:autoplay?1:0,vq:'hd1080',rel:0,playsinline:1,fs:1},
     events:{
-      onReady:e=>{forceHdOnPlayer(e.target);enableIframeFullscreen(e.target)},
+      onReady:e=>forceHdOnPlayer(e.target),
       onStateChange:e=>{if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.BUFFERING)forceHdOnPlayer(e.target)}
     }
   });
