@@ -3156,7 +3156,7 @@ function renderLearningTeamProgress(){
   $('learningTeamProgressBody').innerHTML=learningTeamProgress.rows.map(row=>{
     const cells=materials.map(m=>{
       const rec=(row.materials||[]).find(x=>x.materialId===m.id);
-      return`<td>${rec&&rec.status==='COMPLETED'?'✓':'—'}</td>`;
+      return`<td>${rec&&rec.status==='COMPLETED'?'<span style="color:#16a34a;font-weight:700">✓</span>':'—'}</td>`;
     }).join('');
     return`<tr><td>${esc(row.employeeName)}</td><td>${row.completed}/${row.total}</td>${cells}</tr>`;
   }).join('');
