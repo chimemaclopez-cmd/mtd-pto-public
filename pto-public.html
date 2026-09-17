@@ -3100,7 +3100,7 @@ function renderLearningMaterials(){
   $('learningMaterialsGrid').innerHTML=learningMaterials.map((item,index)=>learningMaterialCardHtml(item,index,learningMaterials.length)).join('')||'<div class="muted">No training materials yet.</div>';
   $('newLearningMaterialBtn').hidden=!learningCanManage;
   $('learningMaterialsGrid').querySelectorAll('[data-learning-automount]').forEach(el=>{
-    createHdYoutubePlayer(el,el.dataset.videoId,{autoplay:false});
+    mountPlainYoutubeIframe(el,el.dataset.videoId,false);
   });
 }
 function renderLearningTeamProgress(){
@@ -3182,7 +3182,7 @@ $('learningMaterialsGrid').addEventListener('click',async event=>{
     poster.style.cursor='default';
     poster.removeAttribute('data-learning-poster');
     poster.appendChild(mount);
-    createHdYoutubePlayer(mount,poster.dataset.videoId,{autoplay:true});
+    mountPlainYoutubeIframe(mount,poster.dataset.videoId,true);
     return;
   }
   const editId=event.target.dataset.editLearning;
