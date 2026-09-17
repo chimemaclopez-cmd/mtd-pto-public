@@ -3001,31 +3001,60 @@ $('operationalNotesBody').addEventListener('click',async event=>{
 $('operationalNotesCategoryFilter').onchange=renderOperationalNotes;
 $('operationalNotesKpiFilter').onchange=renderOperationalNotes;
 $('operationalNotesStatusFilter').onchange=renderOperationalNotes;
-function youtubeEmbedUrl(url){
+function youtubeVideoId(url){
   if(!url)return '';
   const m=String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{11})/);
-  // vq hints the player to start at the highest quality instead of YouTube's conservative
-  // initial-bandwidth guess (often 360p) - not officially documented anymore but still honored
-  // by the embed player, and harmless if ignored (it just falls back to normal auto behavior).
-  return m?`https://www.youtube.com/embed/${m[1]}?vq=hd1080`:'';
+  return m?m[1]:'';
+}
+// Forcing real HD needs the actual YouTube IFrame Player API (setPlaybackQuality), not just a
+// URL hint - YouTube's plain embed still starts at its own conservative bandwidth guess
+// (often 360p) regardless of any query param. Loaded once, lazily, the first time a video needs it.
+let _ytApiPromise=null;
+function loadYoutubeIframeApi(){
+  if(_ytApiPromise)return _ytApiPromise;
+  _ytApiPromise=new Promise(resolve=>{
+    if(window.YT&&window.YT.Player){resolve(window.YT);return}
+    const prevReady=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=()=>{if(prevReady)prevReady();resolve(window.YT)};
+    const tag=document.createElement('script');
+    tag.src='https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return _ytApiPromise;
+}
+function forceHdOnPlayer(player){
+  try{player.setPlaybackQuality('hd1080')}catch(e){}
+}
+async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
+  const YT=await loadYoutubeIframeApi();
+  return new YT.Player(mountEl,{
+    videoId,
+    playerVars:{autoplay:autoplay?1:0,vq:'hd1080',rel:0},
+    events:{
+      onReady:e=>forceHdOnPlayer(e.target),
+      onStateChange:e=>{if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.BUFFERING)forceHdOnPlayer(e.target)}
+    }
+  });
 }
 function learningMaterialCardHtml(item,index,total){
-  const embed=youtubeEmbedUrl(item.videoUrl);
+  const videoId=youtubeVideoId(item.videoUrl);
   const completed=item.myStatus==='COMPLETED';
   // With a thumbnailUrl on file (the video's real title slide, not whatever mid-video frame
-  // YouTube auto-picked), show that as a static poster with a play button and only swap in the
-  // live iframe once clicked - keeps the title page visible until the viewer actually presses
-  // play, instead of YouTube's own embed choosing its own preview frame. Falls back to embedding
-  // the iframe directly (old behavior) when no thumbnail is on file for this material.
+  // YouTube auto-picked), show that as a static poster with a play button and only mount the
+  // live player once clicked - keeps the title page visible until the viewer actually presses
+  // play, instead of YouTube's own embed choosing its own preview frame. Falls back to mounting
+  // the player immediately (old behavior) when no thumbnail is on file for this material. Either
+  // way playback goes through the IFrame Player API (createHdYoutubePlayer) so it can force HD -
+  // a plain iframe embed src has no reliable way to do that.
   let video;
-  if(embed&&item.thumbnailUrl){
-    video=`<div class="sub" data-learning-poster="${esc(item.id)}" data-embed-src="${esc(embed)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000 url('${esc(item.thumbnailUrl)}') center/cover no-repeat;cursor:pointer">
+  if(videoId&&item.thumbnailUrl){
+    video=`<div class="sub" data-learning-poster="${esc(item.id)}" data-video-id="${esc(videoId)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000 url('${esc(item.thumbnailUrl)}') center/cover no-repeat;cursor:pointer">
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15)">
         <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-style:solid;border-width:12px 0 12px 20px;border-color:transparent transparent transparent #fff;margin-left:4px"></div></div>
       </div>
     </div>`;
-  }else if(embed){
-    video=`<div style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"><iframe src="${esc(embed)}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>`;
+  }else if(videoId){
+    video=`<div data-learning-automount="${esc(item.id)}" data-video-id="${esc(videoId)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"></div>`;
   }else{
     video='<div class="sub" style="margin-bottom:8px">Video coming soon.</div>';
   }
@@ -3041,6 +3070,9 @@ function learningMaterialCardHtml(item,index,total){
 function renderLearningMaterials(){
   $('learningMaterialsGrid').innerHTML=learningMaterials.map((item,index)=>learningMaterialCardHtml(item,index,learningMaterials.length)).join('')||'<div class="muted">No training materials yet.</div>';
   $('newLearningMaterialBtn').hidden=!learningCanManage;
+  $('learningMaterialsGrid').querySelectorAll('[data-learning-automount]').forEach(el=>{
+    createHdYoutubePlayer(el,el.dataset.videoId,{autoplay:false});
+  });
 }
 function renderLearningTeamProgress(){
   if(!learningTeamProgress||!(learningTeamProgress.rows||[]).length){$('learningTeamProgressWrap').hidden=true;return}
@@ -3115,15 +3147,13 @@ $('learningMaterialForm').onsubmit=async event=>{
 $('learningMaterialsGrid').addEventListener('click',async event=>{
   const poster=event.target.closest('[data-learning-poster]');
   if(poster){
-    const iframe=document.createElement('iframe');
-    iframe.src=poster.dataset.embedSrc+(poster.dataset.embedSrc.includes('?')?'&':'?')+'autoplay=1';
-    iframe.allow='autoplay; encrypted-media; fullscreen';
-    iframe.allowFullscreen=true;
-    iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
+    const mount=document.createElement('div');
+    mount.style.cssText='position:absolute;inset:0';
     poster.innerHTML='';
     poster.style.cursor='default';
     poster.removeAttribute('data-learning-poster');
-    poster.appendChild(iframe);
+    poster.appendChild(mount);
+    createHdYoutubePlayer(mount,poster.dataset.videoId,{autoplay:true});
     return;
   }
   const editId=event.target.dataset.editLearning;
