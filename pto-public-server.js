@@ -2829,7 +2829,11 @@ const server = http.createServer(async (req, res) => {
       const requestedPeriod=String(parsed.searchParams.get('period')||'');
       const latestTeamPeriod=(requestedPeriod&&periods[requestedPeriod]?requestedPeriod:availablePeriods.find(period=>(periods[period]||[]).some(x=>memberEmails.has(ptoLogic.cleanEmail(x.employeeEmail)))))||'';
       const periodResultsByEmail=new Map((latestTeamPeriod?(periods[latestTeamPeriod]||[]):[]).map(x=>[ptoLogic.cleanEmail(x.employeeEmail),x]));
-      const teamResults=assignedMembers.map(member=>{
+      // Trainees are never run through KPI computation (they're tracked in the separate Training
+      // system - see the TRAINING-role comment in applyPortalRoleView), so they'd otherwise show
+      // up here as a permanent "No KPI result" row/Rep Goal Tracker card for their whole probation.
+      const kpiScoredMembers=assignedMembers.filter(x=>x.kpiType!=='Trainee');
+      const teamResults=kpiScoredMembers.map(member=>{
         const saved=periodResultsByEmail.get(ptoLogic.cleanEmail(member.employeeEmail));
         return saved
           ? {period:latestTeamPeriod,...saved}
