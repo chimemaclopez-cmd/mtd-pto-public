@@ -4387,6 +4387,68 @@ const server = http.createServer(async (req, res) => {
       if (pct >= 80) return 70;
       return 0;
     }
+    // Shared by /api/my/team-probation-kpi (a Team Lead reviewing every direct report) and
+    // /api/my/probation-kpi (a rep reviewing their own progress) - one row per period
+    // 1..currentEvalMonth so the full trend so far is visible, not just whatever's in progress.
+    function buildProbationRowsForMember(member, info, rosterRecords, metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, today) {
+      const email = ptoLogic.cleanEmail(member.employeeEmail);
+      const periodsForEmployee = metricsSnapshot.byEmployee?.[email] || {};
+      const out = [];
+      for (let periodNumber = 1; periodNumber <= info.evalMonth; periodNumber++) {
+        const isCurrentPeriod = periodNumber === info.evalMonth;
+        const periodStart = periodNumber === 1 ? member.hireDate : addMonthsToDate(member.hireDate, periodNumber - 1);
+        const periodEndExclusive = addMonthsToDate(member.hireDate, periodNumber);
+        const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+        const windowEnd = isCurrentPeriod && today < periodEndInclusive ? today : periodEndInclusive;
+        const metrics = periodsForEmployee[periodNumber] || null;
+        const attendanceRange = ptoLogic.computeAttendanceForRange(rosterRecords, schedules, attendance, email, periodStart, windowEnd);
+        const canChooseKind = periodNumber >= 4;
+        const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
+        const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
+        const productivityWorkedDays = attendanceRange?.scheduledWorkdays || null;
+        // "Total Worked Tickets" on the real tier sheet is a daily average (count ÷ worked
+        // days in the period so far), not a cumulative total - confirmed 2026-08-26 against a
+        // real employee's spreadsheet row (312 tickets / 23 worked days = 13.6 -> rounds to
+        // 14 -> the 60% floor tier, not 100% for the raw 312).
+        const productivityRaw = productivityCount != null && productivityWorkedDays ? Math.round(productivityCount / productivityWorkedDays) : null;
+        const productivityTier = productivityRaw != null ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
+        const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
+        const csatTier = scoreCsatTierPortal(csatRate);
+        const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
+        const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+        const weighted = {
+          productivity: productivityTier == null ? null : productivityTier * 0.40,
+          csat: csatTier == null ? null : csatTier * 0.30,
+          processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
+          attendance: attendancePercent == null ? null : attendancePercent * 0.15
+        };
+        // Process Compliance is manual-entry-only and often hasn't been typed in yet, but that
+        // shouldn't hide the other 3 components' progress behind a blank "Incomplete" - show a
+        // provisional total (missing pieces count as 0) so there's always something to look at,
+        // and flag it as provisional/list what's still missing so it reads as "not final yet."
+        const componentWeights = { Productivity: weighted.productivity, CSAT: weighted.csat, 'Process Compliance': weighted.processCompliance, Attendance: weighted.attendance };
+        const missingComponents = Object.entries(componentWeights).filter(([, w]) => w == null).map(([name]) => name);
+        const anyKnown = missingComponents.length < 4;
+        const totalScore = anyKnown ? Object.values(componentWeights).reduce((sum, w) => sum + (w || 0), 0) : null;
+        out.push({
+          employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate, kpiType: member.kpiType,
+          periodNumber, periodStart, periodEnd: periodEndInclusive, isCurrentPeriod,
+          daysRemaining: isCurrentPeriod ? Math.max(0, ptoLogic.dateRange(windowEnd, periodEndInclusive).length - 1) : 0,
+          workedDays: attendanceRange?.scheduledWorkdays ?? null,
+          totalScoreProvisional: missingComponents.length > 0, missingComponents,
+          productivity: {
+            raw: productivityRaw, totalCount: productivityCount, kind: selectedKind, canChooseKind,
+            ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
+            tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
+          },
+          csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
+          processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
+          attendance: { raw: attendancePercent, weighted: weighted.attendance },
+          totalScore
+        });
+      }
+      return out;
+    }
     if (parsed.pathname === '/api/my/team-probation-kpi' && req.method === 'GET') {
       const roster = await loadRosterSnapshot();
       const assignedMembers = scopedTeamMembers(roster, identity, session, session.employeeName);
@@ -4402,68 +4464,30 @@ const server = http.createServer(async (req, res) => {
         loadScheduleSnapshot(),
         loadAttendanceSnapshot()
       ]);
-      // One row per period 1..currentEvalMonth (not just the current period) so a Team Lead
-      // can review the full trend so far, not just whatever's in progress right now.
-      const rows = probationary.flatMap(({ member, info }) => {
-        const email = ptoLogic.cleanEmail(member.employeeEmail);
-        const periodsForEmployee = metricsSnapshot.byEmployee?.[email] || {};
-        const out = [];
-        for (let periodNumber = 1; periodNumber <= info.evalMonth; periodNumber++) {
-          const isCurrentPeriod = periodNumber === info.evalMonth;
-          const periodStart = periodNumber === 1 ? member.hireDate : addMonthsToDate(member.hireDate, periodNumber - 1);
-          const periodEndExclusive = addMonthsToDate(member.hireDate, periodNumber);
-          const periodEndInclusive = new Date(new Date(periodEndExclusive + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
-          const windowEnd = isCurrentPeriod && today < periodEndInclusive ? today : periodEndInclusive;
-          const metrics = periodsForEmployee[periodNumber] || null;
-          const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, email, periodStart, windowEnd);
-          const canChooseKind = periodNumber >= 4;
-          const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
-          const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
-          const productivityWorkedDays = attendanceRange?.scheduledWorkdays || null;
-          // "Total Worked Tickets" on the real tier sheet is a daily average (count ÷ worked
-          // days in the period so far), not a cumulative total - confirmed 2026-08-26 against a
-          // real employee's spreadsheet row (312 tickets / 23 worked days = 13.6 -> rounds to
-          // 14 -> the 60% floor tier, not 100% for the raw 312).
-          const productivityRaw = productivityCount != null && productivityWorkedDays ? Math.round(productivityCount / productivityWorkedDays) : null;
-          const productivityTier = productivityRaw != null ? scoreProductivityTierPortal(productivityRaw, member.kpiType) : null;
-          const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
-          const csatTier = scoreCsatTierPortal(csatRate);
-          const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
-          const attendancePercent = attendanceRange?.attendancePercentage ?? null;
-          const weighted = {
-            productivity: productivityTier == null ? null : productivityTier * 0.40,
-            csat: csatTier == null ? null : csatTier * 0.30,
-            processCompliance: compliancePercent == null ? null : compliancePercent * 0.15,
-            attendance: attendancePercent == null ? null : attendancePercent * 0.15
-          };
-          // Process Compliance is manual-entry-only and often hasn't been typed in yet, but that
-          // shouldn't hide the other 3 components' progress behind a blank "Incomplete" - show a
-          // provisional total (missing pieces count as 0) so there's always something to look at,
-          // and flag it as provisional/list what's still missing so it reads as "not final yet."
-          const componentWeights = { Productivity: weighted.productivity, CSAT: weighted.csat, 'Process Compliance': weighted.processCompliance, Attendance: weighted.attendance };
-          const missingComponents = Object.entries(componentWeights).filter(([, w]) => w == null).map(([name]) => name);
-          const anyKnown = missingComponents.length < 4;
-          const totalScore = anyKnown ? Object.values(componentWeights).reduce((sum, w) => sum + (w || 0), 0) : null;
-          out.push({
-            employeeEmail: email, employeeName: member.employeeName, hireDate: member.hireDate, kpiType: member.kpiType,
-            periodNumber, periodStart, periodEnd: periodEndInclusive, isCurrentPeriod,
-            daysRemaining: isCurrentPeriod ? Math.max(0, ptoLogic.dateRange(windowEnd, periodEndInclusive).length - 1) : 0,
-            workedDays: attendanceRange?.scheduledWorkdays ?? null,
-            totalScoreProvisional: missingComponents.length > 0, missingComponents,
-            productivity: {
-              raw: productivityRaw, totalCount: productivityCount, kind: selectedKind, canChooseKind,
-              ticketsRaw: metrics?.productivityTickets ?? null, callsRaw: metrics?.productivityCalls ?? null,
-              tierPercent: productivityTier, weighted: weighted.productivity, error: metrics?.error || null
-            },
-            csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
-            processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
-            attendance: { raw: attendancePercent, weighted: weighted.attendance },
-            totalScore
-          });
-        }
-        return out;
-      });
+      const rows = probationary.flatMap(({ member, info }) =>
+        buildProbationRowsForMember(member, info, (roster.records || []), metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, today));
       return json(res, 200, { ok: true, isTeamLeader: rows.length > 0 || assignedMembers.length > 0, rows, lastUpdated: metricsSnapshot.lastUpdated || '' });
+    }
+
+    // Self-service equivalent of /api/my/team-probation-kpi above, scoped to the caller's own
+    // record - lets a rep still within their first 5 months see their own running probation
+    // score trend, without waiting for a formal Evaluation to be created and shared with them.
+    if (parsed.pathname === '/api/my/probation-kpi' && req.method === 'GET') {
+      const roster = await loadRosterSnapshot();
+      const me = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      const todayParts = easternDateParts(new Date());
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const info = me ? probationEvalInfo(me.hireDate, today) : null;
+      if (!me || !info) return json(res, 200, { ok: true, inProbation: false, rows: [] });
+      const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance] = await Promise.all([
+        getSnapshot('probation-metrics', 'mtdkpi:snapshot:probation-metrics', { byEmployee: {} }),
+        cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {}),
+        cloudStore.kvGetJson(PROBATION_PRODUCTIVITY_KIND_KEY, {}),
+        loadScheduleSnapshot(),
+        loadAttendanceSnapshot()
+      ]);
+      const rows = buildProbationRowsForMember(me, info, (roster.records || []), metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, today);
+      return json(res, 200, { ok: true, inProbation: true, rows, lastUpdated: metricsSnapshot.lastUpdated || '' });
     }
 
     // Equivalent of /api/my/team-probation-kpi above, scoped to the single (current) period an

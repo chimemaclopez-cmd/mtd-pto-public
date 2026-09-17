@@ -48,6 +48,7 @@ export const loadMyEvaluationAppendix=evaluationId=>api(`/api/my/evaluation-appe
 // Probationary KPI Metrics - a running table separate from the formal evaluation form above,
 // for direct reports still within their first 5 months of tenure.
 export const loadTeamProbationKpi=()=>api('/api/my/team-probation-kpi');
+export const loadMyProbationKpi=()=>api('/api/my/probation-kpi');
 export const saveProbationCompliance=(employeeEmail,periodNumber,percent)=>api(`/api/my/team-probation-kpi/${encodeURIComponent(employeeEmail)}/compliance`,{method:'POST',body:JSON.stringify({periodNumber,percent})});
 // Months 4-5 only - which raw count (tickets vs calls) counts as Productivity for this
 // employee/period, since that's flexible per business need rather than fixed by role.
