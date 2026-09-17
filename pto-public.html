@@ -3056,9 +3056,21 @@ function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
   iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
   iframe.setAttribute('allowfullscreen','');
   if(learningMaterialId){
+    // The outer iframe's `load` event fires before YouTube's internal player script has
+    // actually finished initializing enough to accept the "listening" handshake - sending it
+    // exactly once, right on `load`, reliably lands too early and is silently dropped, so no
+    // onStateChange (or anything else) ever arrives afterward. Confirmed live: resending the
+    // same handshake a few seconds later on an already-loaded player gets an immediate
+    // response. Retry it on an interval for a few seconds instead of trusting a single try.
     iframe.addEventListener('load',()=>{
       _ytCompletionRegistry.set(iframe.contentWindow,learningMaterialId);
-      try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening',id:learningMaterialId}),'https://www.youtube.com')}catch(e){}
+      let attempts=0;
+      const sendHandshake=()=>{
+        attempts++;
+        try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening',id:learningMaterialId}),'https://www.youtube.com')}catch(e){}
+        if(attempts<10)setTimeout(sendHandshake,500);
+      };
+      sendHandshake();
     });
   }
   mountEl.innerHTML='';
