@@ -3025,13 +3025,25 @@ function loadYoutubeIframeApi(){
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
 }
+// The YT.Player() iframe ships an `allow` list that omits "fullscreen" - since an explicit
+// allow attribute replaces the default policy rather than extending it, that silently
+// disables the player's own fullscreen button. Patch it back in once the iframe exists.
+function enableIframeFullscreen(player){
+  try{
+    const iframe=player.getIframe();
+    const allow=iframe.getAttribute('allow')||'';
+    if(!/\bfullscreen\b/.test(allow))iframe.setAttribute('allow',(allow?allow+'; ':'')+'fullscreen');
+  }catch(e){}
+}
 async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
   const YT=await loadYoutubeIframeApi();
   return new YT.Player(mountEl,{
     videoId,
-    playerVars:{autoplay:autoplay?1:0,vq:'hd1080',rel:0},
+    // playsinline keeps mobile Safari playing the video in place instead of kicking it into
+    // its own native fullscreen player, which was the "mobile doesn't work as well" report.
+    playerVars:{autoplay:autoplay?1:0,vq:'hd1080',rel:0,playsinline:1,fs:1},
     events:{
-      onReady:e=>forceHdOnPlayer(e.target),
+      onReady:e=>{forceHdOnPlayer(e.target);enableIframeFullscreen(e.target)},
       onStateChange:e=>{if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.BUFFERING)forceHdOnPlayer(e.target)}
     }
   });
