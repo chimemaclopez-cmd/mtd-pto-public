@@ -1275,6 +1275,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     durationLabel: '~11 min',
     videoUrl: 'https://youtu.be/dzc0jSmZb6o',
     thumbnailUrl: '/shared/img/learning-thumb-zendesk-sop.png',
+    section: 'onboarding',
     createdAt: '2026-09-17T00:00:00.000Z'
   },
   {
@@ -1285,6 +1286,7 @@ const DEFAULT_LEARNING_MATERIALS = [
     durationLabel: '~7 min',
     videoUrl: 'https://youtu.be/bIjEa2kbWzE',
     thumbnailUrl: '/shared/img/learning-thumb-intro-lofty.png',
+    section: 'onboarding',
     createdAt: '2026-09-17T00:00:00.000Z'
   },
   {
@@ -1295,9 +1297,11 @@ const DEFAULT_LEARNING_MATERIALS = [
     durationLabel: '~12 min',
     videoUrl: 'https://youtu.be/SHmGDtzE2Jw',
     thumbnailUrl: '/shared/img/learning-thumb-jira-training.png',
+    section: 'onboarding',
     createdAt: '2026-09-17T00:00:00.000Z'
   }
 ];
+const LEARNING_MATERIAL_SECTIONS = new Set(['onboarding', 'training']);
 async function loadLearningMaterials() { return cloudStore.kvGetJson(LEARNING_MATERIALS_KEY, DEFAULT_LEARNING_MATERIALS); }
 async function saveLearningMaterials(list) { return cloudStore.kvSetJson(LEARNING_MATERIALS_KEY, list); }
 async function loadLearningProgress() { return cloudStore.kvGetJson(LEARNING_PROGRESS_KEY, { version: 1, records: [] }); }
@@ -3616,7 +3620,7 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/learning/materials' && req.method === 'GET') {
       const [materials, progress] = await Promise.all([loadLearningMaterials(), loadLearningProgress()]);
       const mine = new Map((progress.records || []).filter(r => ptoLogic.cleanEmail(r.employeeEmail) === identity).map(r => [r.materialId, r]));
-      const items = materials.map(m => ({ ...m, myStatus: mine.get(m.id)?.status || 'NOT_STARTED', myCompletedAt: mine.get(m.id)?.completedAt || null }));
+      const items = materials.map(m => ({ ...m, section: LEARNING_MATERIAL_SECTIONS.has(m.section) ? m.section : 'onboarding', myStatus: mine.get(m.id)?.status || 'NOT_STARTED', myCompletedAt: mine.get(m.id)?.completedAt || null }));
       return json(res, 200, { ok: true, items, canManage: canManageRewards(identity) });
     }
 
@@ -3632,6 +3636,7 @@ const server = http.createServer(async (req, res) => {
         durationLabel: String(body.durationLabel || '').trim(),
         videoUrl: String(body.videoUrl || '').trim(),
         thumbnailUrl: String(body.thumbnailUrl || '').trim(),
+        section: LEARNING_MATERIAL_SECTIONS.has(body.section) ? body.section : 'onboarding',
         createdAt: new Date().toISOString()
       };
       const list = await loadLearningMaterials();
@@ -3675,7 +3680,8 @@ const server = http.createServer(async (req, res) => {
         category: body.category !== undefined ? (String(body.category || '').trim() || 'General') : current.category,
         durationLabel: body.durationLabel !== undefined ? String(body.durationLabel || '').trim() : current.durationLabel,
         videoUrl: body.videoUrl !== undefined ? String(body.videoUrl || '').trim() : current.videoUrl,
-        thumbnailUrl: body.thumbnailUrl !== undefined ? String(body.thumbnailUrl || '').trim() : current.thumbnailUrl
+        thumbnailUrl: body.thumbnailUrl !== undefined ? String(body.thumbnailUrl || '').trim() : current.thumbnailUrl,
+        section: body.section !== undefined ? (LEARNING_MATERIAL_SECTIONS.has(body.section) ? body.section : 'onboarding') : (LEARNING_MATERIAL_SECTIONS.has(current.section) ? current.section : 'onboarding')
       };
       await saveLearningMaterials(list);
       return json(res, 200, { ok: true, item: list[index] });

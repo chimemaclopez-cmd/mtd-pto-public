@@ -714,7 +714,12 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 </div>
 <div class="sub">Narrated training videos covering Zendesk, Jira, Lofty, and other onboarding and process topics — hosted by Max, your Lofty Training Assistant. Watch a video to the end and it's automatically marked complete on your progress.</div>
 <div id="learningMessage" class="message" hidden></div>
-<div class="cards" id="learningMaterialsGrid" style="margin-top:12px"></div>
+<div id="learningMaterialsGrid" style="margin-top:12px">
+<div class="sectionTitle" style="font-size:15px;margin-bottom:8px">Onboarding</div>
+<div class="cards" id="learningMaterialsGridOnboarding"></div>
+<div class="sectionTitle" style="font-size:15px;margin:24px 0 8px">Product &amp; Process Training</div>
+<div class="cards" id="learningMaterialsGridTraining"></div>
+</div>
 <div id="learningTeamProgressWrap" hidden style="margin-top:22px">
 <div class="sectionTitle">Team Progress</div>
 <div class="tableWrap" style="margin-top:10px"><table><thead><tr id="learningTeamProgressHeadRow"><th>Employee</th><th>Completed</th></tr></thead><tbody id="learningTeamProgressBody"></tbody></table></div>
@@ -727,6 +732,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="field" style="grid-column:1/-1"><label>Description *</label><textarea name="description" required></textarea></div>
 <div class="field"><label>Category</label><input name="category" placeholder="e.g. Zendesk, Company"></div>
 <div class="field"><label>Duration</label><input name="durationLabel" placeholder="e.g. ~11 min"></div>
+<div class="field"><label>Section</label><select name="section"><option value="onboarding">Onboarding</option><option value="training">Product & Process Training</option></select></div>
 <div class="field" style="grid-column:1/-1"><label>Video URL</label><input name="videoUrl" placeholder="https://youtu.be/..."></div>
 <div class="field" style="grid-column:1/-1"><label>Thumbnail URL (optional)</label><input name="thumbnailUrl" placeholder="/shared/img/... or https://..."></div>
 </div>
@@ -3142,7 +3148,10 @@ function learningMaterialCardHtml(item,index,total){
   return`<div class="card">${video}<div class="label">${esc(item.title)}</div><div class="sub" style="margin:6px 0;min-height:32px">${esc(item.description||'')}</div><div class="sub">${esc(item.category||'')}${item.durationLabel?` · ${esc(item.durationLabel)}`:''}</div>${completeBtn}${manageBtns}</div>`;
 }
 function renderLearningMaterials(){
-  $('learningMaterialsGrid').innerHTML=learningMaterials.map((item,index)=>learningMaterialCardHtml(item,index,learningMaterials.length)).join('')||'<div class="muted">No training materials yet.</div>';
+  const onboarding=learningMaterials.filter(x=>(x.section||'onboarding')!=='training');
+  const training=learningMaterials.filter(x=>x.section==='training');
+  $('learningMaterialsGridOnboarding').innerHTML=onboarding.map((item,index)=>learningMaterialCardHtml(item,index,onboarding.length)).join('')||'<div class="muted">No onboarding videos yet.</div>';
+  $('learningMaterialsGridTraining').innerHTML=training.map((item,index)=>learningMaterialCardHtml(item,index,training.length)).join('')||'<div class="muted">No product or process training videos yet.</div>';
   $('newLearningMaterialBtn').hidden=!learningCanManage;
   $('learningMaterialsGrid').querySelectorAll('[data-learning-automount]').forEach(el=>{
     mountPlainYoutubeIframe(el,el.dataset.videoId,false,el.dataset.learningAutomount);
@@ -3195,6 +3204,7 @@ function openLearningMaterialForm(item){
     form.elements.durationLabel.value=item.durationLabel||'';
     form.elements.videoUrl.value=item.videoUrl||'';
     form.elements.thumbnailUrl.value=item.thumbnailUrl||'';
+    form.elements.section.value=item.section||'onboarding';
   }
   $('learningMaterialFormError').hidden=true;
   $('learningMaterialFormModal').hidden=false;
