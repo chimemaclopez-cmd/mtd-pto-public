@@ -3027,9 +3027,42 @@ function loadYoutubeIframeApi(){
 // used to leave the mount div permanently blank after the poster was already cleared - no
 // video, no controls, nothing. Race the API against a timeout and fall back to a plain iframe
 // embed (no HD-forcing, but it always renders a real, fully-controllable YouTube player).
-function mountPlainYoutubeIframe(mountEl,videoId,autoplay){
-  const params=new URLSearchParams({autoplay:autoplay?'1':'0',playsinline:'1',rel:'0',fs:'1'});
-  mountEl.innerHTML=`<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>`;
+//
+// enablejsapi=1 lets the embed POST us its player-state changes without needing the full
+// youtube.com/iframe_api script or a `new YT.Player()` wrapper - that JS Player API path is
+// what produced the degraded, uncontrollable player reported earlier. This is the same plain
+// iframe as before, just also listening, so we can auto-mark a training video complete once
+// the viewer actually watches it to the end instead of asking them to click a button.
+const _ytCompletionRegistry=new Map(); // iframe.contentWindow -> learningMaterialId
+window.addEventListener('message',event=>{
+  if(event.origin!=='https://www.youtube.com')return;
+  const learningMaterialId=_ytCompletionRegistry.get(event.source);
+  if(!learningMaterialId)return;
+  let data;
+  try{data=JSON.parse(event.data)}catch(e){return}
+  if(data.event==='onStateChange'&&data.info===0)autoCompleteLearningMaterial(learningMaterialId);
+});
+async function autoCompleteLearningMaterial(id){
+  const item=learningMaterials.find(x=>x.id===id);
+  if(!item||item.myStatus==='COMPLETED')return; // already done, or list is stale - don't spam the API
+  try{await markLearningMaterialComplete(id);await loadLearningTab()}
+  catch(e){/* silent - a background auto-mark shouldn't interrupt playback with an error banner */}
+}
+function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
+  const params=new URLSearchParams({autoplay:autoplay?'1':'0',playsinline:'1',rel:'0',fs:'1',enablejsapi:'1',origin:location.origin});
+  const iframe=document.createElement('iframe');
+  iframe.src=`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params}`;
+  iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
+  iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+  iframe.setAttribute('allowfullscreen','');
+  if(learningMaterialId){
+    iframe.addEventListener('load',()=>{
+      _ytCompletionRegistry.set(iframe.contentWindow,learningMaterialId);
+      try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening',id:learningMaterialId}),'https://www.youtube.com')}catch(e){}
+    });
+  }
+  mountEl.innerHTML='';
+  mountEl.appendChild(iframe);
 }
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
@@ -3100,7 +3133,7 @@ function renderLearningMaterials(){
   $('learningMaterialsGrid').innerHTML=learningMaterials.map((item,index)=>learningMaterialCardHtml(item,index,learningMaterials.length)).join('')||'<div class="muted">No training materials yet.</div>';
   $('newLearningMaterialBtn').hidden=!learningCanManage;
   $('learningMaterialsGrid').querySelectorAll('[data-learning-automount]').forEach(el=>{
-    mountPlainYoutubeIframe(el,el.dataset.videoId,false);
+    mountPlainYoutubeIframe(el,el.dataset.videoId,false,el.dataset.learningAutomount);
   });
 }
 function renderLearningTeamProgress(){
@@ -3182,7 +3215,7 @@ $('learningMaterialsGrid').addEventListener('click',async event=>{
     poster.style.cursor='default';
     poster.removeAttribute('data-learning-poster');
     poster.appendChild(mount);
-    mountPlainYoutubeIframe(mount,poster.dataset.videoId,true);
+    mountPlainYoutubeIframe(mount,poster.dataset.videoId,true,poster.dataset.learningPoster);
     return;
   }
   const editId=event.target.dataset.editLearning;
