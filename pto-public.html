@@ -3018,9 +3018,18 @@ function loadYoutubeIframeApi(){
     window.onYouTubeIframeAPIReady=()=>{if(prevReady)prevReady();resolve(window.YT)};
     const tag=document.createElement('script');
     tag.src='https://www.youtube.com/iframe_api';
+    tag.onerror=()=>resolve(null);
     document.head.appendChild(tag);
   });
   return _ytApiPromise;
+}
+// A blocked/slow youtube.com/iframe_api script (ad blocker, privacy extension, flaky network)
+// used to leave the mount div permanently blank after the poster was already cleared - no
+// video, no controls, nothing. Race the API against a timeout and fall back to a plain iframe
+// embed (no HD-forcing, but it always renders a real, fully-controllable YouTube player).
+function mountPlainYoutubeIframe(mountEl,videoId,autoplay){
+  const params=new URLSearchParams({autoplay:autoplay?'1':'0',playsinline:'1',rel:'0',fs:'1'});
+  mountEl.innerHTML=`<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>`;
 }
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
@@ -3036,7 +3045,15 @@ function enableIframeFullscreen(player){
   }catch(e){}
 }
 async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
-  const YT=await loadYoutubeIframeApi();
+  const withTimeout=new Promise(resolve=>{
+    loadYoutubeIframeApi().then(resolve);
+    setTimeout(()=>resolve(null),4000);
+  });
+  const YT=await withTimeout;
+  if(!YT||!mountEl.isConnected){
+    if(mountEl.isConnected)mountPlainYoutubeIframe(mountEl,videoId,autoplay);
+    return null;
+  }
   return new YT.Player(mountEl,{
     videoId,
     // playsinline keeps mobile Safari playing the video in place instead of kicking it into
