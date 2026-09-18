@@ -3080,6 +3080,27 @@ async function autoCompleteLearningMaterial(id){
   try{await markLearningMaterialComplete(id);await loadLearningTab()}
   catch(e){/* silent - a background auto-mark shouldn't interrupt playback with an error banner */}
 }
+// YouTube's own in-player fullscreen button depends on the embedded youtube.com document
+// itself deciding to show it and being allowed to call the Fullscreen API - which turned out
+// unreliable here (confirmed live: still missing after the iframe's own `allow` list was
+// already correct). Fullscreening the <iframe> ELEMENT from this, the parent, page's own script
+// sidesteps that entirely - it's this page's own Fullscreen API call on an element it owns, not
+// a permission being delegated into cross-origin content, so it works regardless of whatever
+// YouTube's player decides to render.
+function requestElementFullscreen(el){
+  const fn=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitEnterFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+  if(fn)fn.call(el);
+}
+function addFullscreenOverlayButton(mountEl,iframe){
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.title='Fullscreen';
+  btn.setAttribute('aria-label','Fullscreen');
+  btn.style.cssText='position:absolute;bottom:10px;right:10px;z-index:5;width:34px;height:34px;border-radius:6px;background:rgba(0,0,0,.65);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0';
+  btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  btn.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();requestElementFullscreen(iframe)});
+  mountEl.appendChild(btn);
+}
 function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
   const params=new URLSearchParams({autoplay:autoplay?'1':'0',playsinline:'1',rel:'0',fs:'1',enablejsapi:'1',origin:location.origin});
   const iframe=document.createElement('iframe');
@@ -3107,6 +3128,7 @@ function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
   }
   mountEl.innerHTML='';
   mountEl.appendChild(iframe);
+  addFullscreenOverlayButton(mountEl,iframe);
 }
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
@@ -3137,6 +3159,7 @@ async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
   iframe.setAttribute('allowfullscreen','');
   mountEl.innerHTML='';
   mountEl.appendChild(iframe);
+  addFullscreenOverlayButton(mountEl,iframe);
   return new YT.Player(iframe,{
     events:{
       onReady:e=>{forceHdOnPlayer(e.target)},
