@@ -3111,16 +3111,6 @@ function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
 }
-// The YT.Player() iframe ships an `allow` list that omits "fullscreen" - since an explicit
-// allow attribute replaces the default policy rather than extending it, that silently
-// disables the player's own fullscreen button. Patch it back in once the iframe exists.
-function enableIframeFullscreen(player){
-  try{
-    const iframe=player.getIframe();
-    const allow=iframe.getAttribute('allow')||'';
-    if(!/\bfullscreen\b/.test(allow))iframe.setAttribute('allow',(allow?allow+'; ':'')+'fullscreen');
-  }catch(e){}
-}
 async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
   const withTimeout=new Promise(resolve=>{
     loadYoutubeIframeApi().then(resolve);
@@ -3131,13 +3121,25 @@ async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
     if(mountEl.isConnected)mountPlainYoutubeIframe(mountEl,videoId,autoplay);
     return null;
   }
-  return new YT.Player(mountEl,{
-    videoId,
-    // playsinline keeps mobile Safari playing the video in place instead of kicking it into
-    // its own native fullscreen player, which was the "mobile doesn't work as well" report.
-    playerVars:{autoplay:autoplay?1:0,vq:'hd1080',rel:0,playsinline:1,fs:1},
+  // Build the <iframe> ourselves - with the full `allow` list, including "fullscreen" - before
+  // it ever loads YouTube's document, instead of letting YT.Player() construct its own iframe
+  // (which ships an `allow` list missing "fullscreen") and patching the attribute afterward.
+  // A browser locks a frame's permissions policy in at navigation time, so that later patch
+  // looked like it worked (the attribute value was correct) but never actually granted
+  // fullscreen - this is what silently dropped the fullscreen button. Passing an existing
+  // <iframe> element to the constructor is YouTube's own documented way to keep control over
+  // the frame's own attributes while still getting the JS API for playback/quality control.
+  const params=new URLSearchParams({autoplay:autoplay?'1':'0',playsinline:'1',rel:'0',fs:'1',enablejsapi:'1',origin:location.origin});
+  const iframe=document.createElement('iframe');
+  iframe.src=`https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params}`;
+  iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
+  iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+  iframe.setAttribute('allowfullscreen','');
+  mountEl.innerHTML='';
+  mountEl.appendChild(iframe);
+  return new YT.Player(iframe,{
     events:{
-      onReady:e=>{forceHdOnPlayer(e.target);enableIframeFullscreen(e.target)},
+      onReady:e=>{forceHdOnPlayer(e.target)},
       onStateChange:e=>{if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.BUFFERING)forceHdOnPlayer(e.target)}
     }
   });
