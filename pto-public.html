@@ -748,6 +748,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <button class="btn primary" type="submit">Save</button>
 </div>
 </form></div>
+<div class="modal" id="learningVideoModal" hidden><div class="dialog" style="max-width:920px;padding:0;overflow:hidden;background:#000;position:relative" role="dialog" aria-modal="true"><button type="button" id="learningVideoModalClose" title="Close" aria-label="Close" style="position:absolute;top:10px;right:10px;z-index:6;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.65);border:none;cursor:pointer;color:#fff;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center">✕</button><div id="learningVideoModalMount" style="position:relative;padding-top:56.25%"></div></div></div>
 <div class="modal" id="draftAssistModal" hidden><div class="dialog" style="max-width:640px" role="dialog" aria-modal="true">
 <div class="title" id="draftAssistTitle">Rephrase</div>
 <div class="sub" id="draftAssistLoading">Thinking...</div>
@@ -3130,6 +3131,18 @@ function mountPlainYoutubeIframe(mountEl,videoId,autoplay,learningMaterialId){
   mountEl.appendChild(iframe);
   addFullscreenOverlayButton(mountEl,iframe);
 }
+// The one shared player surface for every Lofty Academy card (see learningMaterialCardHtml) -
+// opening always mounts a fresh iframe, closing always tears it down, so the modal (and every
+// card behind it) never carries a paused player's leftover state into the next open.
+function openLearningVideoModal(videoId,learningMaterialId){
+  $('learningVideoModalMount').innerHTML='';
+  $('learningVideoModal').hidden=false;
+  mountPlainYoutubeIframe($('learningVideoModalMount'),videoId,true,learningMaterialId);
+}
+function closeLearningVideoModal(){
+  $('learningVideoModal').hidden=true;
+  $('learningVideoModalMount').innerHTML='';
+}
 function forceHdOnPlayer(player){
   try{player.setPlaybackQuality('hd1080')}catch(e){}
 }
@@ -3170,22 +3183,23 @@ async function createHdYoutubePlayer(mountEl,videoId,{autoplay=false}={}){
 function learningMaterialCardHtml(item,index,total){
   const videoId=youtubeVideoId(item.videoUrl);
   const completed=item.myStatus==='COMPLETED';
-  // With a thumbnailUrl on file (the video's real title slide, not whatever mid-video frame
-  // YouTube auto-picked), show that as a static poster with a play button and only mount the
-  // live player once clicked - keeps the title page visible until the viewer actually presses
-  // play, instead of YouTube's own embed choosing its own preview frame. Falls back to mounting
-  // the player immediately (old behavior) when no thumbnail is on file for this material. Either
-  // way playback goes through the IFrame Player API (createHdYoutubePlayer) so it can force HD -
-  // a plain iframe embed src has no reliable way to do that.
+  // The card always shows a static poster (the video's own title-slide thumbnail when one is
+  // on file, otherwise a plain dark placeholder) with a play button - never a live, playable
+  // iframe sitting in the grid. Clicking it opens the shared learningVideoModal instead of
+  // mounting the player in place: a real embedded YouTube <iframe> left paused mid-grid shows
+  // YouTube's own chrome (title, progress bar, settings) right there in the card, which reads as
+  // broken next to every other card's clean thumbnail. Routing playback through one modal that
+  // gets torn down on close (openLearningVideoModal/closeLearningVideoModal, wired further down)
+  // means the grid itself never changes state - it's always the same poster, whether a video was
+  // just watched or never opened.
   let video;
-  if(videoId&&item.thumbnailUrl){
-    video=`<div class="sub" data-learning-poster="${esc(item.id)}" data-video-id="${esc(videoId)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000 url('${esc(item.thumbnailUrl)}') center/cover no-repeat;cursor:pointer">
+  if(videoId){
+    const posterBg=item.thumbnailUrl?`background:#000 url('${esc(item.thumbnailUrl)}') center/cover no-repeat`:'background:linear-gradient(135deg,#1f2540,#2c3563)';
+    video=`<div class="sub" data-learning-poster="${esc(item.id)}" data-video-id="${esc(videoId)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;${posterBg};cursor:pointer">
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15)">
         <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-style:solid;border-width:12px 0 12px 20px;border-color:transparent transparent transparent #fff;margin-left:4px"></div></div>
       </div>
     </div>`;
-  }else if(videoId){
-    video=`<div data-learning-automount="${esc(item.id)}" data-video-id="${esc(videoId)}" style="position:relative;padding-top:56.25%;margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000"></div>`;
   }else{
     video='<div class="sub" style="margin-bottom:8px">Video coming soon.</div>';
   }
@@ -3204,9 +3218,6 @@ function renderLearningMaterials(){
   $('learningMaterialsGridOnboarding').innerHTML=onboarding.map((item,index)=>learningMaterialCardHtml(item,index,onboarding.length)).join('')||'<div class="muted">No onboarding videos yet.</div>';
   $('learningMaterialsGridTraining').innerHTML=training.map((item,index)=>learningMaterialCardHtml(item,index,training.length)).join('')||'<div class="muted">No product or process training videos yet.</div>';
   $('newLearningMaterialBtn').hidden=!learningCanManage;
-  $('learningMaterialsGrid').querySelectorAll('[data-learning-automount]').forEach(el=>{
-    mountPlainYoutubeIframe(el,el.dataset.videoId,false,el.dataset.learningAutomount);
-  });
 }
 function renderLearningTeamProgress(){
   if(!learningTeamProgress||!(learningTeamProgress.rows||[]).length){$('learningTeamProgressWrap').hidden=true;return}
@@ -3262,6 +3273,8 @@ function openLearningMaterialForm(item){
 }
 $('newLearningMaterialBtn').onclick=()=>openLearningMaterialForm(null);
 $('learningMaterialFormCancel').onclick=()=>{$('learningMaterialFormModal').hidden=true};
+$('learningVideoModalClose').onclick=closeLearningVideoModal;
+$('learningVideoModal').addEventListener('click',event=>{if(event.target.id==='learningVideoModal')closeLearningVideoModal()});
 let learningMaterialFormSubmitting=false;
 $('learningMaterialForm').onsubmit=async event=>{
   event.preventDefault();
@@ -3282,13 +3295,7 @@ $('learningMaterialForm').onsubmit=async event=>{
 $('learningMaterialsGrid').addEventListener('click',async event=>{
   const poster=event.target.closest('[data-learning-poster]');
   if(poster){
-    const mount=document.createElement('div');
-    mount.style.cssText='position:absolute;inset:0';
-    poster.innerHTML='';
-    poster.style.cursor='default';
-    poster.removeAttribute('data-learning-poster');
-    poster.appendChild(mount);
-    mountPlainYoutubeIframe(mount,poster.dataset.videoId,true,poster.dataset.learningPoster);
+    openLearningVideoModal(poster.dataset.videoId,poster.dataset.learningPoster);
     return;
   }
   const editId=event.target.dataset.editLearning;
