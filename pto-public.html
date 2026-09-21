@@ -1933,7 +1933,7 @@ function teamAttendanceCodeOptions(selected){const shortLabel={WFH:'WFH'};return
 function renderTeamAttendance(){
   if(!teamAttendanceDates.length){$('teamAttendanceHead').innerHTML='';$('teamAttendanceBody').innerHTML=emptyStateRow('No direct reports found for this period.',1,'👥');return}
   $('teamAttendanceHead').innerHTML=`<tr><th class="sticky1">Employee</th>${teamAttendanceDates.map(d=>`<th>${Number(d.slice(8))}<br>${esc(weekday(d))}</th>`).join('')}</tr>`;
-  const REASON_CODES=['LATE','SL','SL-HD'];
+  const REASON_CODES=['LATE','SL','SL-HD','EL','EL-HD'];
   $('teamAttendanceBody').innerHTML=teamAttendanceMembers.map(m=>{
     const cells=m.days.map(day=>{
       const dirty=teamAttendanceDirty.get(`${m.employeeEmail}|${day.date}`);
@@ -2119,7 +2119,7 @@ async function runGenerateExecutiveReport(){
   }
 }
 $('mbrExecReportGenerateBtn').onclick=runGenerateExecutiveReport;
-const TEAM_ATTENDANCE_REASON_CODES=['LATE','SL','SL-HD'];
+const TEAM_ATTENDANCE_REASON_CODES=['LATE','SL','SL-HD','EL','EL-HD'];
 $('teamAttendanceBody').addEventListener('change',event=>{
   if(event.target.dataset.email){
     const email=event.target.dataset.email,date=event.target.dataset.date,code=event.target.value;
