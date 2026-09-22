@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lofty-support-portal-v10';
+const CACHE_NAME = 'lofty-support-portal-v11';
 const APP_SHELL = [
   '/',
   '/shared/kpi.css',

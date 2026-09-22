@@ -685,6 +685,12 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
+// Leadership periodically transcribes the real per-day Call Completion figures off the "Week
+// at a Glance" report into this calibration snapshot (source-tagged per day, synced from
+// zendesk-proxy.js's local call-completion-calibration.json) - a hand-entered ground truth for
+// exactly the days where the site-metrics snapshot delta below can't be trusted (a missing
+// prior-day snapshot, or one captured before the day had ended).
+async function loadCallCompletionCalibrationSnapshot() { return getSnapshot('call-completion-calibration', 'mtdkpi:snapshot:call-completion-calibration', { mtd: {}, daily: {} }); }
 async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, shiftEndThanks: [], dailyThanks: null, generatedAt: '' }); }
 // Ticket Audit: zendesk-proxy.js computes this (this server has no Zendesk credentials of its
 // own) on its own periodic scan - see the comment on computeTicketAudit() there for the
@@ -2955,6 +2961,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/site-metrics' && req.method === 'GET') {
       const siteMetricsData = await loadSiteMetricsSnapshot();
+      const calibrationDaily = (await loadCallCompletionCalibrationSnapshot()).daily || {};
       const periods = siteMetricsData.periods || {};
       const availablePeriods = currentPeriodKeys(Object.keys(periods)).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
@@ -2970,13 +2977,31 @@ const server = http.createServer(async (req, res) => {
       const history = sortedByDate.map((row, i) => {
         const prev = sortedByDate[i - 1];
         const sameMonthPrev = prev && prev.month === row.month ? prev : null;
+        const calibratedDay = calibrationDaily[row.endDate];
+        const storedDaily = row.daily || {};
+        const storedDailyFinalized = !!row.lastUpdated && new Date(row.lastUpdated).getTime() >= easternEpochMs(row.endDate, 1440);
+        const exactCallCompletion = calibratedDay
+          ? { totalInbound: Number(calibratedDay.total || 0), completedInbound: Number(calibratedDay.completed || 0), rate: Number(calibratedDay.total || 0) ? Number(calibratedDay.completed || 0) / Number(calibratedDay.total || 0) * 100 : null }
+          : (storedDailyFinalized ? storedDaily.callCompletion || null : null);
+        const exactLongCallRate = storedDailyFinalized ? storedDaily.longCallRate || null : null;
+        const exactCsat = storedDailyFinalized ? storedDaily.csat || null : null;
         // No same-month day before this one: if it's the 1st, that cumulative IS the day's own
         // total already. Otherwise (e.g. the only entry captured for an older month, before
         // daily capture existed) there's no way to isolate that single day - it's really the
         // whole month's total, and isDailyIsolated:false says so for the UI to label honestly.
         if (!sameMonthPrev) {
-          const isolated = row.endDate.endsWith('-01');
-          return { ...row, isDailyIsolated: isolated, callCompletionIsolated: isolated, longCallRateIsolated: isolated, csatIsolated: isolated };
+          const isolated = row.endDate.endsWith('-01') && storedDailyFinalized;
+          const callCompletion = exactCallCompletion || (isolated ? row.callCompletion : null);
+          const longCallRate = exactLongCallRate || (isolated ? row.longCallRate : null);
+          const csat = exactCsat || (isolated ? row.csat : null);
+          return {
+            ...row,
+            isDailyIsolated: Boolean(callCompletion && longCallRate && csat),
+            callCompletionIsolated: Boolean(callCompletion),
+            longCallRateIsolated: Boolean(longCallRate),
+            csatIsolated: Boolean(csat),
+            callCompletion,longCallRate,csat
+          };
         }
         // Subtracting cumulative MTD totals only isolates a single real day when (a) the
         // previous row is literally the calendar day right before this one - a gap (e.g. no
@@ -3014,25 +3039,22 @@ const server = http.createServer(async (req, res) => {
         const callCompletionOk = gapOk && finalizedOk && totalInbound >= 0 && completedInbound >= 0;
         const longCallRateOk = gapOk && finalizedOk && accepted >= 0 && longCalls >= 0;
         const csatOk = gapOk && finalizedOk && good >= 0 && bad >= 0;
+        const callCompletion = exactCallCompletion || (callCompletionOk
+          ? { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null }
+          : null);
+        const longCallRate = exactLongCallRate || (longCallRateOk
+          ? { accepted, longCalls, rate: accepted ? longCalls / accepted * 100 : null }
+          : null);
+        const csat = exactCsat || (csatOk
+          ? { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
+          : null);
         return {
           period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated,
-          // Kept for older clients: true only when every metric isolated cleanly. New clients
-          // should prefer the three per-metric flags below instead - a single bad metric (e.g.
-          // a late CSAT correction) shouldn't make an otherwise-valid Call Completion/Long Call
-          // Rate number for that day look like a fallback too.
-          isDailyIsolated: callCompletionOk && longCallRateOk && csatOk,
-          callCompletionIsolated: callCompletionOk,
-          longCallRateIsolated: longCallRateOk,
-          csatIsolated: csatOk,
-          callCompletion: callCompletionOk
-            ? { totalInbound, completedInbound, rate: totalInbound ? completedInbound / totalInbound * 100 : null }
-            : row.callCompletion,
-          longCallRate: longCallRateOk
-            ? { accepted, longCalls, rate: accepted ? longCalls / accepted * 100 : null }
-            : row.longCallRate,
-          csat: csatOk
-            ? { good, bad, rate: (good + bad) ? good / (good + bad) * 100 : null }
-            : row.csat
+          isDailyIsolated: Boolean(callCompletion && longCallRate && csat),
+          callCompletionIsolated: Boolean(callCompletion),
+          longCallRateIsolated: Boolean(longCallRate),
+          csatIsolated: Boolean(csat),
+          callCompletion,longCallRate,csat
         };
       });
       // Onsite/WFH/Present headcount per day, so a dip or improvement in the metrics above can
