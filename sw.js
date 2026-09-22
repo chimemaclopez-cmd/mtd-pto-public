@@ -37,12 +37,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  if (!url.protocol.startsWith('http')) return;
   if (url.pathname.startsWith('/api/')) return;
   event.respondWith(
     fetch(event.request, { cache: 'no-store' }).then(response => {
       if (response.ok) {
         const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(() => {});
       }
       return response;
     }).catch(() => caches.match(event.request))

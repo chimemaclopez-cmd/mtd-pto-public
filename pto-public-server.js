@@ -2978,6 +2978,17 @@ const server = http.createServer(async (req, res) => {
           const isolated = row.endDate.endsWith('-01');
           return { ...row, isDailyIsolated: isolated, callCompletionIsolated: isolated, longCallRateIsolated: isolated, csatIsolated: isolated };
         }
+        // Subtracting cumulative MTD totals only isolates a single real day when (a) the
+        // previous row is literally the calendar day right before this one - a gap (e.g. no
+        // snapshot ever captured for an intervening day, confirmed live for 2026-09-19) means
+        // the "delta" actually spans multiple days blended into one row, and (b) this row's
+        // own snapshot was captured after its endDate's ET day had fully closed - a same-day
+        // pull (confirmed live for 2026-09-18, captured 11:44 AM ET) only has a partial day's
+        // calls in it and skews wildly. Either failing makes the isolated number meaningless
+        // even when it's arithmetically non-negative, so both gate the same fallback path the
+        // negative-delta checks below already use.
+        const gapOk = daysBetweenDates(sameMonthPrev.endDate, row.endDate) === 1;
+        const finalizedOk = !!row.lastUpdated && new Date(row.lastUpdated).getTime() >= easternEpochMs(row.endDate, 1440);
         const cc = row.callCompletion || {}, pcc = sameMonthPrev.callCompletion || {};
         const lcr = row.longCallRate || {}, plcr = sameMonthPrev.longCallRate || {};
         const cs = row.csat || {}, pcs = sameMonthPrev.csat || {};
@@ -3000,9 +3011,9 @@ const server = http.createServer(async (req, res) => {
         // issue (confirmed live on 2026-08-15: good/bad went 307/27 -> 305/26 day-over-day)
         // otherwise blanked out an unrelated, perfectly valid Call Completion/Long Call Rate
         // isolation for that same day.
-        const callCompletionOk = totalInbound >= 0 && completedInbound >= 0;
-        const longCallRateOk = accepted >= 0 && longCalls >= 0;
-        const csatOk = good >= 0 && bad >= 0;
+        const callCompletionOk = gapOk && finalizedOk && totalInbound >= 0 && completedInbound >= 0;
+        const longCallRateOk = gapOk && finalizedOk && accepted >= 0 && longCalls >= 0;
+        const csatOk = gapOk && finalizedOk && good >= 0 && bad >= 0;
         return {
           period: row.period, endDate: row.endDate, lastUpdated: row.lastUpdated,
           // Kept for older clients: true only when every metric isolated cleanly. New clients
