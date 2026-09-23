@@ -150,21 +150,26 @@ export function parseQaPreQaResponse(raw,categories,criticalErrors){
 // rating (qaScorecardFormRatings/FormCriticalErrors), not from the AI's original Pre-QA draft -
 // so the write-up reflects what the reviewer actually decided, even where they overrode the AI's
 // suggestion. Built purely from the confirmed ratings/labels, no ticket transcript needed.
-export function buildQaFeedbackPrompt({categories,criticalErrors,ratings,criticalErrorFlags,agentName}){
+export function buildQaFeedbackPrompt({categories,criticalErrors,ratings,reasons,criticalErrorFlags,agentName}){
   const lines=categories.flatMap(cat=>cat.criteria.map(c=>{
     const v=ratings?.[c.key];
     if(!v)return null;
-    return `- ${c.label} (${cat.label}): ${QA_SCORECARD_RATING_LABELS[v]||v}`;
+    const reason=String(reasons?.[c.key]||'').trim();
+    // Only No/Partly ratings get a reviewer-written reason in the form - attaching it here is
+    // what lets the write-up cite the actual, specific cause instead of a generic restatement
+    // of the criterion label (e.g. "the custom domain already points to the Lofty website"
+    // instead of just "issue understanding was lacking").
+    return `- ${c.label} (${cat.label}): ${QA_SCORECARD_RATING_LABELS[v]||v}${reason?` — reviewer's reason: ${reason}`:''}`;
   })).filter(Boolean).join('\n');
   const flagged=criticalErrors.filter(e=>criticalErrorFlags?.[e.key]).map(e=>e.label);
-  return `You are a QA analyst writing the final coaching write-up for a completed ticket-handling evaluation${agentName?` of ${agentName}`:''}. These are the reviewer's own FINAL confirmed ratings for this ticket, not a draft - write feedback strictly consistent with these ratings, don't introduce claims they don't support.
+  return `You are a QA analyst writing the final coaching write-up for a completed ticket-handling evaluation${agentName?` of ${agentName}`:''}. These are the reviewer's own FINAL confirmed ratings for this ticket, not a draft - write feedback strictly consistent with these ratings, don't introduce claims they don't support. Where a criterion has a reviewer's reason attached, ground your write-up in that specific reason rather than a generic restatement of the criterion.
 
 Ratings:
 ${lines||'(no criteria rated yet)'}
 ${flagged.length?`\nCritical errors confirmed: ${flagged.join(', ')}`:''}
 
 Respond with ONLY a single JSON object, no prose, no markdown code fences, in exactly this shape:
-{"feedback":"2-4 sentence summary of strengths and gaps consistent with the ratings above","actionPlan":"1-2 concrete, specific coaching actions addressing the No/Partly-rated criteria (or acknowledging strong performance if there are none)"}`;
+{"feedback":"2-4 sentence summary of strengths and gaps consistent with the ratings above, citing the reviewer's specific reasons where given","actionPlan":"1-2 concrete, specific coaching actions addressing the No/Partly-rated criteria using their specific reasons (or acknowledging strong performance if there are none)"}`;
 }
 
 export function isQaFeedbackBadAnswer(raw){
