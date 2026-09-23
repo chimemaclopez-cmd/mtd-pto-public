@@ -4774,11 +4774,17 @@ const server = http.createServer(async (req, res) => {
       const from = String(parsed.searchParams.get('from') || ''), to = String(parsed.searchParams.get('to') || '');
       const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
       const teamLeadEmail = ptoLogic.cleanEmail(parsed.searchParams.get('teamLeadEmail') || '');
-      let records = (data.records || []).filter(x => x.status === 'PUBLISHED');
-      if (from) records = records.filter(x => x.evaluationDate >= from);
-      if (to) records = records.filter(x => x.evaluationDate <= to);
-      if (agentEmail) records = records.filter(x => ptoLogic.cleanEmail(x.employeeEmail) === agentEmail);
-      if (teamLeadEmail) records = records.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === teamLeadEmail);
+      let allMatching = data.records || [];
+      if (from) allMatching = allMatching.filter(x => x.evaluationDate >= from);
+      if (to) allMatching = allMatching.filter(x => x.evaluationDate <= to);
+      if (agentEmail) allMatching = allMatching.filter(x => ptoLogic.cleanEmail(x.employeeEmail) === agentEmail);
+      if (teamLeadEmail) allMatching = allMatching.filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === teamLeadEmail);
+      // Scoring stats (running average, pass rate, coaching gaps) only ever count PUBLISHED
+      // evaluations - a draft isn't a finished grade yet. But the History table below is the
+      // only place a reviewer can find and resume a saved draft (it's deliberately hidden from
+      // the agent's own "My QA Evaluations" until published), so it must show every status, not
+      // just published ones, or a saved draft becomes invisible everywhere in the UI.
+      const records = allMatching.filter(x => x.status === 'PUBLISHED');
       const byAgent = new Map();
       const gapCounts = new Map(); // criterionKey -> occurrences of Partly/No
       for (const r of records) {
@@ -4805,7 +4811,7 @@ const server = http.createServer(async (req, res) => {
         summary: { evaluations: records.length, runningAverage: records.length ? Math.round(totalPct / records.length) : 0, passRate: records.length ? Math.round((passCount / records.length) * 100) : 0, criticalErrors: criticalErrorCount },
         byAgent: byAgentList,
         opportunities: [...gapCounts.values()].sort((a, b) => b.count - a.count).slice(0, 5),
-        history: records.slice().sort((a, b) => b.evaluationDate.localeCompare(a.evaluationDate) || b.createdAt.localeCompare(a.createdAt))
+        history: allMatching.slice().sort((a, b) => b.evaluationDate.localeCompare(a.evaluationDate) || b.createdAt.localeCompare(a.createdAt))
       });
     }
 
