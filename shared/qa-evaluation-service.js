@@ -9,6 +9,10 @@ export const deleteQaScorecard=(id)=>api(`/api/qa/scorecards/${encodeURIComponen
 export const getQaScorecardReporting=(params={})=>{const query=new URLSearchParams(Object.entries(params).filter(([,v])=>v));return api(`/api/qa/scorecards/reporting${query.size?`?${query}`:''}`)};
 export const getMyQaScorecards=()=>api('/api/my/qa-scorecards');
 export const getQaScorecardTicketThread=(ticketId)=>api(`/api/qa/scorecards/ticket-thread?ticketId=${encodeURIComponent(ticketId)}`);
+// Self-service twin of the above, open to every employee instead of reviewers only - the server
+// enforces "your own ticket only" against the real Zendesk assignee, and nothing this flow
+// produces is ever saved (see qaSelfAuditRun in pto-public.html).
+export const getMyQaSelfAuditTicketThread=(ticketId)=>api(`/api/my/qa-self-audit/ticket-thread?ticketId=${encodeURIComponent(ticketId)}`);
 export const acknowledgeQaScorecard=(id,payload)=>api(`/api/qa/scorecards/${encodeURIComponent(id)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});
 
 export const QA_SCORECARD_STATUS_LABELS={DRAFT:'Draft',PUBLISHED:'Published',ACKNOWLEDGED:'Acknowledged'};

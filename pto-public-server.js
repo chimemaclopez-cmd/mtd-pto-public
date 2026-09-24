@@ -4827,6 +4827,27 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Self-service AI QA audit - open to every employee (no canUseQaScorecard gate), unlike the
+    // reviewer route above. The one access rule that replaces it: you can only pull the
+    // transcript for a ticket YOU were assigned, never a coworker's - checked against the
+    // ticket's real Zendesk assignee, not anything the caller can claim client-side. Nothing
+    // from this flow is ever written to storage; the AI's scoring happens entirely client-side
+    // from this transcript and is discarded on refresh, by design (a practice tool, not a real
+    // QA record).
+    if (parsed.pathname === '/api/my/qa-self-audit/ticket-thread' && req.method === 'GET') {
+      const ticketId = String(parsed.searchParams.get('ticketId') || '').trim();
+      if (!ticketId) return json(res, 400, { ok: false, error: 'ticketId is required.' });
+      try {
+        const result = await fetchTicketTranscriptForQa(ticketId);
+        if (!result.assigneeEmail || result.assigneeEmail !== identity) {
+          return json(res, 403, { ok: false, error: 'You can only self-audit a ticket assigned to you.' });
+        }
+        return json(res, 200, { ok: true, ...result });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: error.message || 'Could not fetch the ticket from Zendesk.' });
+      }
+    }
+
     if (parsed.pathname === '/api/qa/scorecards' && req.method === 'GET') {
       if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const data = await loadQaScorecards();
