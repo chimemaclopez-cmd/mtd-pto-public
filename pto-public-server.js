@@ -1205,6 +1205,16 @@ async function appendAlignmentAudit(alignmentId, action, { user = 'Team Lead', n
   data.events.push({ auditId: `ALIGN-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, alignmentId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveAlignmentAudit(data);
 }
+// A SOM filing/submitting her own alignment item has no one else who needs to sign off on it -
+// the review queue exists so a team lead's item gets independent SOM approval, and a SOM's own
+// item already carries that authority. Real identity only (portalRoleFor, not effectiveViewAsRole)
+// so an admin previewing "as SOM" can never trigger this - same real-identity-only rule the actual
+// decide route already enforces. Auto-approved items still surface in the review list (it isn't
+// DRAFT-filtered out) with decision fields filled in, so they read as decided, not as skipped.
+function autoApproveAlignmentIfSom(record, identity) {
+  if (record.status !== 'PENDING_APPROVAL' || portalRoleFor(identity) !== 'SOM') return record;
+  return { ...record, status: 'APPROVED', decidedAt: new Date().toISOString(), decidedByName: 'Auto-approved (SOM)', decisionNotes: 'Auto-approved - filed by a SOM, no separate review needed.' };
+}
 // Lotti Knowledge: admin-authored reference content Lotti draws on to answer ANY employee's
 // question, distinct from Alignment (also searched by Lotti - see /api/my/loftiq/alignment-
 // search below) because some reference material - an internal contact directory, for example -
@@ -5109,7 +5119,7 @@ const server = http.createServer(async (req, res) => {
       const alignmentId = `ALIGN-${year}-${String(sequence).padStart(4, '0')}`;
       const now = new Date().toISOString();
       const status = body.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : 'DRAFT';
-      const record = {
+      const record = autoApproveAlignmentIfSom({
         alignmentId, title, category, body: contentHtml, effectiveDate, dueDate,
         createdBy: identity, teamLeadName: leaderName || session.employeeName || '',
         targetEmployees, status, createdAt: now, updatedAt: now,
@@ -5117,11 +5127,12 @@ const server = http.createServer(async (req, res) => {
         decidedAt: null, decidedByName: null, decisionNotes: null,
         quiz: sanitizeQuizQuestions(body.quiz),
         acknowledgments: {}
-      };
+      }, identity);
       data.sequenceByYear[year] = sequence;
       data.records.push(record);
       await saveAlignment(data);
-      await appendAlignmentAudit(alignmentId, status === 'PENDING_APPROVAL' ? 'CREATED_AND_SUBMITTED' : 'CREATED_DRAFT', { user: identity, newValue: record });
+      const createAuditAction = record.status === 'APPROVED' ? 'CREATED_AND_AUTO_APPROVED' : (status === 'PENDING_APPROVAL' ? 'CREATED_AND_SUBMITTED' : 'CREATED_DRAFT');
+      await appendAlignmentAudit(alignmentId, createAuditAction, { user: identity, newValue: record });
       return json(res, 201, { ok: true, record });
     }
 
@@ -5191,10 +5202,10 @@ const server = http.createServer(async (req, res) => {
       }
       if (action === 'submit') {
         if (!['DRAFT', 'REJECTED'].includes(current.status)) return json(res, 409, { ok: false, error: 'Only a draft or rejected item can be submitted for approval.' });
-        const next = { ...current, status: 'PENDING_APPROVAL', submittedAt: now, updatedAt: now, decidedAt: null, decidedByName: null, decisionNotes: null };
+        const next = autoApproveAlignmentIfSom({ ...current, status: 'PENDING_APPROVAL', submittedAt: now, updatedAt: now, decidedAt: null, decidedByName: null, decisionNotes: null }, identity);
         data.records[index] = next;
         await saveAlignment(data);
-        await appendAlignmentAudit(alignmentId, 'SUBMITTED', { user: identity, previousValue: current.status, newValue: 'PENDING_APPROVAL' });
+        await appendAlignmentAudit(alignmentId, next.status === 'APPROVED' ? 'AUTO_APPROVED' : 'SUBMITTED', { user: identity, previousValue: current.status, newValue: next.status });
         return json(res, 200, { ok: true, record: next });
       }
       return json(res, 404, { ok: false, error: 'Unknown alignment action.' });
