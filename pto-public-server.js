@@ -3793,6 +3793,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, items: matched.map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) })) });
     }
 
+    // Lofty Academy training videos, as a fourth general-knowledge source for Lotti - previously
+    // Lotti had zero awareness a training video existed at all, even for a question the video
+    // walks through step by step (e.g. "how do I transfer a domain away?"). No transcript is
+    // stored per video (see learningMaterials' shape), so this is title+description+category
+    // only - enough for Lotti to point someone to the right video by name, not to recite its
+    // narration. Searches every video regardless of section (Onboarding vs Product & Process).
+    if (parsed.pathname === '/api/my/loftiq/learning-search' && req.method === 'GET') {
+      const query = String(parsed.searchParams.get('q') || '').trim();
+      if (!query) return json(res, 200, { ok: true, items: [] });
+      const materials = await loadLearningMaterials();
+      const searchable = materials.map(m => ({ ...m, searchText: `${m.description || ''} ${m.category || ''}`.trim() }));
+      const matched = keywordSearchRecords(query, searchable, { bodyKey: 'searchText' });
+      return json(res, 200, { ok: true, items: matched.map(m => ({ title: m.title, category: m.category, description: m.description })) });
+    }
+
     if (parsed.pathname === '/api/my/schedule' && req.method === 'GET') {
       const schedules = await loadScheduleSnapshot();
       const roster = await loadRosterSnapshot();
