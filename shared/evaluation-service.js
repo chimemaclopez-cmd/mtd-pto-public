@@ -32,6 +32,46 @@ export function evaluationAverageScore(ratings){
   if(!values.length)return null;
   return Math.round((values.reduce((sum,v)=>sum+v,0)/values.length)*100)/100;
 }
+
+const EVALUATION_RATING_LABELS={1:'Poor',2:'Below Average',3:'Average',4:'Above Average',5:'Excellent'};
+// "Generate Feedback": drafts the Evaluator Comments field from the ratings the evaluator has
+// already picked on the open form, plus that employee's probationary KPI row for the same period
+// (already loaded into probationKpiRows by loadEvaluationsTab - no extra fetch needed). Same
+// shape as QA Scorecard's buildQaFeedbackPrompt: write strictly from the given data, JSON-only
+// response, regex-extracted so a stray sentence before/after the JSON doesn't break parsing.
+export function buildEvaluationFeedbackPrompt({employeeName,evaluationPeriod,ratings,kpiRow}){
+  const lines=Object.keys(EVALUATION_ATTRIBUTE_LABELS).map(key=>{
+    const v=ratings?.[key];
+    if(!v)return null;
+    return `- ${EVALUATION_ATTRIBUTE_LABELS[key]}: ${v}/5 (${EVALUATION_RATING_LABELS[v]||v})`;
+  }).filter(Boolean).join('\n');
+  const kpiLines=kpiRow?[
+    kpiRow.productivity?.tierPercent!=null?`- Productivity: ${kpiRow.productivity.tierPercent}%`:null,
+    kpiRow.csat?.tierPercent!=null?`- CSAT: ${kpiRow.csat.tierPercent}%`:null,
+    kpiRow.processCompliance?.raw!=null?`- Process Compliance: ${kpiRow.processCompliance.raw}%`:null,
+    kpiRow.attendance?.raw!=null?`- Attendance: ${kpiRow.attendance.raw}%`:null,
+    kpiRow.totalScore!=null?`- Overall KPI score for this period: ${kpiRow.totalScore}%`:null,
+    kpiRow.workedDays!=null?`- Worked days this period: ${kpiRow.workedDays}`:null,
+  ].filter(Boolean).join('\n'):'';
+  return `You are a team lead writing the "Evaluator Comments" section of a probationary performance evaluation${employeeName?` for ${employeeName}`:''}${evaluationPeriod?`, covering ${evaluationPeriod}`:''}. Write feedback strictly consistent with the ratings below - don't introduce claims they don't support, and don't invent specifics the data doesn't give you.
+
+Ratings (1-5 scale: 1 Poor, 2 Below Average, 3 Average, 4 Above Average, 5 Excellent):
+${lines||'(no attributes rated yet)'}
+${kpiLines?`\nThis period's KPI data:\n${kpiLines}`:''}
+
+Respond with ONLY a single JSON object, no prose, no markdown code fences, in exactly this shape:
+{"comments":"3-5 sentence overall assessment covering strengths, specific gaps tied to the lowest-rated attributes, and clear expectations going forward - grounded only in the ratings and KPI data given above"}`;
+}
+export function isEvaluationFeedbackBadAnswer(raw){
+  return !/\{[\s\S]*\}/.test(String(raw||''));
+}
+export function parseEvaluationFeedbackResponse(raw){
+  const match=String(raw||'').match(/\{[\s\S]*\}/);
+  if(!match)throw new Error('AI response did not contain a JSON object.');
+  let parsed;
+  try{parsed=JSON.parse(match[0])}catch{throw new Error('AI response JSON could not be parsed.')}
+  return {comments:String(parsed.comments||'').trim()};
+}
 export const loadMyTeamEvaluations=()=>api('/api/my/team-evaluations');
 export const createTeamEvaluation=record=>api('/api/my/team-evaluations',{method:'POST',body:JSON.stringify(record)});
 export const loadTeamEvaluationRecord=evaluationId=>api(`/api/my/team-evaluations/${encodeURIComponent(evaluationId)}`);
