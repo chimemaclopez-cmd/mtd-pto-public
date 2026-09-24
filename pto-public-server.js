@@ -3761,17 +3761,24 @@ const server = http.createServer(async (req, res) => {
         if (!byEmployee.has(key)) byEmployee.set(key, new Map());
         byEmployee.get(key).set(r.materialId, r);
       }
+      // Section-level rollup (Onboarding vs Product & Process Training) instead of a
+      // one-column-per-course grid - a per-course grid stopped being readable once the
+      // catalog grew past a handful of videos, so managers get two completion figures
+      // per employee instead of scrolling a wide table.
+      const sectionsOf = section => materials.filter(mat => (LEARNING_MATERIAL_SECTIONS.has(mat.section) ? mat.section : 'onboarding') === section);
+      const onboardingMaterials = sectionsOf('onboarding'), trainingMaterials = sectionsOf('training');
       const rows = members.map(m => {
         const email = ptoLogic.cleanEmail(m.employeeEmail);
         const mine = byEmployee.get(email) || new Map();
         const completed = materials.filter(mat => mine.get(mat.id)?.status === 'COMPLETED').length;
+        const tally = list => ({ completed: list.filter(mat => mine.get(mat.id)?.status === 'COMPLETED').length, total: list.length });
         return {
           employeeEmail: email, employeeName: m.employeeName,
           completed, total: materials.length,
-          materials: materials.map(mat => ({ materialId: mat.id, status: mine.get(mat.id)?.status || 'NOT_STARTED', completedAt: mine.get(mat.id)?.completedAt || null }))
+          sections: { onboarding: tally(onboardingMaterials), training: tally(trainingMaterials) }
         };
       });
-      return json(res, 200, { ok: true, materials: materials.map(m => ({ id: m.id, title: m.title })), rows, isLeadership });
+      return json(res, 200, { ok: true, rows, isLeadership });
     }
 
     // Lotti's search over the admin-only knowledge base above - any signed-in employee's Lotti
