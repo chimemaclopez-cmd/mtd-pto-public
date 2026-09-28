@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8"><style>:root { --ink: #202437; --muted: #5b6274; --line: #dfe2ea; --paper: #fff; --bg: #f6f7fb; --blue: #3b5cde; --blue-dark: #2e46b8; --green: #19ab63; --red: #c2313a; --amber: #ba7517; --purple: #572fb4; --gradient: linear-gradient(135deg,var(--blue),var(--purple)); }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0px; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1500px; margin: auto; padding: 24px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 3px solid transparent; border-image: var(--gradient) 1; padding-bottom: 16px; }
+.title { font-size: 26px; font-weight: 850; letter-spacing: -0.01em; }
+.sub, .muted { color: var(--muted); font-size: 12px; }
+.nav, .actions, .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.nav { margin: 14px 0px; }
+.btn { border: 1px solid rgb(201, 205, 214); background: rgb(255, 255, 255); border-radius: 9px; padding: 9px 13px; font-weight: 700; cursor: pointer; color: rgb(32, 36, 55); text-decoration: none; transition: background-color 0.12s, border-color 0.12s, transform 0.08s, box-shadow 0.12s; }
+.btn:hover { background: rgb(238, 240, 245); border-color: rgb(174, 180, 198); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.btn.primary { background: var(--blue); color: rgb(255, 255, 255); border-color: var(--blue); }
+.btn.primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+.btn.danger { color: var(--red); border-color: rgb(217, 166, 166); }
+.btn.danger:hover { background: rgb(251, 238, 238); }
+.panel { background: rgb(255, 255, 255); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 14px 0px; box-shadow: rgba(0, 0, 0, 0.035) 0px 8px 24px; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 145px; }
+.field label { font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--muted); }
+input, select, textarea { border: 1px solid rgb(201, 205, 214); border-radius: 8px; padding: 9px; background: rgb(255, 255, 255); font: inherit; transition: border-color 0.12s, box-shadow 0.12s; }
+textarea { min-height: 70px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: rgba(24, 95, 165, 0.15) 0px 0px 0px 3px; }
+.tableWrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: rgb(255, 255, 255); max-height: 68vh; }
+table { border-collapse: separate; border-spacing: 0px; width: 100%; font-size: 12px; white-space: nowrap; }
+th, td { padding: 9px 10px; border-bottom: 1px solid rgb(228, 231, 238); text-align: left; vertical-align: top; }
+th { position: sticky; top: 0px; background: rgb(238, 240, 245); color: rgb(91, 98, 116); text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; z-index: 3; }
+tbody tr:hover td { background: rgb(247, 248, 252); }
+.sticky1 { position: sticky; left: 0px; background: rgb(255, 255, 255); z-index: 2; }
+.sticky2 { position: sticky; left: 150px; background: rgb(255, 255, 255); z-index: 2; }
+.pill { display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; background: rgb(238, 238, 238); }
+.status-ready { background: rgb(227, 247, 236); color: rgb(15, 122, 73); }
+.status-failed, .status-missing-attendance { background: rgb(252, 232, 232); color: rgb(139, 31, 31); }
+.status-pending, .status-partial, .status-stale { background: rgb(255, 242, 204); color: rgb(122, 74, 5); }
+.status-no-data { background: rgb(238, 240, 245); color: rgb(91, 98, 116); }
+.message { padding: 11px 13px; border-radius: 10px; margin: 12px 0px; background: rgb(237, 244, 251); color: rgb(23, 75, 120); }
+.message.error { background: rgb(252, 232, 232); color: rgb(139, 31, 31); }
+.message.ok { background: rgb(227, 247, 236); color: rgb(15, 122, 73); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0px; }
+.card { background: rgb(255, 255, 255); border: 1px solid var(--line); border-radius: 14px; padding: 14px; transition: transform 0.12s, box-shadow 0.12s; }
+.card:hover { transform: translateY(-2px); box-shadow: rgba(0, 0, 0, 0.06) 0px 10px 22px; }
+.card .label { text-transform: uppercase; color: rgb(91, 98, 116); font-size: 10px; font-weight: 800; }
+.card .value { font-size: 28px; font-weight: 850; margin: 6px 0px; }
+.wallMeta { display: flex; justify-content: space-between; align-items: center; margin: 14px 0px; flex-wrap: wrap; gap: 10px; }
+.statRow { display: flex; gap: 28px; align-items: baseline; }
+.statRow .stat b { font-size: 24px; font-weight: 850; margin-right: 7px; }
+.statRow .stat { color: var(--muted); font-size: 12px; text-transform: uppercase; font-weight: 800; }
+.flaggedRow td { color: rgb(139, 31, 31); font-weight: 700; }
+.flaggedRow .flagReasonCell { font-weight: 800; color: var(--red); }
+.statusPill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 850; white-space: nowrap; }
+.statusPill::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentcolor; }
+.status-AVAIL { background: rgb(232, 247, 237); color: rgb(22, 115, 60); }
+.status-ON_CALL { background: rgb(232, 240, 255); color: rgb(40, 87, 199); }
+.status-ON_CHAT { background: rgb(240, 234, 255); color: rgb(107, 59, 192); }
+.status-OTHER { background: rgb(241, 243, 247); color: rgb(89, 98, 116); }
+.status-ZENDESK_TICKET { background: rgb(231, 246, 248); color: rgb(8, 115, 132); }
+.status-JIRA_TICKET { background: rgb(234, 241, 255); color: rgb(36, 86, 166); }
+.status-ON_LEAVE { background: rgb(253, 243, 226); color: rgb(138, 109, 31); }
+.status-OFF_QUEUE { background: rgb(253, 236, 235); color: rgb(178, 58, 46); }
+.statusDetail { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.longCallRow td { background: rgb(255, 248, 230); }
+.longCallRow .durationCell { color: rgb(154, 91, 0); font-weight: 850; }
+.durationCell { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.lobLogo { display: block; height: 40px; width: auto; margin-bottom: 10px; }
+.appCredit { text-align: center; color: var(--muted); font-size: 11px; opacity: 0.65; padding: 18px 0px 8px; }
+.tableWrap { border-color: rgb(217, 222, 234); border-radius: 14px; box-shadow: rgba(32, 36, 55, 0.04) 0px 7px 22px; }
+table { line-height: 1.38; font-variant-numeric: tabular-nums; }
+th, td { padding: 11px 12px; vertical-align: middle; border-bottom-color: rgb(231, 234, 240); }
+th { background: linear-gradient(rgb(245, 246, 250) 0%, rgb(236, 239, 245) 100%); color: rgb(89, 98, 119); font-weight: 850; letter-spacing: 0.48px; border-bottom-color: rgb(215, 220, 231); box-shadow: rgba(255, 255, 255, 0.8) 0px 1px 0px; }
+tbody tr { transition: background-color 0.12s; }
+tbody tr:nth-child(2n) td { background: rgb(252, 252, 254); }
+tbody tr:last-child td { border-bottom: 0px; }
+tbody tr:hover td { background: rgb(243, 246, 252); }
+tbody td:first-child { font-weight: 650; }
+.pill { padding: 4px 9px; font-size: 10px; font-weight: 850; letter-spacing: 0.12px; }
+.card { background: linear-gradient(145deg, rgb(255, 255, 255) 0%, rgb(251, 252, 255) 100%); border-color: rgb(220, 225, 236); border-radius: 15px; padding: 15px; box-shadow: rgba(32, 36, 55, 0.035) 0px 5px 16px; }
+</style></head><body><div class="wrap">
+<header class="header"><div><img class="lobLogo" src="https://loftysupportportal.com/shared/img/lofty-logo.png" alt="Lofty"><div class="title">Status Wall</div><div class="sub">Live availability, calls, chats, and recent Zendesk/Jira work · flagged for late login, off-queue during a scheduled Call/Chat block, break over 15 min, or lunch over 60 min · America/New_York</div></div></header>
+<div class="wallMeta"><div class="statRow" id="cards"><div class="stat"><b>4</b>Avail</div><div class="stat"><b>3</b>On Call</div><div class="stat"><b>2</b>On Chat</div><div class="stat"><b>0</b>Tickets</div><div class="stat"><b>0</b>Flagged</div></div><div class="sub" id="meta">Updated 1:48:17 PM</div></div>
+<div class="tableWrap"><table><thead><tr><th>Employee</th><th>Onsite or WFH</th><th>Scheduled</th><th>Status</th><th>Duration</th><th>Flag</th></tr></thead><tbody id="wallBody"><tr class=""><td><b>Rep 1</b><br><span class="muted">Team Lead A</span></td><td>Onsite</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-ON_CHAT">On Chat/Email</span></td><td class="durationCell">12m</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 2</b><br><span class="muted">Team Lead B</span></td><td>WFH</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-ON_CALL">On Call</span></td><td class="durationCell">6m</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 3</b><br><span class="muted">Team Lead A</span></td><td>Onsite</td><td>9:00 AM – 6:00 PM</td><td><span class="statusPill status-AVAIL">Available</span></td><td class="durationCell">—</td><td class="flagReasonCell"></td></tr><tr class="longCallRow"><td><b>Rep 4</b><br><span class="muted">Team Lead C</span></td><td>Onsite</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-ON_CALL">On Call</span></td><td class="durationCell">17m</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 5</b><br><span class="muted">Team Lead D</span></td><td>Onsite</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-AVAIL">Available</span></td><td class="durationCell">—</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 6</b><br><span class="muted">Team Lead B</span></td><td>WFH</td><td>9:00 AM – 6:00 PM</td><td><span class="statusPill status-ZENDESK_TICKET">Zendesk Ticket</span></td><td class="durationCell">3m</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 7</b><br><span class="muted">Team Lead D</span></td><td>Onsite</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-ON_CALL">On Call</span></td><td class="durationCell">2m</td><td class="flagReasonCell"></td></tr><tr class=""><td><b>Rep 8</b><br><span class="muted">Team Lead C</span></td><td>Onsite</td><td>8:00 AM – 5:00 PM</td><td><span class="statusPill status-AVAIL">Available</span></td><td class="durationCell">—</td><td class="flagReasonCell"></td></tr></tbody></table></div>
+</div>
+
+<div class="appCredit">Built by Mac · V1.2.0 · © 2026 Lofty. All Rights Reserved.</div>
+
+</body></html>
