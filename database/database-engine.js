@@ -35,7 +35,7 @@ export function calculateDatabaseAgent(employee,attendance,metrics={}){
   const errors=required.filter(x=>['Failed','Missing Attendance'].includes(x.status)).map(x=>x.error||x.status);
   return{
     employeeEmail:employee.employeeEmail,employeeName:employee.employeeName,teamLeadName:employee.teamLeadName,
-    kpiType:employee.kpiType,primaryChannel:employee.primaryChannel,eligibleWorkdays:days,
+    kpiType:employee.kpiType,primaryChannel:employee.primaryChannel,eligibleWorkdays:days,workedDays,
     jiraLeadImport,csat,calls,bonus,baseKpi:base,finalKpi:final,
     performanceStatus:performanceStatus(final),dataStatus:resultStatus(base,bonus.bonus,errors),errors,
     lastUpdated:new Date().toISOString()
