@@ -208,7 +208,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js', 'learning-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js', 'learning-service.js', 'huddle-log-service.js']);
 // moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
 // Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
 // silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
@@ -854,6 +854,144 @@ async function appendCoachingAudit(coachingId, action, { user = 'Team Lead', not
   data.events.push({ auditId: `COACH-AUDIT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, coachingId, action, user: String(user || 'Team Lead'), timestamp: new Date().toISOString(), previousValue, newValue, notes: String(notes || ''), sourcePage: 'Public PTO link' });
   await saveCoachingAudit(data);
 }
+
+// --- Huddle Log (weekly TL-to-manager huddle summary, per direct instruction from TLs'
+// leadership - one entry per huddle through the week, auto-compiled into an email every
+// Monday, or the TL's first scheduled shift that week if Monday is their day off). Storage
+// mirrors Coaching's cloud-native, no-snapshot-indirection pattern - both sides of this
+// feature live on this server.
+const HUDDLE_LOG_KEY = 'mtdkpi:huddle-log';
+const HUDDLE_ACTION_STATUSES = ['Open', 'In Progress', 'Done'];
+async function loadHuddleLog() { return cloudStore.kvGetJson(HUDDLE_LOG_KEY, { version: 1, sequenceByYear: {}, records: [], reportState: {} }); }
+async function saveHuddleLog(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(HUDDLE_LOG_KEY, data); return data; }
+
+// Monday (as YYYY-MM-DD) of the week containing dateStr, treating dateStr as a plain
+// calendar date (no timezone conversion needed here - callers already pass an ET date string).
+function mondayOfWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const dow = d.getUTCDay(); // 0=Sun..6=Sat
+  d.setUTCDate(d.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  return d.toISOString().slice(0, 10);
+}
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+const HUDDLE_WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Walks Mon..Sun of the week starting at weekMonday against this employee's schedule, and
+// returns the first day that's a real scheduled shift (not a day off) - that's the "first
+// scheduled shift that week" the TLs' instruction refers to when Monday is a rest day.
+// Returns null if this employee has no schedule record at all (tick skips them that pass
+// rather than guessing).
+function firstScheduledShiftOfWeek(scheduleSnapshot, employeeEmail, weekMonday) {
+  const sched = (scheduleSnapshot.schedules || []).find(s => ptoLogic.cleanEmail(s.employeeEmail) === employeeEmail && s.active !== false);
+  if (!sched || !sched.weekly) return null;
+  for (let i = 0; i < 7; i++) {
+    const dateStr = addDaysToDateStr(weekMonday, i);
+    const dayName = HUDDLE_WEEKDAY_NAMES[new Date(dateStr + 'T00:00:00Z').getUTCDay()];
+    const day = sched.weekly[dayName];
+    if (day && day.off !== true && day.shiftStartEastern) {
+      const [hour, minute] = day.shiftStartEastern.split(':').map(Number);
+      return { dateStr, hour, minute };
+    }
+  }
+  return null;
+}
+// A TL's manager is just their own teamLeadEmail from the roster; co-Team Leaders are other
+// active roster members who report to that same manager AND themselves hold a team-lead-shaped
+// title - a jobTitle heuristic, not a hard role field, so callers should let the TL override
+// the cc list rather than trust this blindly for anyone whose title doesn't say "Team Lead"/"TL".
+function resolveHuddleRecipients(roster, tlEmail) {
+  const records = roster.records || [];
+  const tlRecord = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === tlEmail);
+  if (!tlRecord || !tlRecord.teamLeadEmail) return { managerEmail: '', managerName: '', coLeads: [] };
+  const managerEmail = ptoLogic.cleanEmail(tlRecord.teamLeadEmail);
+  const coLeads = records
+    .filter(x => x.active !== false && ptoLogic.cleanEmail(x.teamLeadEmail) === managerEmail && ptoLogic.cleanEmail(x.employeeEmail) !== tlEmail)
+    .filter(x => /team\s*lead|(?:^|\W)tl(?:\W|$)/i.test(String(x.jobTitle || '')))
+    .map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName || '' }));
+  return { managerEmail, managerName: tlRecord.teamLeadName || '', coLeads };
+}
+function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries) {
+  const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const esc = escapeHtml;
+  if (!entries.length) {
+    return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>`;
+  }
+  const sections = entries.map(e => {
+    const actionsHtml = (e.actions || []).length
+      ? `<ul>${e.actions.map(a => `<li>${esc(a.description)} - <b>${esc(a.status)}</b>${a.owner ? ` (owner: ${esc(a.owner)})` : ''}</li>`).join('')}</ul>`
+      : '<p style="color:#777">No actions logged.</p>';
+    return `
+      <div style="margin-bottom:20px;padding:14px 16px;border:1px solid #e2e5ee;border-radius:8px;">
+        <div style="font-weight:700;color:#1e2761;margin-bottom:8px;">${esc(fmt(e.huddleDate))}</div>
+        <p><b>Key updates:</b><br>${esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>')}</p>
+        <p><b>Concerns raised:</b><br>${esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>')}</p>
+        <p><b>Actions:</b></p>${actionsHtml}
+        <p><b>Decisions/support needed:</b><br>${esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>')}</p>
+      </div>`;
+  }).join('');
+  return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}`;
+}
+async function sendHuddleWeeklyReport(tlEmail, weekMonday) {
+  const weekSunday = addDaysToDateStr(weekMonday, 6);
+  const roster = await loadRosterSnapshot();
+  const tlRecord = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === tlEmail);
+  const { managerEmail, coLeads } = resolveHuddleRecipients(roster, tlEmail);
+  if (!managerEmail) throw new Error(`No manager on file for ${tlEmail} - cannot send.`);
+  const data = await loadHuddleLog();
+  const entries = (data.records || [])
+    .filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail && x.huddleDate >= weekMonday && x.huddleDate <= weekSunday)
+    .sort((a, b) => a.huddleDate.localeCompare(b.huddleDate));
+  const overrideCc = (data.coLeadOverrides || {})[tlEmail];
+  const ccList = Array.isArray(overrideCc) ? overrideCc : coLeads.map(x => x.employeeEmail);
+  await emailService.send({
+    to: managerEmail,
+    cc: ccList,
+    subject: `Huddle Summary - ${tlRecord?.employeeName || tlEmail} - ${weekMonday} to ${weekSunday}`,
+    html: huddleWeeklyReportHtml(tlRecord?.employeeName || tlEmail, weekMonday, weekSunday, entries)
+  });
+  return { entries, managerEmail, ccList };
+}
+// The first setInterval-driven background tick in this file (every other one lives in
+// zendesk-proxy.js, which this server has no access to) - runs every 20 minutes, checks every
+// active team lead's schedule for whether their first shift of the CURRENT week has started
+// yet, and if so sends last week's (Mon-Sun) huddle summary exactly once, tracked via
+// reportState[tlEmail].lastSentWeekKey so a restart or a slow tick never double-sends.
+async function huddleReportTick() {
+  try {
+    const { year, month, day, hour, minute } = easternDateParts(new Date());
+    const todayEt = `${year}-${month}-${day}`;
+    const thisWeekMonday = mondayOfWeek(todayEt);
+    const reportWeekMonday = addDaysToDateStr(thisWeekMonday, -7);
+    const [roster, scheduleSnapshot, data] = await Promise.all([loadRosterSnapshot(), loadScheduleSnapshot(), loadHuddleLog()]);
+    data.reportState = data.reportState || {};
+    const activeRecords = (roster.records || []).filter(x => x.active !== false);
+    const tlEmails = [...new Set(activeRecords.map(x => ptoLogic.cleanEmail(x.teamLeadEmail || '')).filter(Boolean))]
+      .filter(email => activeRecords.some(x => ptoLogic.cleanEmail(x.employeeEmail) === email)); // the TL must themselves be an active roster member
+    let changed = false;
+    for (const tlEmail of tlEmails) {
+      if (data.reportState[tlEmail]?.lastSentWeekKey === reportWeekMonday) continue;
+      const firstShift = firstScheduledShiftOfWeek(scheduleSnapshot, tlEmail, thisWeekMonday);
+      if (!firstShift) continue;
+      const due = todayEt > firstShift.dateStr || (todayEt === firstShift.dateStr && (Number(hour) > firstShift.hour || (Number(hour) === firstShift.hour && Number(minute) >= firstShift.minute)));
+      if (!due) continue;
+      try {
+        await sendHuddleWeeklyReport(tlEmail, reportWeekMonday);
+        data.reportState[tlEmail] = { lastSentWeekKey: reportWeekMonday, sentAt: new Date().toISOString(), status: 'Sent' };
+      } catch (error) {
+        console.error(`[huddle-report] send failed for ${tlEmail}:`, error.message);
+        data.reportState[tlEmail] = { lastSentWeekKey: reportWeekMonday, sentAt: new Date().toISOString(), status: 'Failed', error: error.message };
+      }
+      changed = true;
+    }
+    if (changed) await saveHuddleLog(data);
+  } catch (error) {
+    console.error('[huddle-report] tick failed:', error.message);
+  }
+}
+
 // Employee Performance Evaluation - Months 2/3/4 of the probationary period (Month 1 stays
 // reminder-only, no fillable form yet; Month 5 is the separate regularization decision).
 // Same DRAFT -> SENT -> ACKNOWLEDGED lifecycle and typed-name e-signature acknowledgment as
@@ -4331,6 +4469,124 @@ const server = http.createServer(async (req, res) => {
       return json(res, 404, { ok: false, error: 'Unknown coaching action.' });
     }
 
+    // Huddle Log - list this TL's own entries, defaulting to the current week; ?weekStart=
+    // (a Monday, YYYY-MM-DD) selects a different week. Also returns the resolved
+    // manager/co-lead recipients and this week's send status, so the UI can show a live
+    // preview of who the report will go to and whether it's already gone out.
+    if (parsed.pathname === '/api/my/huddle-log' && req.method === 'GET') {
+      const { year, month, day } = easternDateParts(new Date());
+      const requestedWeekStart = parsed.searchParams.get('weekStart');
+      const weekMonday = ptoLogic.validDate(requestedWeekStart) ? mondayOfWeek(requestedWeekStart) : mondayOfWeek(`${year}-${month}-${day}`);
+      const weekSunday = addDaysToDateStr(weekMonday, 6);
+      const data = await loadHuddleLog();
+      const records = (data.records || [])
+        .filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === identity && x.huddleDate >= weekMonday && x.huddleDate <= weekSunday)
+        .sort((a, b) => a.huddleDate.localeCompare(b.huddleDate));
+      const roster = await loadRosterSnapshot();
+      const { managerEmail, managerName, coLeads } = resolveHuddleRecipients(roster, identity);
+      const overrideCc = (data.coLeadOverrides || {})[identity];
+      return json(res, 200, {
+        ok: true, weekMonday, weekSunday, records,
+        managerEmail, managerName,
+        coLeads, ccOverride: Array.isArray(overrideCc) ? overrideCc : null,
+        reportStatus: data.reportState?.[identity] || null,
+        isTeamLead: Boolean(managerEmail)
+      });
+    }
+
+    if (parsed.pathname === '/api/my/huddle-log' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      if (!ptoLogic.validDate(body.huddleDate)) return json(res, 400, { ok: false, error: 'A valid huddle date is required.' });
+      const keyUpdates = String(body.keyUpdates || '').trim();
+      const concernsRaised = String(body.concernsRaised || '').trim();
+      const decisionsNeeded = String(body.decisionsNeeded || '').trim();
+      const actions = Array.isArray(body.actions) ? body.actions
+        .map(a => ({ description: String(a?.description || '').trim(), status: HUDDLE_ACTION_STATUSES.includes(a?.status) ? a.status : 'Open', owner: String(a?.owner || '').trim() }))
+        .filter(a => a.description) : [];
+      if (!keyUpdates && !concernsRaised && !decisionsNeeded && !actions.length) return json(res, 400, { ok: false, error: 'Log at least one of: key updates, concerns, actions, or decisions needed.' });
+      const roster = await loadRosterSnapshot();
+      const tlRecord = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === identity);
+      const data = await loadHuddleLog();
+      const year = body.huddleDate.slice(0, 4);
+      const sequence = (data.sequenceByYear[year] || 0) + 1;
+      const record = {
+        huddleId: `HUDDLE-${year}-${String(sequence).padStart(4, '0')}`,
+        teamLeadEmail: identity, teamLeadName: tlRecord?.employeeName || session.employeeName || identity,
+        huddleDate: body.huddleDate, keyUpdates, concernsRaised, actions, decisionsNeeded,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+      };
+      data.sequenceByYear[year] = sequence;
+      data.records.push(record);
+      await saveHuddleLog(data);
+      return json(res, 201, { ok: true, record });
+    }
+
+    const huddleLogMatch = parsed.pathname.match(/^\/api\/my\/huddle-log\/([^/]+)$/);
+    if (huddleLogMatch) {
+      const huddleId = decodeURIComponent(huddleLogMatch[1]);
+      const data = await loadHuddleLog();
+      const index = (data.records || []).findIndex(x => x.huddleId === huddleId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Huddle entry not found.' });
+      const current = data.records[index];
+      if (ptoLogic.cleanEmail(current.teamLeadEmail) !== identity) return json(res, 403, { ok: false, error: 'Only the team lead who logged this entry can edit or delete it.' });
+      if (req.method === 'PUT') {
+        const body = await readJsonBody(req);
+        const actions = Array.isArray(body.actions) ? body.actions
+          .map(a => ({ description: String(a?.description || '').trim(), status: HUDDLE_ACTION_STATUSES.includes(a?.status) ? a.status : 'Open', owner: String(a?.owner || '').trim() }))
+          .filter(a => a.description) : current.actions;
+        const next = {
+          ...current,
+          huddleDate: ptoLogic.validDate(body.huddleDate) ? body.huddleDate : current.huddleDate,
+          keyUpdates: body.keyUpdates != null ? String(body.keyUpdates).trim() : current.keyUpdates,
+          concernsRaised: body.concernsRaised != null ? String(body.concernsRaised).trim() : current.concernsRaised,
+          decisionsNeeded: body.decisionsNeeded != null ? String(body.decisionsNeeded).trim() : current.decisionsNeeded,
+          actions, updatedAt: new Date().toISOString()
+        };
+        data.records[index] = next;
+        await saveHuddleLog(data);
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE') {
+        data.records.splice(index, 1);
+        await saveHuddleLog(data);
+        return json(res, 200, { ok: true, deleted: huddleId });
+      }
+    }
+
+    // Manual override of the auto-inferred co-Team-Lead cc list (the jobTitle heuristic in
+    // resolveHuddleRecipients() won't always be right) - null/empty body.emails reverts to
+    // the auto-inferred list.
+    if (parsed.pathname === '/api/my/huddle-log/co-leads' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const data = await loadHuddleLog();
+      data.coLeadOverrides = data.coLeadOverrides || {};
+      const emails = Array.isArray(body.emails) ? body.emails.map(ptoLogic.cleanEmail).filter(Boolean) : [];
+      if (emails.length) data.coLeadOverrides[identity] = emails; else delete data.coLeadOverrides[identity];
+      await saveHuddleLog(data);
+      return json(res, 200, { ok: true, ccOverride: emails.length ? emails : null });
+    }
+
+    // Manual "send now" for a completed week - lets a TL send early rather than waiting for
+    // the automatic tick, or resend after a failure. weekStart must be a Monday on or before
+    // the current week's Monday (can't send a report for a week that hasn't happened yet).
+    if (parsed.pathname === '/api/my/huddle-log/send-now' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      if (!ptoLogic.validDate(body.weekStart)) return json(res, 400, { ok: false, error: 'A valid weekStart date is required.' });
+      const weekMonday = mondayOfWeek(body.weekStart);
+      const { year, month, day } = easternDateParts(new Date());
+      if (weekMonday > mondayOfWeek(`${year}-${month}-${day}`)) return json(res, 400, { ok: false, error: "Can't send a report for a week that hasn't started yet." });
+      try {
+        const { entries, managerEmail, ccList } = await sendHuddleWeeklyReport(identity, weekMonday);
+        const data = await loadHuddleLog();
+        data.reportState = data.reportState || {};
+        data.reportState[identity] = { lastSentWeekKey: weekMonday, sentAt: new Date().toISOString(), status: 'Sent (manual)' };
+        await saveHuddleLog(data);
+        return json(res, 200, { ok: true, sentEntryCount: entries.length, managerEmail, ccList });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: error.message });
+      }
+    }
+
     if (parsed.pathname === '/api/my/coaching' && req.method === 'GET') {
       const data = await loadCoaching();
       const records = (data.records || []).filter(x => ptoLogic.cleanEmail(x.employeeEmail) === identity && x.status !== 'DRAFT').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -6143,6 +6399,8 @@ if (require.main === module) {
     console.log(`Public PTO server running on port ${PORT}`);
     console.log(`Reps sign in individually at: https://<your-render-host>/pto`);
     if (!ADMIN_KEY) console.log('Note: PTO_ADMIN_KEY is not set - the admin credential-reset endpoint will refuse all requests until it is configured.');
+    huddleReportTick();
+    setInterval(huddleReportTick, 20 * 60 * 1000);
   });
 }
 
