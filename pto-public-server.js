@@ -932,13 +932,13 @@ function huddleKpiTrendHtml(kpiTrend) {
   if (!kpiTrend || !kpiTrend.members?.length) return '';
   const esc = escapeHtml;
   const cell = m => `${m.thisWeek ?? '—'}${huddleTrendArrow(m.thisWeek, m.lastWeek)}`;
-  const teamRow = `<tr style="font-weight:700;background:#f4f5fa"><td>Team Total</td><td>${cell(kpiTrend.team.acceptedCalls)}</td><td>${cell(kpiTrend.team.newTicketsHandled)}</td><td>${cell(kpiTrend.team.ticketsTouched)}</td><td>${cell(kpiTrend.team.jiraTicketsUpdated)}</td></tr>`;
-  const memberRows = kpiTrend.members.map(m => `<tr><td>${esc(m.employeeName)}</td><td>${cell(m.acceptedCalls)}</td><td>${cell(m.newTicketsHandled)}</td><td>${cell(m.ticketsTouched)}</td><td>${cell(m.jiraTicketsUpdated)}</td></tr>`).join('');
+  const teamRow = `<tr style="font-weight:700;background:#f4f5fa"><td>Team Total</td><td>${cell(kpiTrend.team.acceptedCalls)}</td><td>${cell(kpiTrend.team.newTicketsHandled)}</td><td>${cell(kpiTrend.team.ticketsTouched)}</td></tr>`;
+  const memberRows = kpiTrend.members.map(m => `<tr><td>${esc(m.employeeName)}</td><td>${cell(m.acceptedCalls)}</td><td>${cell(m.newTicketsHandled)}</td><td>${cell(m.ticketsTouched)}</td></tr>`).join('');
   const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:#c0392b;font-size:12px">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
   return `
     <div style="margin:24px 0 8px"><b>Week-over-week: this week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</b></div>
     <table style="width:100%;border-collapse:collapse;font-size:13px" border="1" cellpadding="6">
-      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Inbound Calls Received</th><th>New Tickets Handled</th><th>Tickets Touched/Updated</th><th>Jira Tickets Updated</th></tr></thead>
+      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Inbound Calls Received</th><th>New Tickets Handled</th><th>Tickets Touched/Updated</th></tr></thead>
       <tbody>${teamRow}${memberRows}</tbody>
     </table>${warningNote}`;
 }
@@ -1012,7 +1012,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
 // shows as "no data" here rather than blocking the report.
 function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
   const days = dailySnapshot.byEmail?.[email] || {};
-  let acceptedCalls = 0, ticketsTouched = 0, jiraTicketsUpdated = 0, anyData = false;
+  let acceptedCalls = 0, ticketsTouched = 0, anyData = false;
   for (const [day, v] of Object.entries(days)) {
     if (day < startDate || day > endDate) continue;
     anyData = true;
@@ -1020,9 +1020,8 @@ function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
     // incremental re-fetching can dedupe safely - the count here is just each set's size.
     acceptedCalls += (v.acceptedCallIds || []).length;
     ticketsTouched += (v.touchedTicketIds || []).length;
-    jiraTicketsUpdated += (v.jiraTicketKeys || []).length;
   }
-  return { acceptedCalls, ticketsTouched, jiraTicketsUpdated, anyData };
+  return { acceptedCalls, ticketsTouched, anyData };
 }
 async function resolveZendeskUserIdForEmail(email) {
   const data = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(email)}`);
@@ -1055,8 +1054,7 @@ async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMond
       employeeEmail: email, employeeName: member.employeeName || email,
       acceptedCalls: { thisWeek: thisWeek.anyData ? thisWeek.acceptedCalls : null, lastWeek: lastWeek.anyData ? lastWeek.acceptedCalls : null },
       newTicketsHandled: { thisWeek: newTicketsThisWeek, lastWeek: newTicketsLastWeek },
-      ticketsTouched: { thisWeek: thisWeek.anyData ? thisWeek.ticketsTouched : null, lastWeek: lastWeek.anyData ? lastWeek.ticketsTouched : null },
-      jiraTicketsUpdated: { thisWeek: thisWeek.anyData ? thisWeek.jiraTicketsUpdated : null, lastWeek: lastWeek.anyData ? lastWeek.jiraTicketsUpdated : null }
+      ticketsTouched: { thisWeek: thisWeek.anyData ? thisWeek.ticketsTouched : null, lastWeek: lastWeek.anyData ? lastWeek.ticketsTouched : null }
     };
   }));
   const sumMetric = key => {
@@ -1066,7 +1064,7 @@ async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMond
   };
   const team = {
     acceptedCalls: sumMetric('acceptedCalls'), newTicketsHandled: sumMetric('newTicketsHandled'),
-    ticketsTouched: sumMetric('ticketsTouched'), jiraTicketsUpdated: sumMetric('jiraTicketsUpdated')
+    ticketsTouched: sumMetric('ticketsTouched')
   };
   return { weekMonday, weekSunday, prevMonday, prevSunday, members: rows, team, snapshotGeneratedAt: dailySnapshot.generatedAt || '', snapshotWarnings: dailySnapshot.warnings || [] };
 }
