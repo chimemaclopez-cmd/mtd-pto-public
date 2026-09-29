@@ -6750,8 +6750,11 @@ if (require.main === module) {
     console.log(`Public PTO server running on port ${PORT}`);
     console.log(`Reps sign in individually at: https://<your-render-host>/pto`);
     if (!ADMIN_KEY) console.log('Note: PTO_ADMIN_KEY is not set - the admin credential-reset endpoint will refuse all requests until it is configured.');
-    huddleReportTick();
-    setInterval(huddleReportTick, 20 * 60 * 1000);
+    // DISABLED 2026-09-30 (Mac): Huddle Log no longer sends the weekly report anywhere - it's
+    // generate/preview only now (see previewHuddleReport route). huddleReportTick()/
+    // sendHuddleWeeklyReport() are left intact below in case sending gets reinstated later.
+    // huddleReportTick();
+    // setInterval(huddleReportTick, 20 * 60 * 1000);
   });
 }
 
