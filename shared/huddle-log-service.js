@@ -7,3 +7,4 @@ export const updateHuddleEntry=(huddleId,entry)=>api(`/api/my/huddle-log/${encod
 export const deleteHuddleEntry=huddleId=>api(`/api/my/huddle-log/${encodeURIComponent(huddleId)}`,{method:'DELETE'});
 export const setHuddleCoLeadOverride=emails=>api('/api/my/huddle-log/co-leads',{method:'POST',body:JSON.stringify({emails})});
 export const sendHuddleReportNow=weekStart=>api('/api/my/huddle-log/send-now',{method:'POST',body:JSON.stringify({weekStart})});
+export const previewHuddleReport=weekStart=>api(`/api/my/huddle-log/preview?weekStart=${encodeURIComponent(weekStart)}`);

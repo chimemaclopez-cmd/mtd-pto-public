@@ -744,6 +744,7 @@ async function attachProfilePhotos(spotlight) {
 async function loadAnnouncementsSnapshot() { return getSnapshot('announcements', 'mtdkpi:snapshot:announcements', { announcements: [] }); }
 async function loadStatusSignalsSnapshot() { return getSnapshot('status-signals', 'mtdkpi:snapshot:status-signals', { generatedAt: '', byEmail: {}, warnings: [] }); }
 async function loadSeniorJiraActivitySnapshot() { return getSnapshot('senior-jira-activity', 'mtdkpi:snapshot:senior-jira-activity', { generatedAt: '', periods: {} }); }
+async function loadDailyTeamActivitySnapshot() { return getSnapshot('daily-team-activity', 'mtdkpi:snapshot:daily-team-activity', { generatedAt: '', windowStartDate: '', windowEndDate: '', byEmail: {}, warnings: [] }); }
 
 async function loadPto() { return cloudStore.kvGetJson(PTO_KEY, { version: 1, sequenceByYear: {}, requests: [], overlays: [] }); }
 async function savePto(data) { data.lastUpdated = new Date().toISOString(); await cloudStore.kvSetJson(PTO_KEY, data); return data; }
@@ -913,11 +914,76 @@ function resolveHuddleRecipients(roster, tlEmail) {
     .map(x => ({ employeeEmail: ptoLogic.cleanEmail(x.employeeEmail), employeeName: x.employeeName || '' }));
   return { managerEmail, managerName: tlRecord.teamLeadName || '', coLeads };
 }
-function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries) {
+const HUDDLE_ATTENDANCE_LABELS = { ONSITE: 'Onsite', WFH: 'Work From Home', LATE: 'Late', RD: 'Rest Day', PTO: 'PTO', PARTIAL_PTO: 'Partial PTO', SL: 'Sick Leave', 'SL-HD': 'Sick Leave (Half Day)', EL: 'Emergency Leave', 'EL-HD': 'Emergency Leave (Half Day)', NCNS: 'No Call No Show', A: 'Absent', BL: 'Bereavement Leave', SUSPENDED: 'Suspended' };
+// Arrow + delta for a this-week-vs-last-week pair. `higherIsBetter` flips which direction reads
+// as "improved" - every metric here (calls, tickets, jira, attendance %) is higher-is-better, but
+// the parameter stays explicit rather than hardcoded so a future lower-is-better metric (e.g. a
+// backlog count) doesn't silently get graded backwards.
+function huddleTrendArrow(thisWeek, lastWeek, higherIsBetter = true) {
+  if (thisWeek == null || lastWeek == null) return '';
+  const diff = thisWeek - lastWeek;
+  if (diff === 0) return ' <span style="color:#777">(flat)</span>';
+  const improved = higherIsBetter ? diff > 0 : diff < 0;
+  const arrow = diff > 0 ? '&#9650;' : '&#9660;';
+  const color = improved ? '#1a7f37' : '#c0392b';
+  return ` <span style="color:${color};font-weight:600">${arrow} ${diff > 0 ? '+' : ''}${diff}</span>`;
+}
+function huddleKpiTrendHtml(kpiTrend) {
+  if (!kpiTrend || !kpiTrend.members?.length) return '';
+  const esc = escapeHtml;
+  const cell = m => `${m.thisWeek ?? '—'}${huddleTrendArrow(m.thisWeek, m.lastWeek)}`;
+  const teamRow = `<tr style="font-weight:700;background:#f4f5fa"><td>Team Total</td><td>${cell(kpiTrend.team.acceptedCalls)}</td><td>${cell(kpiTrend.team.newTicketsHandled)}</td><td>${cell(kpiTrend.team.ticketsTouched)}</td><td>${cell(kpiTrend.team.jiraTicketsUpdated)}</td></tr>`;
+  const memberRows = kpiTrend.members.map(m => `<tr><td>${esc(m.employeeName)}</td><td>${cell(m.acceptedCalls)}</td><td>${cell(m.newTicketsHandled)}</td><td>${cell(m.ticketsTouched)}</td><td>${cell(m.jiraTicketsUpdated)}</td></tr>`).join('');
+  const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:#c0392b;font-size:12px">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
+  return `
+    <div style="margin:24px 0 8px"><b>Week-over-week: this week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</b></div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px" border="1" cellpadding="6">
+      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Inbound Calls Received</th><th>New Tickets Handled</th><th>Tickets Touched/Updated</th><th>Jira Tickets Updated</th></tr></thead>
+      <tbody>${teamRow}${memberRows}</tbody>
+    </table>${warningNote}`;
+}
+function huddleAttendanceTrendHtml(attendanceTrend) {
+  if (!attendanceTrend?.length) return '';
+  const esc = escapeHtml, pctText = v => v == null ? '—' : `${v.toFixed(1)}%`;
+  const rows = attendanceTrend.map(m => {
+    const pctCell = `${pctText(m.attendancePercent.thisWeek)}${huddleTrendArrow(m.attendancePercent.thisWeek, m.attendancePercent.lastWeek)}`;
+    const outDaysHtml = m.outDays.length
+      ? `<ul style="margin:4px 0 0;padding-left:18px">${m.outDays.map(d => `<li>${esc(d.date)} - <b>${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</b>${d.minutesLate != null ? ` (${d.minutesLate} min late)` : ''}${d.reason ? `: ${esc(d.reason)}` : ''}</li>`).join('')}</ul>`
+      : '<span style="color:#777">No absences or lates this week.</span>';
+    return `<tr><td style="vertical-align:top">${esc(m.employeeName)}</td><td style="vertical-align:top">${pctCell}</td><td>${outDaysHtml}</td></tr>`;
+  }).join('');
+  return `
+    <div style="margin:24px 0 8px"><b>Attendance this week</b></div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px" border="1" cellpadding="6">
+      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Attendance %</th><th>Reason for being out</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+function huddleFollowThroughHtml(ft) {
+  if (!ft || (!ft.lastWeekTotal && !ft.thisWeekTotal)) return '';
+  const esc = escapeHtml;
+  const carried = ft.carriedOver.length
+    ? `<ul style="margin:4px 0 0;padding-left:18px">${ft.carriedOver.map(a => `<li>${esc(a.description)} - <b>${esc(a.status)}</b>${a.owner ? ` (owner: ${esc(a.owner)})` : ''}</li>`).join('')}</ul>`
+    : '<span style="color:#777">None - every action still open last week was either resolved or dropped.</span>';
+  return `
+    <div style="margin:24px 0 8px"><b>Action item follow-through</b></div>
+    <p style="font-size:13px">Last week: ${ft.lastWeekTotal} action${ft.lastWeekTotal === 1 ? '' : 's'} logged, ${ft.lastWeekDone} marked Done. This week: ${ft.thisWeekTotal} action${ft.thisWeekTotal === 1 ? '' : 's'} logged.</p>
+    <p style="font-size:13px;margin-bottom:2px"><b>Still open last week and carried into this week:</b></p>${carried}`;
+}
+function huddleRecurringConcernsHtml(concerns) {
+  if (!concerns?.length) return '';
+  const esc = escapeHtml;
+  return `
+    <div style="margin:24px 0 8px"><b>Recurring concerns</b></div>
+    <p style="font-size:13px;color:#777;margin-bottom:2px">Raised again this week, also seen last week - may not be fully resolved:</p>
+    <ul style="margin:4px 0 0;padding-left:18px">${concerns.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
+}
+function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const esc = escapeHtml;
+  const trendSections = `${huddleKpiTrendHtml(kpiTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
   if (!entries.length) {
-    return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>`;
+    return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>${trendSections}`;
   }
   const sections = entries.map(e => {
     const actionsHtml = (e.actions || []).length
@@ -932,26 +998,182 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries) {
         <p><b>Decisions/support needed:</b><br>${esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>')}</p>
       </div>`;
   }).join('');
-  return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}`;
+  return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}${trendSections}`;
 }
-async function sendHuddleWeeklyReport(tlEmail, weekMonday) {
+// --- Huddle Log week-over-week KPI trend + attendance trend ----------------------------------
+// Four metrics: Inbound Calls Received, New Tickets Handled, Tickets Touched/Updated, and Jira
+// Tickets Updated, each compared this week vs last week, plus an attendance % trend with reasons
+// for being out. Calls/Touched/Jira are read from the daily-team-activity snapshot zendesk-proxy.js
+// syncs (only that local process has Zendesk Talk/incremental-events/Jira credentials); New Tickets
+// Handled is computed live here via the same direct Zendesk Search API access the QA random-ticket
+// picker already uses (searchZendeskTickets), since a created-date-bounded query is cheap and
+// scoped. Deliberately separate from the official KPI scoring engine - this is context for a
+// team lead's own huddle summary, not a scored metric, so a gap in the upstream snapshot just
+// shows as "no data" here rather than blocking the report.
+function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
+  const days = dailySnapshot.byEmail?.[email] || {};
+  let acceptedCalls = 0, ticketsTouched = 0, jiraTicketsUpdated = 0, anyData = false;
+  for (const [day, v] of Object.entries(days)) {
+    if (day < startDate || day > endDate) continue;
+    anyData = true;
+    acceptedCalls += v.acceptedCalls || 0;
+    ticketsTouched += v.ticketsTouched || 0;
+    jiraTicketsUpdated += v.jiraTicketsUpdated || 0;
+  }
+  return { acceptedCalls, ticketsTouched, jiraTicketsUpdated, anyData };
+}
+async function resolveZendeskUserIdForEmail(email) {
+  const data = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(email)}`);
+  const users = data.users || [];
+  const match = users.find(u => String(u.email || '').toLowerCase() === email.toLowerCase()) || users[0];
+  return match ? String(match.id) : null;
+}
+async function countNewTicketsHandled(zendeskUserId, startDate, endDate) {
+  if (!zendeskUserId) return null;
+  const tickets = await searchZendeskTickets(`type:ticket assignee_id:${zendeskUserId} created>=${startDate} created<=${endDate}`);
+  return tickets.length;
+}
+async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMonday, prevSunday) {
+  const dailySnapshot = await loadDailyTeamActivitySnapshot();
+  const rows = await Promise.all(members.map(async member => {
+    const email = ptoLogic.cleanEmail(member.employeeEmail);
+    const thisWeek = sumDailyTeamActivity(dailySnapshot, email, weekMonday, weekSunday);
+    const lastWeek = sumDailyTeamActivity(dailySnapshot, email, prevMonday, prevSunday);
+    let newTicketsThisWeek = null, newTicketsLastWeek = null;
+    try {
+      const zendeskUserId = await resolveZendeskUserIdForEmail(email);
+      [newTicketsThisWeek, newTicketsLastWeek] = await Promise.all([
+        countNewTicketsHandled(zendeskUserId, weekMonday, weekSunday),
+        countNewTicketsHandled(zendeskUserId, prevMonday, prevSunday)
+      ]);
+    } catch (error) {
+      console.error(`[huddle-kpi-trend] New tickets lookup failed for ${email}:`, error.message);
+    }
+    return {
+      employeeEmail: email, employeeName: member.employeeName || email,
+      acceptedCalls: { thisWeek: thisWeek.anyData ? thisWeek.acceptedCalls : null, lastWeek: lastWeek.anyData ? lastWeek.acceptedCalls : null },
+      newTicketsHandled: { thisWeek: newTicketsThisWeek, lastWeek: newTicketsLastWeek },
+      ticketsTouched: { thisWeek: thisWeek.anyData ? thisWeek.ticketsTouched : null, lastWeek: lastWeek.anyData ? lastWeek.ticketsTouched : null },
+      jiraTicketsUpdated: { thisWeek: thisWeek.anyData ? thisWeek.jiraTicketsUpdated : null, lastWeek: lastWeek.anyData ? lastWeek.jiraTicketsUpdated : null }
+    };
+  }));
+  const sumMetric = key => {
+    const anyThis = rows.some(r => r[key].thisWeek != null), anyLast = rows.some(r => r[key].lastWeek != null);
+    const total = side => rows.reduce((sum, r) => sum + (r[key][side] ?? 0), 0);
+    return { thisWeek: anyThis ? total('thisWeek') : null, lastWeek: anyLast ? total('lastWeek') : null };
+  };
+  const team = {
+    acceptedCalls: sumMetric('acceptedCalls'), newTicketsHandled: sumMetric('newTicketsHandled'),
+    ticketsTouched: sumMetric('ticketsTouched'), jiraTicketsUpdated: sumMetric('jiraTicketsUpdated')
+  };
+  return { weekMonday, weekSunday, prevMonday, prevSunday, members: rows, team, snapshotGeneratedAt: dailySnapshot.generatedAt || '', snapshotWarnings: dailySnapshot.warnings || [] };
+}
+// Action item follow-through and recurring concerns both come purely from huddle log entries
+// already on file - no Zendesk/Jira lookup needed, just comparing this week's log against last
+// week's. Matching is a plain normalized-text comparison (no AI call) since this is a quick
+// informational hint for the reader, not a scored judgment.
+function normalizeHuddleText(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function buildHuddleFollowThrough(thisWeekEntries, lastWeekEntries) {
+  const lastWeekActions = lastWeekEntries.flatMap(e => (e.actions || []));
+  const thisWeekActions = thisWeekEntries.flatMap(e => (e.actions || []));
+  const stillOpenLastWeek = lastWeekActions.filter(a => a.status !== 'Done');
+  const thisWeekDescSet = new Set(thisWeekActions.map(a => normalizeHuddleText(a.description)));
+  const carriedOver = stillOpenLastWeek.filter(a => thisWeekDescSet.has(normalizeHuddleText(a.description)));
+  return {
+    lastWeekTotal: lastWeekActions.length, lastWeekDone: lastWeekActions.filter(a => a.status === 'Done').length,
+    thisWeekTotal: thisWeekActions.length,
+    carriedOver: carriedOver.map(a => ({ description: a.description, status: a.status, owner: a.owner || '' }))
+  };
+}
+// A concern "recurs" if a sentence-ish chunk of it (4+ words, to avoid matching on a single
+// shared word) shares at least half its words with a chunk from last week - a plain substring
+// check is too fragile here, since the same concern almost never gets typed identically twice
+// (e.g. "the new ticket queue is taking too long to load" vs "still an issue: the ticket queue
+// takes too long to load"). Crude on purpose: this flags things for a human to judge, it
+// doesn't score anything.
+const HUDDLE_CONCERN_MIN_MATCH_WORDS = 4;
+const HUDDLE_CONCERN_OVERLAP_THRESHOLD = 0.5;
+function significantPhrasesFrom(text) {
+  return normalizeHuddleText(text).split(/[.?!\n]+/).map(s => s.trim()).filter(s => s.split(' ').length >= HUDDLE_CONCERN_MIN_MATCH_WORDS);
+}
+function phraseWordOverlapRatio(a, b) {
+  const wordsA = new Set(a.split(' ')), wordsB = new Set(b.split(' '));
+  const common = [...wordsA].filter(w => wordsB.has(w)).length;
+  return common / Math.min(wordsA.size, wordsB.size);
+}
+function buildRecurringConcerns(thisWeekEntries, lastWeekEntries) {
+  const lastPhrases = lastWeekEntries.flatMap(e => significantPhrasesFrom(e.concernsRaised || ''));
+  const thisPhrases = thisWeekEntries.flatMap(e => significantPhrasesFrom(e.concernsRaised || ''));
+  const recurring = [];
+  for (const lp of lastPhrases) {
+    if (thisPhrases.some(tp => phraseWordOverlapRatio(lp, tp) >= HUDDLE_CONCERN_OVERLAP_THRESHOLD)) recurring.push(lp);
+  }
+  return [...new Set(recurring)];
+}
+async function buildTeamAttendanceTrend(members, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday) {
+  const records = roster.records || [];
+  return members.map(member => {
+    const email = ptoLogic.cleanEmail(member.employeeEmail);
+    const thisWeekRange = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, weekMonday, weekSunday);
+    const lastWeekRange = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, prevMonday, prevSunday);
+    const outDays = ptoLogic.buildAttendanceTrend(records, schedules, attendance, email, weekMonday, weekSunday);
+    return {
+      employeeEmail: email, employeeName: member.employeeName || email,
+      attendancePercent: { thisWeek: thisWeekRange?.attendancePercentage ?? null, lastWeek: lastWeekRange?.attendancePercentage ?? null },
+      outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null }))
+    };
+  });
+}
+
+// Gathers and renders everything a weekly report needs (recipients, entries, KPI/attendance
+// trend, subject, html) without sending anything - shared by the real send below and by the
+// read-only preview route, so "what will this report say" and "what did this report say" never
+// drift apart.
+async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
   const weekSunday = addDaysToDateStr(weekMonday, 6);
+  const prevMonday = addDaysToDateStr(weekMonday, -7), prevSunday = addDaysToDateStr(weekMonday, -1);
   const roster = await loadRosterSnapshot();
   const tlRecord = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === tlEmail);
   const { managerEmail, coLeads } = resolveHuddleRecipients(roster, tlEmail);
-  if (!managerEmail) throw new Error(`No manager on file for ${tlEmail} - cannot send.`);
   const data = await loadHuddleLog();
   const entries = (data.records || [])
     .filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail && x.huddleDate >= weekMonday && x.huddleDate <= weekSunday)
     .sort((a, b) => a.huddleDate.localeCompare(b.huddleDate));
+  const lastWeekEntries = (data.records || [])
+    .filter(x => ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail && x.huddleDate >= prevMonday && x.huddleDate <= prevSunday);
+  const followThrough = buildHuddleFollowThrough(entries, lastWeekEntries);
+  const recurringConcerns = buildRecurringConcerns(entries, lastWeekEntries);
   const overrideCc = (data.coLeadOverrides || {})[tlEmail];
   const ccList = Array.isArray(overrideCc) ? overrideCc : coLeads.map(x => x.employeeEmail);
-  await emailService.send({
-    to: managerEmail,
-    cc: ccList,
-    subject: `Huddle Summary - ${tlRecord?.employeeName || tlEmail} - ${weekMonday} to ${weekSunday}`,
-    html: huddleWeeklyReportHtml(tlRecord?.employeeName || tlEmail, weekMonday, weekSunday, entries)
-  });
+  const tlName = tlRecord?.employeeName || tlEmail;
+
+  // Direct reports of this TL - drives the KPI-trend and attendance sections. Falls back to no
+  // trend data (rather than throwing) if the roster lookup comes up empty, so a report is still
+  // previewable/sendable for the huddle entries alone.
+  const teamMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail);
+  let kpiTrend = null, attendanceTrend = [];
+  if (teamMembers.length) {
+    try {
+      const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
+      [kpiTrend, attendanceTrend] = await Promise.all([
+        buildTeamWeeklyKpiTrend(teamMembers, weekMonday, weekSunday, prevMonday, prevSunday),
+        buildTeamAttendanceTrend(teamMembers, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday)
+      ]);
+    } catch (error) {
+      console.error(`[huddle-report] KPI/attendance trend build failed for ${tlEmail}:`, error.message);
+    }
+  }
+
+  return {
+    weekSunday, managerEmail, ccList, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns,
+    subject: `Huddle Summary - ${tlName} - ${weekMonday} to ${weekSunday}`,
+    html: huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns)
+  };
+}
+async function sendHuddleWeeklyReport(tlEmail, weekMonday) {
+  const { managerEmail, ccList, entries, subject, html } = await buildHuddleWeeklyReport(tlEmail, weekMonday);
+  if (!managerEmail) throw new Error(`No manager on file for ${tlEmail} - cannot send.`);
+  await emailService.send({ to: managerEmail, cc: ccList, subject, html });
   return { entries, managerEmail, ccList };
 }
 // The first setInterval-driven background tick in this file (every other one lives in
@@ -4660,6 +4882,18 @@ const server = http.createServer(async (req, res) => {
       if (emails.length) data.coLeadOverrides[identity] = emails; else delete data.coLeadOverrides[identity];
       await saveHuddleLog(data);
       return json(res, 200, { ok: true, ccOverride: emails.length ? emails : null });
+    }
+
+    // Read-only preview of a week's report content - same build path as the real send (and as
+    // the automatic tick), just without the emailService.send() call. Lets a TL check what a
+    // report says (or would have said) without triggering an actual email, and works for any
+    // week, including the current in-progress one or a past week whose send already failed.
+    if (parsed.pathname === '/api/my/huddle-log/preview' && req.method === 'GET') {
+      const requestedWeekStart = parsed.searchParams.get('weekStart');
+      if (!ptoLogic.validDate(requestedWeekStart)) return json(res, 400, { ok: false, error: 'A valid weekStart date is required.' });
+      const weekMonday = mondayOfWeek(requestedWeekStart);
+      const { weekSunday, managerEmail, ccList, entries, subject, html } = await buildHuddleWeeklyReport(identity, weekMonday);
+      return json(res, 200, { ok: true, weekMonday, weekSunday, subject, html, entryCount: entries.length, managerEmail, ccList });
     }
 
     // Manual "send now" for a completed week - lets a TL send early rather than waiting for
