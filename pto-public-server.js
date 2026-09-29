@@ -1869,23 +1869,101 @@ async function zendeskApiFetch(path) {
   return r.json();
 }
 function stripHtmlForQaTranscript(html) { return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim(); }
-// Random-ticket picker for QA Scorecard (2026-09-29, Mac's request): reviewers normally audit a
-// solved ticket within 7 days of the evaluation date, created within the last 14 days - this
-// resolves the agent's Zendesk user id, searches for every ticket matching those bounds, and
-// hands back one picked at random so the reviewer doesn't have to hunt for a candidate by hand.
-async function findRandomSolvedTicketForAgent(agentEmail) {
+// --- QA Scorecard eligible-ticket selection (rewritten 2026-09-30 per Mac's exact spec) -------
+// Priority order, each pool only searched when the one before it comes up empty:
+//   A. Current-month Solved  ->  B. Current-month qualifying Pending
+//   -> (only when the evaluation date falls in the first 7 calendar days of its month)
+//   C. Previous-month-last-7-days Solved  ->  D. Previous-month-last-7-days qualifying Pending
+// "Current month"/"previous month" are both always relative to the QA EVALUATION DATE the
+// reviewer entered, never "today" - a reviewer backfilling an evaluation for an earlier date
+// must get that date's own eligible pool. Eligibility is always keyed off Created Date, never
+// Solved/Updated/Assigned date. A Pending ticket only qualifies if the agent already gave the
+// customer a final resolution and the ticket is pending solely on the client's own
+// confirmation/acknowledgment/approval to close - decided by having the AI read the actual
+// comment thread, never assumed from status alone. Randomization happens only within whichever
+// single pool is used - never across pools, and never by taking the first qualifying ticket.
+function ymd(date) { return date.toISOString().slice(0, 10); }
+function monthDateBounds(dateStr) {
+  const [y, m] = dateStr.split('-').map(Number);
+  return { start: ymd(new Date(Date.UTC(y, m - 1, 1))), end: ymd(new Date(Date.UTC(y, m, 0))) };
+}
+// Day 0 of the current month = the last day of the previous month; day -6 of the current month
+// is 7 days before that, giving the previous month's final 7-calendar-day window inclusive.
+function previousMonthLast7DaysBounds(dateStr) {
+  const [y, m] = dateStr.split('-').map(Number);
+  return { start: ymd(new Date(Date.UTC(y, m - 1, -6))), end: ymd(new Date(Date.UTC(y, m - 1, 0))) };
+}
+async function searchZendeskTickets(query) {
+  const data = await zendeskApiFetch(`/api/v2/search.json?query=${encodeURIComponent(query)}&per_page=100`);
+  return data.results || [];
+}
+// A real per-ticket AI read of the comment thread, not a status/tag shortcut - "Pending" alone
+// says nothing about whether the agent is done or still working the case. Capped at 15 tickets
+// (randomly sampled if there are more) so one button click can't fan out into dozens of
+// sequential Zendesk+AI calls; every candidate still has an equal chance of being the one checked.
+const QA_PENDING_QUALIFY_MAX_CHECKS = 15;
+async function qualifyPendingTicketForQa(ticketId) {
+  try {
+    const { transcript } = await fetchTicketTranscriptForQa(ticketId);
+    if (!transcript.trim()) return false;
+    const prompt = `You are reviewing a Zendesk support ticket that is currently in "Pending" status, to decide if it is ready for a QA review even though it is not yet Solved.
+
+It QUALIFIES only if BOTH are true:
+- The agent has already given the customer a final resolution or answer to their issue.
+- The ticket is Pending only because the team is waiting on the client's own confirmation, acknowledgment, or approval to close it.
+
+It does NOT qualify if troubleshooting, investigation, escalation, or follow-up work is still outstanding, or if no real resolution has been given yet.
+
+Ticket conversation (chronological; "(internal)" notes are not visible to the customer):
+${transcript.slice(0, 12000)}
+
+Respond with ONLY this exact JSON, no other text: {"qualifies": true} or {"qualifies": false}`;
+    const raw = await callGroq(prompt, { maxTokens: 30, json: true });
+    return JSON.parse(raw).qualifies === true;
+  } catch (error) {
+    console.error(`[qa-random-ticket] Could not classify pending ticket #${ticketId}:`, error.message);
+    return false;
+  }
+}
+async function qualifyingPendingPool(candidates) {
+  const sample = candidates.length > QA_PENDING_QUALIFY_MAX_CHECKS
+    ? [...candidates].sort(() => Math.random() - 0.5).slice(0, QA_PENDING_QUALIFY_MAX_CHECKS)
+    : candidates;
+  const checked = await Promise.all(sample.map(async t => ({ ticket: t, qualifies: await qualifyPendingTicketForQa(t.id) })));
+  return checked.filter(c => c.qualifies).map(c => c.ticket);
+}
+function pickRandomTicketResult(candidates, pool) {
+  const picked = candidates[Math.floor(Math.random() * candidates.length)];
+  return { ticket: { id: picked.id, subject: picked.subject || '', status: picked.status }, candidateCount: candidates.length, pool };
+}
+async function findEligibleQaTicket(agentEmail, evaluationDateStr) {
+  const evalDate = /^\d{4}-\d{2}-\d{2}$/.test(evaluationDateStr || '') ? evaluationDateStr
+    : (p => `${p.year}-${p.month}-${p.day}`)(easternDateParts(new Date()));
   const userData = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(agentEmail)}`);
   const users = userData.users || [];
   const match = users.find(u => String(u.email || '').toLowerCase() === agentEmail.toLowerCase()) || users[0];
   if (!match) return { ticket: null, candidateCount: 0, error: `No Zendesk user found for ${agentEmail}.` };
-  const solvedSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const createdSince = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const query = `type:ticket status:solved assignee:${match.id} solved>=${solvedSince} created>=${createdSince}`;
-  const data = await zendeskApiFetch(`/api/v2/search.json?query=${encodeURIComponent(query)}&per_page=100`);
-  const candidates = (data.results || []).filter(t => t.status === 'solved');
-  if (!candidates.length) return { ticket: null, candidateCount: 0 };
-  const picked = candidates[Math.floor(Math.random() * candidates.length)];
-  return { ticket: { id: picked.id, subject: picked.subject || '', status: picked.status }, candidateCount: candidates.length };
+
+  const current = monthDateBounds(evalDate);
+  const currentSolved = await searchZendeskTickets(`type:ticket status:solved assignee:${match.id} created>=${current.start} created<=${current.end}`);
+  if (currentSolved.length) return pickRandomTicketResult(currentSolved, 'current-month-solved');
+
+  const currentPending = await searchZendeskTickets(`type:ticket status:pending assignee:${match.id} created>=${current.start} created<=${current.end}`);
+  const currentQualifying = currentPending.length ? await qualifyingPendingPool(currentPending) : [];
+  if (currentQualifying.length) return pickRandomTicketResult(currentQualifying, 'current-month-pending');
+
+  const dayOfMonth = Number(evalDate.split('-')[2]);
+  if (dayOfMonth <= 7) {
+    const prev = previousMonthLast7DaysBounds(evalDate);
+    const prevSolved = await searchZendeskTickets(`type:ticket status:solved assignee:${match.id} created>=${prev.start} created<=${prev.end}`);
+    if (prevSolved.length) return pickRandomTicketResult(prevSolved, 'previous-month-last7-solved');
+
+    const prevPending = await searchZendeskTickets(`type:ticket status:pending assignee:${match.id} created>=${prev.start} created<=${prev.end}`);
+    const prevQualifying = prevPending.length ? await qualifyingPendingPool(prevPending) : [];
+    if (prevQualifying.length) return pickRandomTicketResult(prevQualifying, 'previous-month-last7-pending');
+  }
+
+  return { ticket: null, candidateCount: 0 };
 }
 // Ticket field definitions (id -> human title) change rarely and are shared across every
 // ticket - cached for an hour so a run of Pre-QA/auto-fill calls doesn't refetch all 50+ field
@@ -5125,8 +5203,9 @@ const server = http.createServer(async (req, res) => {
       if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
       if (!agentEmail) return json(res, 400, { ok: false, error: 'agentEmail is required.' });
+      const evaluationDate = String(parsed.searchParams.get('evaluationDate') || '').trim();
       try {
-        const result = await findRandomSolvedTicketForAgent(agentEmail);
+        const result = await findEligibleQaTicket(agentEmail, evaluationDate);
         return json(res, 200, { ok: true, ...result });
       } catch (error) {
         return json(res, 502, { ok: false, error: error.message || 'Could not search Zendesk for a matching ticket.' });
