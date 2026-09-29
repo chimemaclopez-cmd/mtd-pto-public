@@ -1869,6 +1869,24 @@ async function zendeskApiFetch(path) {
   return r.json();
 }
 function stripHtmlForQaTranscript(html) { return String(html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim(); }
+// Random-ticket picker for QA Scorecard (2026-09-29, Mac's request): reviewers normally audit a
+// solved ticket within 7 days of the evaluation date, created within the last 14 days - this
+// resolves the agent's Zendesk user id, searches for every ticket matching those bounds, and
+// hands back one picked at random so the reviewer doesn't have to hunt for a candidate by hand.
+async function findRandomSolvedTicketForAgent(agentEmail) {
+  const userData = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(agentEmail)}`);
+  const users = userData.users || [];
+  const match = users.find(u => String(u.email || '').toLowerCase() === agentEmail.toLowerCase()) || users[0];
+  if (!match) return { ticket: null, candidateCount: 0, error: `No Zendesk user found for ${agentEmail}.` };
+  const solvedSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const createdSince = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const query = `type:ticket status:solved assignee:${match.id} solved>=${solvedSince} created>=${createdSince}`;
+  const data = await zendeskApiFetch(`/api/v2/search.json?query=${encodeURIComponent(query)}&per_page=100`);
+  const candidates = (data.results || []).filter(t => t.status === 'solved');
+  if (!candidates.length) return { ticket: null, candidateCount: 0 };
+  const picked = candidates[Math.floor(Math.random() * candidates.length)];
+  return { ticket: { id: picked.id, subject: picked.subject || '', status: picked.status }, candidateCount: candidates.length };
+}
 // Ticket field definitions (id -> human title) change rarely and are shared across every
 // ticket - cached for an hour so a run of Pre-QA/auto-fill calls doesn't refetch all 50+ field
 // definitions every single time.
@@ -5101,6 +5119,18 @@ const server = http.createServer(async (req, res) => {
         opportunities: [...gapCounts.values()].sort((a, b) => b.count - a.count).slice(0, 5),
         history: allMatching.slice().sort((a, b) => b.evaluationDate.localeCompare(a.evaluationDate) || b.createdAt.localeCompare(a.createdAt))
       });
+    }
+
+    if (parsed.pathname === '/api/qa/scorecards/random-ticket' && req.method === 'GET') {
+      if (!canUseQaScorecard(identity, session)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const agentEmail = ptoLogic.cleanEmail(parsed.searchParams.get('agentEmail') || '');
+      if (!agentEmail) return json(res, 400, { ok: false, error: 'agentEmail is required.' });
+      try {
+        const result = await findRandomSolvedTicketForAgent(agentEmail);
+        return json(res, 200, { ok: true, ...result });
+      } catch (error) {
+        return json(res, 502, { ok: false, error: error.message || 'Could not search Zendesk for a matching ticket.' });
+      }
     }
 
     if (parsed.pathname === '/api/qa/scorecards/ticket-thread' && req.method === 'GET') {

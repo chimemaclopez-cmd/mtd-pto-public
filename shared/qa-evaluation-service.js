@@ -9,6 +9,9 @@ export const deleteQaScorecard=(id)=>api(`/api/qa/scorecards/${encodeURIComponen
 export const getQaScorecardReporting=(params={})=>{const query=new URLSearchParams(Object.entries(params).filter(([,v])=>v));return api(`/api/qa/scorecards/reporting${query.size?`?${query}`:''}`)};
 export const getMyQaScorecards=()=>api('/api/my/qa-scorecards');
 export const getQaScorecardTicketThread=(ticketId)=>api(`/api/qa/scorecards/ticket-thread?ticketId=${encodeURIComponent(ticketId)}`);
+// Picks a random solved ticket for the given agent (solved within 7 days, created within 14
+// days of now) - see findRandomSolvedTicketForAgent in pto-public-server.js for the exact bounds.
+export const getQaScorecardRandomTicket=(agentEmail)=>api(`/api/qa/scorecards/random-ticket?agentEmail=${encodeURIComponent(agentEmail)}`);
 // Self-service twin of the above, open to every employee instead of reviewers only - the server
 // enforces "your own ticket only" against the real Zendesk assignee, and nothing this flow
 // produces is ever saved (see qaSelfAuditRun in pto-public.html).
