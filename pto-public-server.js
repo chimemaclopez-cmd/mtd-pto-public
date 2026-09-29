@@ -1016,9 +1016,11 @@ function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
   for (const [day, v] of Object.entries(days)) {
     if (day < startDate || day > endDate) continue;
     anyData = true;
-    acceptedCalls += v.acceptedCalls || 0;
-    ticketsTouched += v.ticketsTouched || 0;
-    jiraTicketsUpdated += v.jiraTicketsUpdated || 0;
+    // zendesk-proxy.js stores each day's activity as id SETS (not raw counts) so its own
+    // incremental re-fetching can dedupe safely - the count here is just each set's size.
+    acceptedCalls += (v.acceptedCallIds || []).length;
+    ticketsTouched += (v.touchedTicketIds || []).length;
+    jiraTicketsUpdated += (v.jiraTicketKeys || []).length;
   }
   return { acceptedCalls, ticketsTouched, jiraTicketsUpdated, anyData };
 }
