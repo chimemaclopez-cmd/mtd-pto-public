@@ -4930,14 +4930,15 @@ const server = http.createServer(async (req, res) => {
       if (!isSelf && !isTeamLead) return json(res, 403, { ok: false, error: 'Not authorized to view this evaluation.' });
       const periodNumber = Number(String(record.evaluationPeriod || '').replace(/\D/g, '')) || null;
       const member = (roster.records || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === recordEmail);
-      if (!periodNumber || !member?.hireDate) return json(res, 200, { ok: true, kpiRows: [], coachingLogs: [], attendanceTrend: [] });
-      const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, coachingData] = await Promise.all([
+      if (!periodNumber || !member?.hireDate) return json(res, 200, { ok: true, kpiRows: [], coachingLogs: [], attendanceTrend: [], qaScorecards: [] });
+      const [metricsSnapshot, complianceStore, productivityKindStore, schedules, attendance, coachingData, qaScorecardData] = await Promise.all([
         getSnapshot('probation-metrics', 'mtdkpi:snapshot:probation-metrics', { byEmployee: {} }),
         cloudStore.kvGetJson(PROBATION_COMPLIANCE_KEY, {}),
         cloudStore.kvGetJson(PROBATION_PRODUCTIVITY_KIND_KEY, {}),
         loadScheduleSnapshot(),
         loadAttendanceSnapshot(),
-        loadCoaching()
+        loadCoaching(),
+        loadQaScorecards()
       ]);
       const todayParts = easternDateParts(new Date());
       const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
@@ -4975,7 +4976,14 @@ const server = http.createServer(async (req, res) => {
         .filter(c => c.status !== 'DRAFT' && ptoLogic.cleanEmail(c.employeeEmail) === recordEmail && c.coachingDate >= member.hireDate && c.coachingDate <= periodEndInclusive)
         .map(c => ({ coachingDate: c.coachingDate, category: c.category, standingSummary: c.currentStanding?.performanceStatus && c.currentStanding?.finalKpi != null ? `${c.currentStanding.performanceStatus} (${c.currentStanding.finalKpi}%)` : (c.currentStanding?.performanceStatus || ''), discussionSummary: c.discussionSummary, actionPlan: c.actionPlan, status: c.status }))
         .sort((a, b) => a.coachingDate.localeCompare(b.coachingDate));
-      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend });
+      // All QA Scorecards run against this employee during the period this evaluation covers -
+      // DRAFT scorecards are excluded (mirrors coachingLogs above), same "not final until published"
+      // rule used everywhere else a scorecard is surfaced outside the QA Scorecard tab itself.
+      const qaScorecards = (qaScorecardData.records || [])
+        .filter(q => q.status !== 'DRAFT' && ptoLogic.cleanEmail(q.employeeEmail) === recordEmail && q.evaluationDate >= member.hireDate && q.evaluationDate <= periodEndInclusive)
+        .map(q => ({ evaluationDate: q.evaluationDate, ticketId: q.ticketId, purpose: q.purpose, channel: q.channel, pct: q.score?.pct ?? null, passed: q.score?.passed ?? null, hasCriticalError: Boolean(q.score?.hasCriticalError), evaluatorName: q.evaluatorName, feedback: q.feedback }))
+        .sort((a, b) => a.evaluationDate.localeCompare(b.evaluationDate));
+      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend, qaScorecards });
     }
 
     const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);
