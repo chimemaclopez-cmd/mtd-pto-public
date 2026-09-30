@@ -1033,11 +1033,17 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
     const outDaysHtml = m.outDays.length
       ? `<ul style="margin:2px 0 0;padding-left:18px">${m.outDays.map(d => {
           const missingNote = `<span style="color:${HUDDLE_BRAND.muted};font-style:italic">not logged</span>`;
-          const detail = d.code === 'LATE'
-            ? ` (${d.minutesLate != null ? huddleMinutesLateText(d.minutesLate) : missingNote})`
-            : HUDDLE_ATTENDANCE_REASON_CODES.has(d.code)
-              ? `: ${d.reason ? esc(d.reason) : missingNote}`
-              : '';
+          // A Late entry can carry BOTH minutesLate (required - flagged "not logged" if missing)
+          // AND an optional reason (e.g. "Traffic") - show both together rather than one or the
+          // other. SL/EL-family codes only ever carry a reason (required, flagged if missing).
+          let detail = '';
+          if (d.code === 'LATE') {
+            const minutesPart = d.minutesLate != null ? huddleMinutesLateText(d.minutesLate) : missingNote;
+            const reasonPart = d.reason ? ` - ${esc(d.reason)}` : '';
+            detail = ` (${minutesPart}${reasonPart})`;
+          } else if (HUDDLE_ATTENDANCE_REASON_CODES.has(d.code)) {
+            detail = `: ${d.reason ? esc(d.reason) : missingNote}`;
+          }
           return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}</li>`;
         }).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
