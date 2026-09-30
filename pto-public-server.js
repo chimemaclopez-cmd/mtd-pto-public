@@ -983,7 +983,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
   const esc = escapeHtml;
   const trendSections = `${huddleKpiTrendHtml(kpiTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
   if (!entries.length) {
-    return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>${trendSections}`;
+    return `<p><b>${esc(tlName)}'s Weekly Performance Report - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>${trendSections}`;
   }
   const sections = entries.map(e => {
     const actionsHtml = (e.actions || []).length
@@ -998,7 +998,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
         <p><b>Decisions/support needed:</b><br>${esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>')}</p>
       </div>`;
   }).join('');
-  return `<p><b>${esc(tlName)}'s huddle summary - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}${trendSections}`;
+  return `<p><b>${esc(tlName)}'s Weekly Performance Report - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}${trendSections}`;
 }
 // --- Huddle Log week-over-week KPI trend + attendance trend ----------------------------------
 // Four metrics: Inbound Calls Received, New Tickets Handled, Tickets Touched/Updated, and Jira
@@ -1166,7 +1166,7 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
 
   return {
     weekSunday, managerEmail, ccList, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns,
-    subject: `Huddle Summary - ${tlName} - ${weekMonday} to ${weekSunday}`,
+    subject: `Weekly Performance Report - ${tlName} - ${weekMonday} to ${weekSunday}`,
     html: huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns)
   };
 }
