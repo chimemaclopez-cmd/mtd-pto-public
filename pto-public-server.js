@@ -945,8 +945,8 @@ function huddleActionPill(status) {
 // recurring concerns red) - one consistent shape instead of five different ad hoc layouts.
 function huddleSectionCard(title, bodyHtml, accentColor) {
   return `
-    <div style="background:#fff;border:1px solid ${HUDDLE_BRAND.line};border-left:4px solid ${accentColor};border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 4px 14px rgba(32,36,55,.05)">
-      <div style="font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;color:${HUDDLE_BRAND.muted};margin-bottom:14px">${title}</div>
+    <div class="huddle-section" style="background:#fff;border:1px solid ${HUDDLE_BRAND.line};border-left:4px solid ${accentColor};border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 4px 14px rgba(32,36,55,.05)">
+      <div class="huddle-section-title" style="font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;color:${HUDDLE_BRAND.muted};margin-bottom:14px">${title}</div>
       ${bodyHtml}
     </div>`;
 }
@@ -958,13 +958,13 @@ function huddleKpiTrendHtml(kpiTrend) {
   const esc = escapeHtml;
   const cell = m => `${m.thisWeek ?? '—'}${huddleTrendArrow(m.thisWeek, m.lastWeek)}`;
   const td = 'padding:10px 12px;border-top:1px solid #eef0f5';
-  const teamRow = `<tr style="font-weight:800;background:${HUDDLE_BRAND.bg}"><td style="padding:10px 12px">Team Total</td><td style="padding:10px 12px">${cell(kpiTrend.team.acceptedCalls)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.newTicketsHandled)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.ticketsTouched)}</td></tr>`;
-  const memberRows = kpiTrend.members.map(m => `<tr><td style="${td}">${esc(m.employeeName)}</td><td style="${td}">${cell(m.acceptedCalls)}</td><td style="${td}">${cell(m.newTicketsHandled)}</td><td style="${td}">${cell(m.ticketsTouched)}</td></tr>`).join('');
+  const teamRow = `<tr style="font-weight:800;background:${HUDDLE_BRAND.bg}"><td style="padding:10px 12px">Team Total</td><td style="padding:10px 12px">${cell(kpiTrend.team.acceptedCalls)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.newTicketsHandled)}</td></tr>`;
+  const memberRows = kpiTrend.members.map(m => `<tr><td style="${td}">${esc(m.employeeName)}</td><td style="${td}">${cell(m.acceptedCalls)}</td><td style="${td}">${cell(m.newTicketsHandled)}</td></tr>`).join('');
   const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:${HUDDLE_BRAND.red};font-size:12px;margin:10px 0 0">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
   const body = `
     <div style="font-size:13px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">This week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      ${huddleTableHead('Team Member', 'Inbound Calls Received', 'New Tickets Handled', 'Tickets Touched/Updated')}
+      ${huddleTableHead('Team Member', 'Inbound Calls Received', 'New Tickets Handled')}
       <tbody>${teamRow}${memberRows}</tbody>
     </table>${warningNote}`;
   return huddleSectionCard('📊 Week-over-Week KPI Trend', body, HUDDLE_BRAND.blue);
@@ -1010,7 +1010,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const esc = escapeHtml;
   const header = `
-    <div style="background:${HUDDLE_BRAND.gradient};border-radius:16px;padding:26px 28px;color:#fff;margin-bottom:18px">
+    <div class="huddle-report-header" style="background:${HUDDLE_BRAND.gradient};border-radius:16px;padding:26px 28px;color:#fff;margin-bottom:18px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">Lofty Support</div>
       <div style="font-size:25px;font-weight:850;margin-top:5px">Weekly Performance Report</div>
       <div style="font-size:14px;margin-top:7px;opacity:.95">${esc(tlName)} &middot; ${fmt(weekMonday)} &ndash; ${fmt(weekSunday)}</div>
@@ -1023,10 +1023,10 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
     const actionsHtml = (e.actions || []).length
       ? `<ul style="margin:2px 0 0;padding-left:18px">${e.actions.map(a => `<li style="margin-bottom:4px">${esc(a.description)} ${huddleActionPill(a.status)}${a.owner ? ` <span style="color:${HUDDLE_BRAND.muted}">(owner: ${esc(a.owner)})</span>` : ''}</li>`).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.muted}">No actions logged.</span>`;
-    const field = (label, value) => `<div style="margin-bottom:9px"><b style="font-size:11px;text-transform:uppercase;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${label}</b><div style="margin-top:3px">${value}</div></div>`;
+    const field = (label, value) => `<div class="huddle-field" style="margin-bottom:9px"><b style="font-size:11px;text-transform:uppercase;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${label}</b><div style="margin-top:3px">${value}</div></div>`;
     const isLast = i === entries.length - 1;
     return `
-      <div style="margin-bottom:${isLast ? '0' : '16px'};padding-bottom:${isLast ? '0' : '16px'};border-bottom:${isLast ? 'none' : '1px solid #eef0f5'}">
+      <div class="huddle-entry" style="margin-bottom:${isLast ? '0' : '16px'};padding-bottom:${isLast ? '0' : '16px'};border-bottom:${isLast ? 'none' : '1px solid #eef0f5'}">
         <div style="font-weight:800;color:${HUDDLE_BRAND.blue};margin-bottom:10px">${esc(fmt(e.huddleDate))}</div>
         ${field('Key Updates', esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>'))}
         ${field('Concerns Raised', esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>'))}
@@ -1038,27 +1038,29 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
   return `${header}${huddleCard}${trendSections}`;
 }
 // --- Huddle Log week-over-week KPI trend + attendance trend ----------------------------------
-// Four metrics: Inbound Calls Received, New Tickets Handled, Tickets Touched/Updated, and Jira
-// Tickets Updated, each compared this week vs last week, plus an attendance % trend with reasons
-// for being out. Calls/Touched/Jira are read from the daily-team-activity snapshot zendesk-proxy.js
-// syncs (only that local process has Zendesk Talk/incremental-events/Jira credentials); New Tickets
-// Handled is computed live here via the same direct Zendesk Search API access the QA random-ticket
-// picker already uses (searchZendeskTickets), since a created-date-bounded query is cheap and
-// scoped. Deliberately separate from the official KPI scoring engine - this is context for a
-// team lead's own huddle summary, not a scored metric, so a gap in the upstream snapshot just
-// shows as "no data" here rather than blocking the report.
+// Two metrics: Inbound Calls Received and New Tickets Handled, each compared this week vs last
+// week, plus an attendance % trend with reasons for being out. Tickets Touched/Updated and Jira
+// Tickets Updated were both dropped (2026-09-30, Mac) - each needed an account-wide Zendesk/Jira
+// scan with no per-agent filter, so refreshing them cost the same regardless of team size and
+// wasn't worth it for this report. Calls has the same account-wide-scan shape but Mac chose to
+// keep it. Calls is read from the daily-team-activity snapshot zendesk-proxy.js syncs (only that
+// local process has Zendesk Talk credentials); New Tickets Handled is computed live here via the
+// same direct Zendesk Search API access the QA random-ticket picker already uses
+// (searchZendeskTickets), since a created-date-bounded query is cheap and scoped. Deliberately
+// separate from the official KPI scoring engine - this is context for a team lead's own huddle
+// summary, not a scored metric, so a gap in the upstream snapshot just shows as "no data" here
+// rather than blocking the report.
 function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
   const days = dailySnapshot.byEmail?.[email] || {};
-  let acceptedCalls = 0, ticketsTouched = 0, anyData = false;
+  let acceptedCalls = 0, anyData = false;
   for (const [day, v] of Object.entries(days)) {
     if (day < startDate || day > endDate) continue;
     anyData = true;
     // zendesk-proxy.js stores each day's activity as id SETS (not raw counts) so its own
     // incremental re-fetching can dedupe safely - the count here is just each set's size.
     acceptedCalls += (v.acceptedCallIds || []).length;
-    ticketsTouched += (v.touchedTicketIds || []).length;
   }
-  return { acceptedCalls, ticketsTouched, anyData };
+  return { acceptedCalls, anyData };
 }
 async function resolveZendeskUserIdForEmail(email) {
   const data = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(email)}`);
@@ -1090,8 +1092,7 @@ async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMond
     return {
       employeeEmail: email, employeeName: member.employeeName || email,
       acceptedCalls: { thisWeek: thisWeek.anyData ? thisWeek.acceptedCalls : null, lastWeek: lastWeek.anyData ? lastWeek.acceptedCalls : null },
-      newTicketsHandled: { thisWeek: newTicketsThisWeek, lastWeek: newTicketsLastWeek },
-      ticketsTouched: { thisWeek: thisWeek.anyData ? thisWeek.ticketsTouched : null, lastWeek: lastWeek.anyData ? lastWeek.ticketsTouched : null }
+      newTicketsHandled: { thisWeek: newTicketsThisWeek, lastWeek: newTicketsLastWeek }
     };
   }));
   const sumMetric = key => {
@@ -1100,8 +1101,7 @@ async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMond
     return { thisWeek: anyThis ? total('thisWeek') : null, lastWeek: anyLast ? total('lastWeek') : null };
   };
   const team = {
-    acceptedCalls: sumMetric('acceptedCalls'), newTicketsHandled: sumMetric('newTicketsHandled'),
-    ticketsTouched: sumMetric('ticketsTouched')
+    acceptedCalls: sumMetric('acceptedCalls'), newTicketsHandled: sumMetric('newTicketsHandled')
   };
   return { weekMonday, weekSunday, prevMonday, prevSunday, members: rows, team, snapshotGeneratedAt: dailySnapshot.generatedAt || '', snapshotWarnings: dailySnapshot.warnings || [] };
 }
