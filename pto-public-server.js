@@ -4600,7 +4600,12 @@ const server = http.createServer(async (req, res) => {
           if (minutesLate != null) extra.minutesLate = minutesLate;
           if (reason) extra.reason = reason;
           if (location) extra.location = location;
-          accepted[email][date] = Object.keys(extra).length ? { status: code, ...extra } : code;
+          // Every real (non-clearing) entry now carries updatedAt, so the read-side resolver
+          // (server/pto-logic.js resolveAttendancePeriodEntry) can pick the truly most-recently-
+          // saved value for a date instead of whichever batch key happens to have the largest
+          // endDate - see that function's comment for the shadowing bug this fixes. An empty
+          // code (clearing a cell) stays a bare '' - unrelated to this, and pre-existing behavior.
+          accepted[email][date] = code ? { status: code, updatedAt: new Date().toISOString(), ...extra } : '';
         }
       }
       if (Object.keys(accepted).length) {

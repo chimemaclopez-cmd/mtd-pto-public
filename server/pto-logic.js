@@ -162,34 +162,50 @@ function forecastStatus(remaining, minimum, settings) {
   return { status: 'Sufficient', label: 'Sufficient', variance };
 }
 
+// Team Attendance can be saved multiple times for the same month under different `endDate`
+// batch keys (e.g. "2026-09|2026-09-27" then later "2026-09|2026-09-30" - teamAttendanceEndDate
+// just defaults to "today", so every distinct save day mints a new key). The old lookup below
+// picked whichever matching key had the lexicographically LARGEST endDate and returned its value
+// for (email, date) outright - i.e. "biggest endDate batch wins", not "most recently written
+// value wins". That silently shadowed a real correction: a team lead adding minutesLate/reason to
+// an existing Late entry via a save keyed "2026-09-27" got ignored because an older, bare-string
+// "LATE" from a "2026-09-30" batch (saved earlier in wall-clock time, just with a later endDate)
+// still out-ranked it on every read. Writers now stamp `updatedAt` on every entry; this picks the
+// entry with the latest `updatedAt` across ALL of that month's batch keys, and only falls back to
+// the old "largest key wins" rule when neither candidate has a timestamp (both pre-fix/legacy),
+// so historical data that was never re-touched doesn't change meaning.
+function resolveAttendancePeriodEntry(attendance, email, date) {
+  const month = date.slice(0, 7);
+  let best = null, bestTime = -Infinity, bestKey = '';
+  for (const [key, period] of Object.entries(attendance.periods || {})) {
+    if (!key.startsWith(month + '|')) continue;
+    const value = period?.[email]?.[date];
+    if (!value) continue;
+    const parsed = typeof value === 'object' && typeof value.updatedAt === 'string' ? Date.parse(value.updatedAt) : NaN;
+    const time = Number.isFinite(parsed) ? parsed : -Infinity;
+    if (time > bestTime || (time === bestTime && key > bestKey)) { best = value; bestTime = time; bestKey = key; }
+  }
+  return best;
+}
+
 function attendanceCodeOnDate(attendance, email, date) {
   const auto = attendance.autoEntries?.[email]?.[date];
   if (auto) return auto.status;
-  const matches = Object.entries(attendance.periods || {})
-    .filter(([key]) => key.startsWith(date.slice(0, 7) + '|') && key.split('|')[1] >= date)
-    .sort(([a], [b]) => b.localeCompare(a));
-  for (const [, period] of matches) {
-    const value = period?.[email]?.[date];
-    if (value) return typeof value === 'object' ? value.status : value;
-  }
-  return '';
+  const value = resolveAttendancePeriodEntry(attendance, email, date);
+  if (!value) return '';
+  return typeof value === 'object' ? value.status : value;
 }
 
 // Reads the extra `minutesLate` field a manual "Late" entry can carry (stored as
 // {status:'LATE', minutesLate:N} instead of a bare string) - mirrors
-// attendanceCodeOnDate's exact same auto-entry-first-else-period-lookup priority so the
+// attendanceCodeOnDate's exact same auto-entry-first-else-resolver priority so the
 // two never disagree about which record wins.
 function attendanceMinutesLateOnDate(attendance, email, date) {
   const auto = attendance.autoEntries?.[email]?.[date];
   if (auto) return typeof auto === 'object' && Number.isFinite(auto.minutesLate) ? auto.minutesLate : null;
-  const matches = Object.entries(attendance.periods || {})
-    .filter(([key]) => key.startsWith(date.slice(0, 7) + '|') && key.split('|')[1] >= date)
-    .sort(([a], [b]) => b.localeCompare(a));
-  for (const [, period] of matches) {
-    const value = period?.[email]?.[date];
-    if (value) return typeof value === 'object' && Number.isFinite(value.minutesLate) ? value.minutesLate : null;
-  }
-  return null;
+  const value = resolveAttendancePeriodEntry(attendance, email, date);
+  if (!value) return null;
+  return typeof value === 'object' && Number.isFinite(value.minutesLate) ? value.minutesLate : null;
 }
 
 // Reads the extra `reason` field a manual entry can carry (stored as
@@ -199,14 +215,9 @@ function attendanceMinutesLateOnDate(attendance, email, date) {
 function attendanceReasonOnDate(attendance, email, date) {
   const auto = attendance.autoEntries?.[email]?.[date];
   if (auto) return typeof auto === 'object' && typeof auto.reason === 'string' ? auto.reason : '';
-  const matches = Object.entries(attendance.periods || {})
-    .filter(([key]) => key.startsWith(date.slice(0, 7) + '|') && key.split('|')[1] >= date)
-    .sort(([a], [b]) => b.localeCompare(a));
-  for (const [, period] of matches) {
-    const value = period?.[email]?.[date];
-    if (value) return typeof value === 'object' && typeof value.reason === 'string' ? value.reason : '';
-  }
-  return '';
+  const value = resolveAttendancePeriodEntry(attendance, email, date);
+  if (!value) return '';
+  return typeof value === 'object' && typeof value.reason === 'string' ? value.reason : '';
 }
 
 // Reads the extra `location` field a manual "Late" entry can carry (stored as
@@ -214,14 +225,9 @@ function attendanceReasonOnDate(attendance, email, date) {
 function attendanceLocationOnDate(attendance, email, date) {
   const auto = attendance.autoEntries?.[email]?.[date];
   if (auto) return typeof auto === 'object' && typeof auto.location === 'string' ? auto.location : '';
-  const matches = Object.entries(attendance.periods || {})
-    .filter(([key]) => key.startsWith(date.slice(0, 7) + '|') && key.split('|')[1] >= date)
-    .sort(([a], [b]) => b.localeCompare(a));
-  for (const [, period] of matches) {
-    const value = period?.[email]?.[date];
-    if (value) return typeof value === 'object' && typeof value.location === 'string' ? value.location : '';
-  }
-  return '';
+  const value = resolveAttendancePeriodEntry(attendance, email, date);
+  if (!value) return '';
+  return typeof value === 'object' && typeof value.location === 'string' ? value.location : '';
 }
 
 // Date-level forecast only (Sufficient / Warning / Critical / Below Minimum per date).
