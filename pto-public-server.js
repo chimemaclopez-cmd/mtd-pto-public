@@ -1012,7 +1012,7 @@ function huddleRecurringConcernsHtml(concerns) {
 // sections below it. Failures are per-member (one rep's lookup failing shouldn't blank the
 // whole section) and fall back to "Not Rated" rather than omitting the row.
 async function buildTeamKpiScores(members) {
-  return Promise.all(members.map(async member => {
+  const rows = await Promise.all(members.map(async member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
     try {
       const standing = await buildCoachingStandingSnapshot(email);
@@ -1022,9 +1022,10 @@ async function buildTeamKpiScores(members) {
       return { employeeEmail: email, employeeName: member.employeeName || email, kpiPeriod: null, kpiType: null, finalKpi: null, performanceStatus: 'Not Rated' };
     }
   }));
+  return { generatedAt: new Date().toISOString(), rows };
 }
 function huddleKpiScoresHtml(kpiScores) {
-  if (!kpiScores?.length) return '';
+  if (!kpiScores?.rows?.length) return '';
   const esc = escapeHtml;
   const statusPill = status => {
     const s = String(status || 'Not Rated');
@@ -1034,9 +1035,11 @@ function huddleKpiScoresHtml(kpiScores) {
     else if (/intervention|failed|missing/i.test(s)) { bg = '#fce8e8'; color = '#8b1f1f'; }
     return `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:800;background:${bg};color:${color};white-space:nowrap">${esc(s)}</span>`;
   };
-  const rows = kpiScores.map(k => `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiPeriod || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiType || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;font-weight:800">${k.finalKpi != null ? `${k.finalKpi.toFixed(1)}%` : '—'}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${statusPill(k.performanceStatus)}</td></tr>`).join('');
+  const generatedText = new Date(kpiScores.generatedAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+  const rows = kpiScores.rows.map(k => `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiPeriod || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiType || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;font-weight:800">${k.finalKpi != null ? `${k.finalKpi.toFixed(1)}%` : '—'}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${statusPill(k.performanceStatus)}</td></tr>`).join('');
   const body = `
-    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Each rep's official KPI score as of right now (most recent scored period) - a snapshot at report generation time, not a week-over-week figure like the sections below.</div>
+    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:4px">Each rep's official KPI score as of right now (most recent scored period) - a snapshot at report generation time, not a week-over-week figure like the sections below.</div>
+    <div style="font-size:11px;color:${HUDDLE_BRAND.muted};font-style:italic;margin-bottom:12px">Generated ${esc(generatedText)}</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${huddleTableHead('Team Member', 'KPI Period', 'KPI Type', 'Final KPI', 'Status')}
       <tbody>${rows}</tbody>
