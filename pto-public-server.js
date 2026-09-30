@@ -1014,6 +1014,16 @@ function huddleKpiTrendHtml(kpiTrend) {
     </table>${warningNote}${legend}`;
   return huddleSectionCard('📊 Week-over-Week KPI Trend', body, HUDDLE_BRAND.blue);
 }
+// Codes that can carry a manually-typed reason in the Team Attendance grid (mirrors
+// TEAM_ATTENDANCE_REASON_CODES in pto-public.html, minus LATE which gets its own
+// "minutes not logged" hint below instead of a "reason not logged" one).
+const HUDDLE_ATTENDANCE_REASON_CODES = new Set(['SL', 'SL-HD', 'EL', 'EL-HD']);
+function huddleMinutesLateText(minutesLate) {
+  if (minutesLate == null) return '';
+  if (minutesLate < 60) return `${minutesLate} min late`;
+  const hours = Math.floor(minutesLate / 60), mins = minutesLate % 60;
+  return `${hours}h${mins ? ` ${mins}m` : ''} late`;
+}
 function huddleAttendanceTrendHtml(attendanceTrend) {
   if (!attendanceTrend?.length) return '';
   const esc = escapeHtml, pctText = v => v == null ? '—' : `${v.toFixed(1)}%`;
@@ -1021,12 +1031,20 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
     const attendanceCell = `${pctText(m.attendancePercent.thisWeek)}${huddleTrendArrow(m.attendancePercent.thisWeek, m.attendancePercent.lastWeek)}`;
     const reliabilityCell = `${pctText(m.reliabilityPercent.thisWeek)}${huddleTrendArrow(m.reliabilityPercent.thisWeek, m.reliabilityPercent.lastWeek)}`;
     const outDaysHtml = m.outDays.length
-      ? `<ul style="margin:2px 0 0;padding-left:18px">${m.outDays.map(d => `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${d.minutesLate != null ? ` (${d.minutesLate} min late)` : ''}${d.reason ? `: ${esc(d.reason)}` : ''}</li>`).join('')}</ul>`
+      ? `<ul style="margin:2px 0 0;padding-left:18px">${m.outDays.map(d => {
+          const missingNote = `<span style="color:${HUDDLE_BRAND.muted};font-style:italic">not logged</span>`;
+          const detail = d.code === 'LATE'
+            ? ` (${d.minutesLate != null ? huddleMinutesLateText(d.minutesLate) : missingNote})`
+            : HUDDLE_ATTENDANCE_REASON_CODES.has(d.code)
+              ? `: ${d.reason ? esc(d.reason) : missingNote}`
+              : '';
+          return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}</li>`;
+        }).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
     return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${attendanceCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${reliabilityCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
   }).join('');
   const body = `
-    <div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Attendance % is present-or-not (a Late still counts as present); Reliability % also docks a Late (half credit, like a half-day absence).</div>
+    <div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Attendance % is present-or-not (a Late still counts as present); Reliability % also docks a Late (half credit, like a half-day absence). Minutes late and Sick/Emergency Leave reasons come from the Team Attendance grid - anything marked "not logged" below just needs those fields filled in there.</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${huddleTableHead('Team Member', 'Attendance %', 'Reliability %', 'Notable Attendance Events')}
       <tbody>${rows}</tbody>
