@@ -953,6 +953,49 @@ function huddleSectionCard(title, bodyHtml, accentColor) {
 function huddleTableHead(...labels) {
   return `<thead><tr style="background:#eef0f5">${labels.map(l => `<th style="padding:9px 12px;text-align:left;text-transform:uppercase;font-size:10px;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${l}</th>`).join('')}</tr></thead>`;
 }
+// A short, data-driven executive summary for the KPI trend section - composed fresh from the
+// actual team totals + per-member deltas every time (never hardcoded/cached text), so it stays
+// accurate even though it reads like prose. Deliberately template-based rather than an AI call:
+// this has to be fast and always available every time someone clicks Preview Report, not
+// dependent on an extra network round-trip that could fail or add latency.
+function huddleKpiExecutiveSummary(kpiTrend) {
+  const esc = escapeHtml;
+  const delta = m => (m.thisWeek == null || m.lastWeek == null) ? null : m.thisWeek - m.lastWeek;
+  const pctOf = (d, base) => (d == null || !base) ? null : Math.abs(d) / base * 100;
+  const directionPhrase = (label, m) => {
+    const d = delta(m);
+    if (d == null) return `${label} data isn't available for a week-over-week comparison yet.`;
+    const pct = pctOf(d, m.lastWeek);
+    const pctText = pct != null ? ` (${pct.toFixed(0)}%)` : '';
+    if (d === 0) return `${label} held flat at ${m.thisWeek}, matching last week.`;
+    const verb = d > 0 ? 'rose' : 'fell';
+    return `${label} ${verb} ${Math.abs(d)}${pctText} week-over-week, from ${m.lastWeek} to ${m.thisWeek}.`;
+  };
+  const sentences = [
+    directionPhrase('Inbound Calls Received', kpiTrend.team.acceptedCalls),
+    directionPhrase('New Tickets Handled', kpiTrend.team.newTicketsHandled)
+  ];
+  // Call out the single biggest mover in each direction (by New Tickets Handled, since Calls can
+  // be null for non-voice reps) - gives the reader someone concrete to check in with or praise,
+  // rather than just abstract team totals.
+  const memberDeltas = kpiTrend.members
+    .map(m => ({ name: m.employeeName, d: delta(m.newTicketsHandled) }))
+    .filter(m => m.d != null && m.d !== 0);
+  // Drops and gains are independent pools, not "top vs bottom of one sorted list" - with only
+  // one non-zero mover (who's a riser, not a decliner), a same-name check would otherwise
+  // silently swallow their callout entirely.
+  const drops = memberDeltas.filter(m => m.d < 0);
+  const gains = memberDeltas.filter(m => m.d > 0);
+  if (drops.length) {
+    const biggestDrop = drops.reduce((a, b) => (b.d < a.d ? b : a));
+    sentences.push(`${esc(biggestDrop.name)} had the largest drop this week (${biggestDrop.d} tickets) and may be worth a quick check-in.`);
+  }
+  if (gains.length) {
+    const biggestGain = gains.reduce((a, b) => (b.d > a.d ? b : a));
+    sentences.push(`${esc(biggestGain.name)} posted the strongest gain (+${biggestGain.d} tickets).`);
+  }
+  return `<div style="font-size:13px;color:${HUDDLE_BRAND.ink};line-height:1.55;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #eef0f5">${sentences.join(' ')}</div>`;
+}
 function huddleKpiTrendHtml(kpiTrend) {
   if (!kpiTrend || !kpiTrend.members?.length) return '';
   const esc = escapeHtml;
@@ -961,12 +1004,14 @@ function huddleKpiTrendHtml(kpiTrend) {
   const teamRow = `<tr style="font-weight:800;background:${HUDDLE_BRAND.bg}"><td style="padding:10px 12px">Team Total</td><td style="padding:10px 12px">${cell(kpiTrend.team.acceptedCalls)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.newTicketsHandled)}</td></tr>`;
   const memberRows = kpiTrend.members.map(m => `<tr><td style="${td}">${esc(m.employeeName)}</td><td style="${td}">${cell(m.acceptedCalls)}</td><td style="${td}">${cell(m.newTicketsHandled)}</td></tr>`).join('');
   const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:${HUDDLE_BRAND.red};font-size:12px;margin:10px 0 0">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
+  const legend = `<div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-top:10px">&#9650; <span style="color:${HUDDLE_BRAND.green};font-weight:700">green</span> = increase vs last week &nbsp;&middot;&nbsp; &#9660; <span style="color:${HUDDLE_BRAND.red};font-weight:700">red</span> = decrease vs last week &nbsp;&middot;&nbsp; (flat) = no change</div>`;
   const body = `
+    ${huddleKpiExecutiveSummary(kpiTrend)}
     <div style="font-size:13px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">This week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${huddleTableHead('Team Member', 'Inbound Calls Received', 'New Tickets Handled')}
       <tbody>${teamRow}${memberRows}</tbody>
-    </table>${warningNote}`;
+    </table>${warningNote}${legend}`;
   return huddleSectionCard('📊 Week-over-Week KPI Trend', body, HUDDLE_BRAND.blue);
 }
 function huddleAttendanceTrendHtml(attendanceTrend) {
@@ -1053,7 +1098,10 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScor
   const esc = escapeHtml;
   const header = `
     <div class="huddle-report-header" style="background:${HUDDLE_BRAND.gradient};border-radius:16px;padding:26px 28px;color:#fff;margin-bottom:18px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">Lofty Support</div>
+      <div style="display:flex;align-items:center;gap:9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">
+        <img src="shared/img/lofty-logo.png" alt="Lofty" style="height:18px;width:auto;background:#fff;border-radius:5px;padding:4px 9px;display:block">
+        <span>Support</span>
+      </div>
       <div style="font-size:25px;font-weight:850;margin-top:5px">Weekly Performance Report</div>
       <div style="font-size:14px;margin-top:7px;opacity:.95">${esc(tlName)} &middot; ${fmt(weekMonday)} &ndash; ${fmt(weekSunday)}</div>
     </div>`;
