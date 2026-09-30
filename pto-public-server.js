@@ -973,15 +973,17 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
   if (!attendanceTrend?.length) return '';
   const esc = escapeHtml, pctText = v => v == null ? '—' : `${v.toFixed(1)}%`;
   const rows = attendanceTrend.map(m => {
-    const pctCell = `${pctText(m.attendancePercent.thisWeek)}${huddleTrendArrow(m.attendancePercent.thisWeek, m.attendancePercent.lastWeek)}`;
+    const attendanceCell = `${pctText(m.attendancePercent.thisWeek)}${huddleTrendArrow(m.attendancePercent.thisWeek, m.attendancePercent.lastWeek)}`;
+    const reliabilityCell = `${pctText(m.reliabilityPercent.thisWeek)}${huddleTrendArrow(m.reliabilityPercent.thisWeek, m.reliabilityPercent.lastWeek)}`;
     const outDaysHtml = m.outDays.length
       ? `<ul style="margin:2px 0 0;padding-left:18px">${m.outDays.map(d => `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${d.minutesLate != null ? ` (${d.minutesLate} min late)` : ''}${d.reason ? `: ${esc(d.reason)}` : ''}</li>`).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
-    return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${pctCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
+    return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${attendanceCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${reliabilityCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
   }).join('');
   const body = `
+    <div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Attendance % is present-or-not (a Late still counts as present); Reliability % also docks a Late (half credit, like a half-day absence).</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      ${huddleTableHead('Team Member', 'Attendance/Reliability %', 'Notable Attendance Events')}
+      ${huddleTableHead('Team Member', 'Attendance %', 'Reliability %', 'Notable Attendance Events')}
       <tbody>${rows}</tbody>
     </table>`;
   return huddleSectionCard('🗓️ Attendance This Week', body, HUDDLE_BRAND.purple);
@@ -1220,12 +1222,18 @@ async function buildTeamAttendanceTrend(members, roster, schedules, attendance, 
   const records = roster.records || [];
   return members.map(member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
+    // Two distinct numbers, per Mac: Attendance % is strictly present-or-not (the portal's
+    // standard, unmodified definition - a Late still counts as present, same as everywhere
+    // else); Reliability % is the one that docks a Late (half credit, like a half-day absence).
+    const thisWeekAttendance = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, weekMonday, weekSunday);
+    const lastWeekAttendance = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, prevMonday, prevSunday);
     const thisWeekReliability = computeWeeklyReliability(records, schedules, attendance, email, weekMonday, weekSunday);
     const lastWeekReliability = computeWeeklyReliability(records, schedules, attendance, email, prevMonday, prevSunday);
     const outDays = ptoLogic.buildAttendanceTrend(records, schedules, attendance, email, weekMonday, weekSunday);
     return {
       employeeEmail: email, employeeName: member.employeeName || email,
-      attendancePercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
+      attendancePercent: { thisWeek: thisWeekAttendance?.attendancePercentage ?? null, lastWeek: lastWeekAttendance?.attendancePercentage ?? null },
+      reliabilityPercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
       outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null }))
     };
   });
