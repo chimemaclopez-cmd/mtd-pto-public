@@ -915,32 +915,59 @@ function resolveHuddleRecipients(roster, tlEmail) {
   return { managerEmail, managerName: tlRecord.teamLeadName || '', coLeads };
 }
 const HUDDLE_ATTENDANCE_LABELS = { ONSITE: 'Onsite', WFH: 'Work From Home', LATE: 'Late', RD: 'Rest Day', PTO: 'PTO', PARTIAL_PTO: 'Partial PTO', SL: 'Sick Leave', 'SL-HD': 'Sick Leave (Half Day)', EL: 'Emergency Leave', 'EL-HD': 'Emergency Leave (Half Day)', NCNS: 'No Call No Show', A: 'Absent', BL: 'Bereavement Leave', SUSPENDED: 'Suspended' };
+// Lofty's actual brand palette (lifted straight from shared/kpi.css's :root, not reinvented here)
+// so this report reads as part of the same product as the rest of the portal, not a bare-bones
+// email fragment.
+const HUDDLE_BRAND = { ink: '#202437', muted: '#5b6274', line: '#dfe2ea', bg: '#f6f7fb', blue: '#3b5cde', blueDark: '#2e46b8', green: '#19ab63', red: '#c2313a', amber: '#ba7517', purple: '#572fb4', gradient: 'linear-gradient(135deg,#3b5cde,#572fb4)' };
 // Arrow + delta for a this-week-vs-last-week pair. `higherIsBetter` flips which direction reads
-// as "improved" - every metric here (calls, tickets, jira, attendance %) is higher-is-better, but
-// the parameter stays explicit rather than hardcoded so a future lower-is-better metric (e.g. a
+// as "improved" - every metric here (calls, tickets, attendance %) is higher-is-better, but the
+// parameter stays explicit rather than hardcoded so a future lower-is-better metric (e.g. a
 // backlog count) doesn't silently get graded backwards.
 function huddleTrendArrow(thisWeek, lastWeek, higherIsBetter = true) {
   if (thisWeek == null || lastWeek == null) return '';
   const diff = thisWeek - lastWeek;
-  if (diff === 0) return ' <span style="color:#777">(flat)</span>';
+  if (diff === 0) return ` <span style="color:${HUDDLE_BRAND.muted};font-weight:600">(flat)</span>`;
   const improved = higherIsBetter ? diff > 0 : diff < 0;
   const arrow = diff > 0 ? '&#9650;' : '&#9660;';
-  const color = improved ? '#1a7f37' : '#c0392b';
-  return ` <span style="color:${color};font-weight:600">${arrow} ${diff > 0 ? '+' : ''}${diff}</span>`;
+  const color = improved ? HUDDLE_BRAND.green : HUDDLE_BRAND.red;
+  return ` <span style="color:${color};font-weight:700">${arrow} ${diff > 0 ? '+' : ''}${diff}</span>`;
+}
+// A colored status pill matching the portal's own .pill/.status-* look (kpi.css) - Done reads as
+// resolved (green), In Progress as underway (amber), Open as neutral (gray), so a reader can
+// scan the whole report by color before reading a word of it.
+function huddleActionPill(status) {
+  const map = { Done: ['#e3f7ec', '#0f7a49'], 'In Progress': ['#fff2cc', '#7a4a05'], Open: ['#eef0f5', HUDDLE_BRAND.muted] };
+  const [bg, color] = map[status] || map.Open;
+  return `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:800;background:${bg};color:${color};white-space:nowrap">${escapeHtml(status)}</span>`;
+}
+// Every report section is the same white card with a colored left accent (the accent is the only
+// thing that changes per section - KPI trend blue, attendance purple, follow-through amber,
+// recurring concerns red) - one consistent shape instead of five different ad hoc layouts.
+function huddleSectionCard(title, bodyHtml, accentColor) {
+  return `
+    <div style="background:#fff;border:1px solid ${HUDDLE_BRAND.line};border-left:4px solid ${accentColor};border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 4px 14px rgba(32,36,55,.05)">
+      <div style="font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;color:${HUDDLE_BRAND.muted};margin-bottom:14px">${title}</div>
+      ${bodyHtml}
+    </div>`;
+}
+function huddleTableHead(...labels) {
+  return `<thead><tr style="background:#eef0f5">${labels.map(l => `<th style="padding:9px 12px;text-align:left;text-transform:uppercase;font-size:10px;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${l}</th>`).join('')}</tr></thead>`;
 }
 function huddleKpiTrendHtml(kpiTrend) {
   if (!kpiTrend || !kpiTrend.members?.length) return '';
   const esc = escapeHtml;
   const cell = m => `${m.thisWeek ?? '—'}${huddleTrendArrow(m.thisWeek, m.lastWeek)}`;
-  const teamRow = `<tr style="font-weight:700;background:#f4f5fa"><td>Team Total</td><td>${cell(kpiTrend.team.acceptedCalls)}</td><td>${cell(kpiTrend.team.newTicketsHandled)}</td><td>${cell(kpiTrend.team.ticketsTouched)}</td></tr>`;
-  const memberRows = kpiTrend.members.map(m => `<tr><td>${esc(m.employeeName)}</td><td>${cell(m.acceptedCalls)}</td><td>${cell(m.newTicketsHandled)}</td><td>${cell(m.ticketsTouched)}</td></tr>`).join('');
-  const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:#c0392b;font-size:12px">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
-  return `
-    <div style="margin:24px 0 8px"><b>Week-over-week: this week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</b></div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px" border="1" cellpadding="6">
-      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Inbound Calls Received</th><th>New Tickets Handled</th><th>Tickets Touched/Updated</th></tr></thead>
+  const td = 'padding:10px 12px;border-top:1px solid #eef0f5';
+  const teamRow = `<tr style="font-weight:800;background:${HUDDLE_BRAND.bg}"><td style="padding:10px 12px">Team Total</td><td style="padding:10px 12px">${cell(kpiTrend.team.acceptedCalls)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.newTicketsHandled)}</td><td style="padding:10px 12px">${cell(kpiTrend.team.ticketsTouched)}</td></tr>`;
+  const memberRows = kpiTrend.members.map(m => `<tr><td style="${td}">${esc(m.employeeName)}</td><td style="${td}">${cell(m.acceptedCalls)}</td><td style="${td}">${cell(m.newTicketsHandled)}</td><td style="${td}">${cell(m.ticketsTouched)}</td></tr>`).join('');
+  const warningNote = kpiTrend.snapshotWarnings?.length ? `<p style="color:${HUDDLE_BRAND.red};font-size:12px;margin:10px 0 0">Some activity data could not be refreshed: ${kpiTrend.snapshotWarnings.map(esc).join('; ')}</p>` : '';
+  const body = `
+    <div style="font-size:13px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">This week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${huddleTableHead('Team Member', 'Inbound Calls Received', 'New Tickets Handled', 'Tickets Touched/Updated')}
       <tbody>${teamRow}${memberRows}</tbody>
     </table>${warningNote}`;
+  return huddleSectionCard('📊 Week-over-Week KPI Trend', body, HUDDLE_BRAND.blue);
 }
 function huddleAttendanceTrendHtml(attendanceTrend) {
   if (!attendanceTrend?.length) return '';
@@ -948,57 +975,67 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
   const rows = attendanceTrend.map(m => {
     const pctCell = `${pctText(m.attendancePercent.thisWeek)}${huddleTrendArrow(m.attendancePercent.thisWeek, m.attendancePercent.lastWeek)}`;
     const outDaysHtml = m.outDays.length
-      ? `<ul style="margin:4px 0 0;padding-left:18px">${m.outDays.map(d => `<li>${esc(d.date)} - <b>${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</b>${d.minutesLate != null ? ` (${d.minutesLate} min late)` : ''}${d.reason ? `: ${esc(d.reason)}` : ''}</li>`).join('')}</ul>`
-      : '<span style="color:#777">No absences or lates this week.</span>';
-    return `<tr><td style="vertical-align:top">${esc(m.employeeName)}</td><td style="vertical-align:top">${pctCell}</td><td>${outDaysHtml}</td></tr>`;
+      ? `<ul style="margin:2px 0 0;padding-left:18px">${m.outDays.map(d => `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${d.minutesLate != null ? ` (${d.minutesLate} min late)` : ''}${d.reason ? `: ${esc(d.reason)}` : ''}</li>`).join('')}</ul>`
+      : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
+    return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${pctCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
   }).join('');
-  return `
-    <div style="margin:24px 0 8px"><b>Attendance this week</b></div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px" border="1" cellpadding="6">
-      <thead><tr style="background:#eef0f8"><th>Team Member</th><th>Attendance %</th><th>Reason for being out</th></tr></thead>
+  const body = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${huddleTableHead('Team Member', 'Attendance %', 'Reason for Being Out')}
       <tbody>${rows}</tbody>
     </table>`;
+  return huddleSectionCard('🗓️ Attendance This Week', body, HUDDLE_BRAND.purple);
 }
 function huddleFollowThroughHtml(ft) {
   if (!ft || (!ft.lastWeekTotal && !ft.thisWeekTotal)) return '';
   const esc = escapeHtml;
   const carried = ft.carriedOver.length
-    ? `<ul style="margin:4px 0 0;padding-left:18px">${ft.carriedOver.map(a => `<li>${esc(a.description)} - <b>${esc(a.status)}</b>${a.owner ? ` (owner: ${esc(a.owner)})` : ''}</li>`).join('')}</ul>`
-    : '<span style="color:#777">None - every action still open last week was either resolved or dropped.</span>';
-  return `
-    <div style="margin:24px 0 8px"><b>Action item follow-through</b></div>
-    <p style="font-size:13px">Last week: ${ft.lastWeekTotal} action${ft.lastWeekTotal === 1 ? '' : 's'} logged, ${ft.lastWeekDone} marked Done. This week: ${ft.thisWeekTotal} action${ft.thisWeekTotal === 1 ? '' : 's'} logged.</p>
-    <p style="font-size:13px;margin-bottom:2px"><b>Still open last week and carried into this week:</b></p>${carried}`;
+    ? `<ul style="margin:8px 0 0;padding-left:18px">${ft.carriedOver.map(a => `<li style="margin-bottom:5px">${esc(a.description)} ${huddleActionPill(a.status)}${a.owner ? ` <span style="color:${HUDDLE_BRAND.muted}">(owner: ${esc(a.owner)})</span>` : ''}</li>`).join('')}</ul>`
+    : `<div style="margin-top:8px;color:${HUDDLE_BRAND.green};font-weight:600">&#10003; None - every action still open last week was either resolved or dropped.</div>`;
+  const body = `
+    <div style="font-size:13px;color:${HUDDLE_BRAND.ink}">Last week: <b>${ft.lastWeekTotal}</b> action${ft.lastWeekTotal === 1 ? '' : 's'} logged, <b>${ft.lastWeekDone}</b> marked Done. This week: <b>${ft.thisWeekTotal}</b> action${ft.thisWeekTotal === 1 ? '' : 's'} logged.</div>
+    <div style="font-size:11px;font-weight:800;color:${HUDDLE_BRAND.muted};text-transform:uppercase;letter-spacing:.3px;margin-top:14px">Still Open, Carried Into This Week</div>
+    ${carried}`;
+  return huddleSectionCard('✅ Action Item Follow-Through', body, HUDDLE_BRAND.amber);
 }
 function huddleRecurringConcernsHtml(concerns) {
   if (!concerns?.length) return '';
   const esc = escapeHtml;
-  return `
-    <div style="margin:24px 0 8px"><b>Recurring concerns</b></div>
-    <p style="font-size:13px;color:#777;margin-bottom:2px">Raised again this week, also seen last week - may not be fully resolved:</p>
-    <ul style="margin:4px 0 0;padding-left:18px">${concerns.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
+  const body = `
+    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:8px">Raised again this week, also seen last week - may not be fully resolved:</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px">${concerns.map(c => `<li style="margin-bottom:4px">${esc(c)}</li>`).join('')}</ul>`;
+  return huddleSectionCard('🔁 Recurring Concerns', body, HUDDLE_BRAND.red);
 }
 function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const esc = escapeHtml;
+  const header = `
+    <div style="background:${HUDDLE_BRAND.gradient};border-radius:16px;padding:26px 28px;color:#fff;margin-bottom:18px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;opacity:.85">Lofty Support</div>
+      <div style="font-size:25px;font-weight:850;margin-top:5px">Weekly Performance Report</div>
+      <div style="font-size:14px;margin-top:7px;opacity:.95">${esc(tlName)} &middot; ${fmt(weekMonday)} &ndash; ${fmt(weekSunday)}</div>
+    </div>`;
   const trendSections = `${huddleKpiTrendHtml(kpiTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
   if (!entries.length) {
-    return `<p><b>${esc(tlName)}'s Weekly Performance Report - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>No huddles were logged for this week.</p>${trendSections}`;
+    return `${header}${huddleSectionCard('🗒️ Huddle Notes', `<div style="color:${HUDDLE_BRAND.muted}">No huddles were logged for this week.</div>`, HUDDLE_BRAND.muted)}${trendSections}`;
   }
-  const sections = entries.map(e => {
+  const entryCards = entries.map((e, i) => {
     const actionsHtml = (e.actions || []).length
-      ? `<ul>${e.actions.map(a => `<li>${esc(a.description)} - <b>${esc(a.status)}</b>${a.owner ? ` (owner: ${esc(a.owner)})` : ''}</li>`).join('')}</ul>`
-      : '<p style="color:#777">No actions logged.</p>';
+      ? `<ul style="margin:2px 0 0;padding-left:18px">${e.actions.map(a => `<li style="margin-bottom:4px">${esc(a.description)} ${huddleActionPill(a.status)}${a.owner ? ` <span style="color:${HUDDLE_BRAND.muted}">(owner: ${esc(a.owner)})</span>` : ''}</li>`).join('')}</ul>`
+      : `<span style="color:${HUDDLE_BRAND.muted}">No actions logged.</span>`;
+    const field = (label, value) => `<div style="margin-bottom:9px"><b style="font-size:11px;text-transform:uppercase;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${label}</b><div style="margin-top:3px">${value}</div></div>`;
+    const isLast = i === entries.length - 1;
     return `
-      <div style="margin-bottom:20px;padding:14px 16px;border:1px solid #e2e5ee;border-radius:8px;">
-        <div style="font-weight:700;color:#1e2761;margin-bottom:8px;">${esc(fmt(e.huddleDate))}</div>
-        <p><b>Key updates:</b><br>${esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>')}</p>
-        <p><b>Concerns raised:</b><br>${esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>')}</p>
-        <p><b>Actions:</b></p>${actionsHtml}
-        <p><b>Decisions/support needed:</b><br>${esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>')}</p>
+      <div style="margin-bottom:${isLast ? '0' : '16px'};padding-bottom:${isLast ? '0' : '16px'};border-bottom:${isLast ? 'none' : '1px solid #eef0f5'}">
+        <div style="font-weight:800;color:${HUDDLE_BRAND.blue};margin-bottom:10px">${esc(fmt(e.huddleDate))}</div>
+        ${field('Key Updates', esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>'))}
+        ${field('Concerns Raised', esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>'))}
+        ${field('Actions', actionsHtml)}
+        ${field('Decisions/Support Needed', esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>'))}
       </div>`;
   }).join('');
-  return `<p><b>${esc(tlName)}'s Weekly Performance Report - ${fmt(weekMonday)} to ${fmt(weekSunday)}</b></p><p>${entries.length} huddle${entries.length === 1 ? '' : 's'} logged this week.</p>${sections}${trendSections}`;
+  const huddleCard = huddleSectionCard(`🗒️ Huddle Notes <span style="color:${HUDDLE_BRAND.blue};font-weight:700;text-transform:none;letter-spacing:0">(${entries.length} logged)</span>`, entryCards, HUDDLE_BRAND.blue);
+  return `${header}${huddleCard}${trendSections}`;
 }
 // --- Huddle Log week-over-week KPI trend + attendance trend ----------------------------------
 // Four metrics: Inbound Calls Received, New Tickets Handled, Tickets Touched/Updated, and Jira
@@ -4839,37 +4876,11 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, record });
     }
 
-    const huddleLogMatch = parsed.pathname.match(/^\/api\/my\/huddle-log\/([^/]+)$/);
-    if (huddleLogMatch) {
-      const huddleId = decodeURIComponent(huddleLogMatch[1]);
-      const data = await loadHuddleLog();
-      const index = (data.records || []).findIndex(x => x.huddleId === huddleId);
-      if (index < 0) return json(res, 404, { ok: false, error: 'Huddle entry not found.' });
-      const current = data.records[index];
-      if (ptoLogic.cleanEmail(current.teamLeadEmail) !== identity) return json(res, 403, { ok: false, error: 'Only the team lead who logged this entry can edit or delete it.' });
-      if (req.method === 'PUT') {
-        const body = await readJsonBody(req);
-        const actions = Array.isArray(body.actions) ? body.actions
-          .map(a => ({ description: String(a?.description || '').trim(), status: HUDDLE_ACTION_STATUSES.includes(a?.status) ? a.status : 'Open', owner: String(a?.owner || '').trim() }))
-          .filter(a => a.description) : current.actions;
-        const next = {
-          ...current,
-          huddleDate: ptoLogic.validDate(body.huddleDate) ? body.huddleDate : current.huddleDate,
-          keyUpdates: body.keyUpdates != null ? String(body.keyUpdates).trim() : current.keyUpdates,
-          concernsRaised: body.concernsRaised != null ? String(body.concernsRaised).trim() : current.concernsRaised,
-          decisionsNeeded: body.decisionsNeeded != null ? String(body.decisionsNeeded).trim() : current.decisionsNeeded,
-          actions, updatedAt: new Date().toISOString()
-        };
-        data.records[index] = next;
-        await saveHuddleLog(data);
-        return json(res, 200, { ok: true, record: next });
-      }
-      if (req.method === 'DELETE') {
-        data.records.splice(index, 1);
-        await saveHuddleLog(data);
-        return json(res, 200, { ok: true, deleted: huddleId });
-      }
-    }
+    // These 3 literal sub-paths (co-leads/preview/send-now) MUST be checked before the generic
+    // huddleLogMatch wildcard below - that regex matches ANY /api/my/huddle-log/<anything> and,
+    // finding no huddle record with id "preview"/"co-leads"/"send-now", was returning a 404
+    // "Huddle entry not found" before these routes ever ran (confirmed live: Preview Report was
+    // silently broken since it shipped). Order matters here; do not move these below the wildcard.
 
     // Manual override of the auto-inferred co-Team-Lead cc list (the jobTitle heuristic in
     // resolveHuddleRecipients() won't always be right) - null/empty body.emails reverts to
@@ -4914,6 +4925,38 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, sentEntryCount: entries.length, managerEmail, ccList });
       } catch (error) {
         return json(res, 502, { ok: false, error: error.message });
+      }
+    }
+
+    const huddleLogMatch = parsed.pathname.match(/^\/api\/my\/huddle-log\/([^/]+)$/);
+    if (huddleLogMatch) {
+      const huddleId = decodeURIComponent(huddleLogMatch[1]);
+      const data = await loadHuddleLog();
+      const index = (data.records || []).findIndex(x => x.huddleId === huddleId);
+      if (index < 0) return json(res, 404, { ok: false, error: 'Huddle entry not found.' });
+      const current = data.records[index];
+      if (ptoLogic.cleanEmail(current.teamLeadEmail) !== identity) return json(res, 403, { ok: false, error: 'Only the team lead who logged this entry can edit or delete it.' });
+      if (req.method === 'PUT') {
+        const body = await readJsonBody(req);
+        const actions = Array.isArray(body.actions) ? body.actions
+          .map(a => ({ description: String(a?.description || '').trim(), status: HUDDLE_ACTION_STATUSES.includes(a?.status) ? a.status : 'Open', owner: String(a?.owner || '').trim() }))
+          .filter(a => a.description) : current.actions;
+        const next = {
+          ...current,
+          huddleDate: ptoLogic.validDate(body.huddleDate) ? body.huddleDate : current.huddleDate,
+          keyUpdates: body.keyUpdates != null ? String(body.keyUpdates).trim() : current.keyUpdates,
+          concernsRaised: body.concernsRaised != null ? String(body.concernsRaised).trim() : current.concernsRaised,
+          decisionsNeeded: body.decisionsNeeded != null ? String(body.decisionsNeeded).trim() : current.decisionsNeeded,
+          actions, updatedAt: new Date().toISOString()
+        };
+        data.records[index] = next;
+        await saveHuddleLog(data);
+        return json(res, 200, { ok: true, record: next });
+      }
+      if (req.method === 'DELETE') {
+        data.records.splice(index, 1);
+        await saveHuddleLog(data);
+        return json(res, 200, { ok: true, deleted: huddleId });
       }
     }
 
