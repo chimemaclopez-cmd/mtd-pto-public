@@ -981,7 +981,7 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
   }).join('');
   const body = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      ${huddleTableHead('Team Member', 'Attendance %', 'Reason for Being Out')}
+      ${huddleTableHead('Team Member', 'Attendance/Reliability %', 'Notable Attendance Events')}
       <tbody>${rows}</tbody>
     </table>`;
   return huddleSectionCard('🗓️ Attendance This Week', body, HUDDLE_BRAND.purple);
@@ -1006,7 +1006,44 @@ function huddleRecurringConcernsHtml(concerns) {
     <ul style="margin:0;padding-left:18px;font-size:13px">${concerns.map(c => `<li style="margin-bottom:4px">${esc(c)}</li>`).join('')}</ul>`;
   return huddleSectionCard('🔁 Recurring Concerns', body, HUDDLE_BRAND.red);
 }
-function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
+// Each rep's OFFICIAL KPI standing (the same finalKpi/performanceStatus Coaching already shows,
+// via buildCoachingStandingSnapshot - not reinvented) as of right now, i.e. whenever this report
+// happens to be generated - a point-in-time snapshot, not a week-over-week figure like the
+// sections below it. Failures are per-member (one rep's lookup failing shouldn't blank the
+// whole section) and fall back to "Not Rated" rather than omitting the row.
+async function buildTeamKpiScores(members) {
+  return Promise.all(members.map(async member => {
+    const email = ptoLogic.cleanEmail(member.employeeEmail);
+    try {
+      const standing = await buildCoachingStandingSnapshot(email);
+      return { employeeEmail: email, employeeName: member.employeeName || email, kpiPeriod: standing.kpiPeriod, kpiType: standing.kpiType, finalKpi: standing.finalKpi, performanceStatus: standing.performanceStatus };
+    } catch (error) {
+      console.error(`[huddle-kpi-scores] Standing lookup failed for ${email}:`, error.message);
+      return { employeeEmail: email, employeeName: member.employeeName || email, kpiPeriod: null, kpiType: null, finalKpi: null, performanceStatus: 'Not Rated' };
+    }
+  }));
+}
+function huddleKpiScoresHtml(kpiScores) {
+  if (!kpiScores?.length) return '';
+  const esc = escapeHtml;
+  const statusPill = status => {
+    const s = String(status || 'Not Rated');
+    let bg = '#eef0f5', color = HUDDLE_BRAND.muted;
+    if (/exceptional|exceeds|meets/i.test(s)) { bg = '#e3f7ec'; color = '#0f7a49'; }
+    else if (/watch|partial|pending|stale/i.test(s)) { bg = '#fff2cc'; color = '#7a4a05'; }
+    else if (/intervention|failed|missing/i.test(s)) { bg = '#fce8e8'; color = '#8b1f1f'; }
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:800;background:${bg};color:${color};white-space:nowrap">${esc(s)}</span>`;
+  };
+  const rows = kpiScores.map(k => `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiPeriod || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiType || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;font-weight:800">${k.finalKpi != null ? `${k.finalKpi.toFixed(1)}%` : '—'}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${statusPill(k.performanceStatus)}</td></tr>`).join('');
+  const body = `
+    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Each rep's official KPI score as of right now (most recent scored period) - a snapshot at report generation time, not a week-over-week figure like the sections below.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${huddleTableHead('Team Member', 'KPI Period', 'KPI Type', 'Final KPI', 'Status')}
+      <tbody>${rows}</tbody>
+    </table>`;
+  return huddleSectionCard('📈 Current KPI Scores', body, HUDDLE_BRAND.blue);
+}
+function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScores = [], kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const esc = escapeHtml;
   const header = `
@@ -1015,27 +1052,32 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTren
       <div style="font-size:25px;font-weight:850;margin-top:5px">Weekly Performance Report</div>
       <div style="font-size:14px;margin-top:7px;opacity:.95">${esc(tlName)} &middot; ${fmt(weekMonday)} &ndash; ${fmt(weekSunday)}</div>
     </div>`;
+  // Order: current KPI standing first, then the week-over-week trend sections, then huddle notes
+  // last (per Mac - the report leads with numbers, huddle notes are the closing context).
+  const kpiScoresSection = huddleKpiScoresHtml(kpiScores);
   const trendSections = `${huddleKpiTrendHtml(kpiTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
+  let huddleSection;
   if (!entries.length) {
-    return `${header}${huddleSectionCard('🗒️ Huddle Notes', `<div style="color:${HUDDLE_BRAND.muted}">No huddles were logged for this week.</div>`, HUDDLE_BRAND.muted)}${trendSections}`;
+    huddleSection = huddleSectionCard('🗒️ Huddle Notes', `<div style="color:${HUDDLE_BRAND.muted}">No huddles were logged for this week.</div>`, HUDDLE_BRAND.muted);
+  } else {
+    const entryCards = entries.map((e, i) => {
+      const actionsHtml = (e.actions || []).length
+        ? `<ul style="margin:2px 0 0;padding-left:18px">${e.actions.map(a => `<li style="margin-bottom:4px">${esc(a.description)} ${huddleActionPill(a.status)}${a.owner ? ` <span style="color:${HUDDLE_BRAND.muted}">(owner: ${esc(a.owner)})</span>` : ''}</li>`).join('')}</ul>`
+        : `<span style="color:${HUDDLE_BRAND.muted}">No actions logged.</span>`;
+      const field = (label, value) => `<div class="huddle-field" style="margin-bottom:9px"><b style="font-size:11px;text-transform:uppercase;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${label}</b><div style="margin-top:3px">${value}</div></div>`;
+      const isLast = i === entries.length - 1;
+      return `
+        <div class="huddle-entry" style="margin-bottom:${isLast ? '0' : '16px'};padding-bottom:${isLast ? '0' : '16px'};border-bottom:${isLast ? 'none' : '1px solid #eef0f5'}">
+          <div style="font-weight:800;color:${HUDDLE_BRAND.blue};margin-bottom:10px">${esc(fmt(e.huddleDate))}</div>
+          ${field('Key Updates', esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>'))}
+          ${field('Concerns Raised', esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>'))}
+          ${field('Actions', actionsHtml)}
+          ${field('Decisions/Support Needed', esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>'))}
+        </div>`;
+    }).join('');
+    huddleSection = huddleSectionCard(`🗒️ Huddle Notes <span style="color:${HUDDLE_BRAND.blue};font-weight:700;text-transform:none;letter-spacing:0">(${entries.length} logged)</span>`, entryCards, HUDDLE_BRAND.blue);
   }
-  const entryCards = entries.map((e, i) => {
-    const actionsHtml = (e.actions || []).length
-      ? `<ul style="margin:2px 0 0;padding-left:18px">${e.actions.map(a => `<li style="margin-bottom:4px">${esc(a.description)} ${huddleActionPill(a.status)}${a.owner ? ` <span style="color:${HUDDLE_BRAND.muted}">(owner: ${esc(a.owner)})</span>` : ''}</li>`).join('')}</ul>`
-      : `<span style="color:${HUDDLE_BRAND.muted}">No actions logged.</span>`;
-    const field = (label, value) => `<div class="huddle-field" style="margin-bottom:9px"><b style="font-size:11px;text-transform:uppercase;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${label}</b><div style="margin-top:3px">${value}</div></div>`;
-    const isLast = i === entries.length - 1;
-    return `
-      <div class="huddle-entry" style="margin-bottom:${isLast ? '0' : '16px'};padding-bottom:${isLast ? '0' : '16px'};border-bottom:${isLast ? 'none' : '1px solid #eef0f5'}">
-        <div style="font-weight:800;color:${HUDDLE_BRAND.blue};margin-bottom:10px">${esc(fmt(e.huddleDate))}</div>
-        ${field('Key Updates', esc(e.keyUpdates || '(none noted)').replace(/\n/g, '<br>'))}
-        ${field('Concerns Raised', esc(e.concernsRaised || '(none noted)').replace(/\n/g, '<br>'))}
-        ${field('Actions', actionsHtml)}
-        ${field('Decisions/Support Needed', esc(e.decisionsNeeded || '(none noted)').replace(/\n/g, '<br>'))}
-      </div>`;
-  }).join('');
-  const huddleCard = huddleSectionCard(`🗒️ Huddle Notes <span style="color:${HUDDLE_BRAND.blue};font-weight:700;text-transform:none;letter-spacing:0">(${entries.length} logged)</span>`, entryCards, HUDDLE_BRAND.blue);
-  return `${header}${huddleCard}${trendSections}`;
+  return `${header}${kpiScoresSection}${trendSections}${huddleSection}`;
 }
 // --- Huddle Log week-over-week KPI trend + attendance trend ----------------------------------
 // Two metrics: Inbound Calls Received and New Tickets Handled, each compared this week vs last
@@ -1147,16 +1189,40 @@ function buildRecurringConcerns(thisWeekEntries, lastWeekEntries) {
   }
   return [...new Set(recurring)];
 }
+// A report-only "reliability" % - same eligible/present accounting as ptoLogic.computeAttendance
+// ForRange, except LATE earns half credit (the same treatment SL-HD/EL-HD already get there)
+// instead of full credit. Deliberately NOT a change to computeAttendanceForRange itself - that
+// function feeds probation KPI scoring (Attendance is 15% of the weighted score) and every past
+// Coaching/Evaluation record portal-wide, so redefining it there would silently change numbers
+// people have already seen and signed off on. This stays scoped to the Weekly Performance Report,
+// where Mac wants lates to visibly cost something even though the official Attendance % doesn't
+// dock for them.
+function computeWeeklyReliability(records, schedules, attendance, email, startDate, endDate) {
+  const employee = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === ptoLogic.cleanEmail(email));
+  if (!employee) return null;
+  let eligible = 0, present = 0;
+  for (const date of ptoLogic.dateRange(startDate, endDate)) {
+    if (!ptoLogic.rosterActiveOn(employee, date)) continue;
+    const resolved = ptoLogic.scheduleForDate(schedules, email, date);
+    if (resolved.missingSchedule || resolved.template?.off) continue;
+    const code = ptoLogic.attendanceCodeOnDate(attendance, email, date);
+    if (code === 'PTO' || code === 'PARTIAL_PTO' || !code) continue;
+    eligible++;
+    if (['ONSITE', 'WFH'].includes(code)) present += 1;
+    else if (code === 'LATE' || code === 'SL-HD' || code === 'EL-HD') present += 0.5;
+  }
+  return eligible ? (present / eligible) * 100 : null;
+}
 async function buildTeamAttendanceTrend(members, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday) {
   const records = roster.records || [];
   return members.map(member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
-    const thisWeekRange = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, weekMonday, weekSunday);
-    const lastWeekRange = ptoLogic.computeAttendanceForRange(records, schedules, attendance, email, prevMonday, prevSunday);
+    const thisWeekReliability = computeWeeklyReliability(records, schedules, attendance, email, weekMonday, weekSunday);
+    const lastWeekReliability = computeWeeklyReliability(records, schedules, attendance, email, prevMonday, prevSunday);
     const outDays = ptoLogic.buildAttendanceTrend(records, schedules, attendance, email, weekMonday, weekSunday);
     return {
       employeeEmail: email, employeeName: member.employeeName || email,
-      attendancePercent: { thisWeek: thisWeekRange?.attendancePercentage ?? null, lastWeek: lastWeekRange?.attendancePercentage ?? null },
+      attendancePercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
       outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null }))
     };
   });
@@ -1188,11 +1254,12 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
   // trend data (rather than throwing) if the roster lookup comes up empty, so a report is still
   // previewable/sendable for the huddle entries alone.
   const teamMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail);
-  let kpiTrend = null, attendanceTrend = [];
+  let kpiScores = [], kpiTrend = null, attendanceTrend = [];
   if (teamMembers.length) {
     try {
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
-      [kpiTrend, attendanceTrend] = await Promise.all([
+      [kpiScores, kpiTrend, attendanceTrend] = await Promise.all([
+        buildTeamKpiScores(teamMembers),
         buildTeamWeeklyKpiTrend(teamMembers, weekMonday, weekSunday, prevMonday, prevSunday),
         buildTeamAttendanceTrend(teamMembers, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday)
       ]);
@@ -1202,9 +1269,9 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
   }
 
   return {
-    weekSunday, managerEmail, ccList, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns,
+    weekSunday, managerEmail, ccList, entries, kpiScores, kpiTrend, attendanceTrend, followThrough, recurringConcerns,
     subject: `Weekly Performance Report - ${tlName} - ${weekMonday} to ${weekSunday}`,
-    html: huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiTrend, attendanceTrend, followThrough, recurringConcerns)
+    html: huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScores, kpiTrend, attendanceTrend, followThrough, recurringConcerns)
   };
 }
 async function sendHuddleWeeklyReport(tlEmail, weekMonday) {
