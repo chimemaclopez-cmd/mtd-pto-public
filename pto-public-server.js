@@ -1082,18 +1082,18 @@ function huddleRecurringConcernsHtml(concerns) {
 // happens to be generated - a point-in-time snapshot, not a week-over-week figure like the
 // sections below it. Failures are per-member (one rep's lookup failing shouldn't blank the
 // whole section) and fall back to "Not Rated" rather than omitting the row.
-async function buildTeamKpiScores(members) {
+async function buildTeamKpiScores(members, options = {}) {
   const rows = await Promise.all(members.map(async member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
     try {
-      const standing = await buildCoachingStandingSnapshot(email);
+      const standing = await buildCoachingStandingSnapshot(email, options.month ? { month: options.month } : {});
       return { employeeEmail: email, employeeName: member.employeeName || email, kpiPeriod: standing.kpiPeriod, kpiType: standing.kpiType, finalKpi: standing.finalKpi, performanceStatus: standing.performanceStatus };
     } catch (error) {
       console.error(`[huddle-kpi-scores] Standing lookup failed for ${email}:`, error.message);
       return { employeeEmail: email, employeeName: member.employeeName || email, kpiPeriod: null, kpiType: null, finalKpi: null, performanceStatus: 'Not Rated' };
     }
   }));
-  return { generatedAt: new Date().toISOString(), rows };
+  return { generatedAt: new Date().toISOString(), rows, monthOverride: options.month ? { month: options.month, nextMonth: options.nextMonth || '' } : null };
 }
 function huddleKpiScoresHtml(kpiScores) {
   if (!kpiScores?.rows?.length) return '';
@@ -1108,14 +1108,19 @@ function huddleKpiScoresHtml(kpiScores) {
   };
   const generatedText = new Date(kpiScores.generatedAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
   const rows = kpiScores.rows.map(k => `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiPeriod || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${esc(k.kpiType || '—')}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;font-weight:800">${k.finalKpi != null ? `${k.finalKpi.toFixed(1)}%` : '—'}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${statusPill(k.performanceStatus)}</td></tr>`).join('');
+  const monthLabel = m => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const override = kpiScores.monthOverride;
+  const intro = override
+    ? `Showing each rep's official <b>end-of-month KPI for ${esc(monthLabel(override.month))}</b>. This week runs into ${esc(override.nextMonth ? monthLabel(override.nextMonth) : 'the next month')}, which is still too early in the month to display a meaningful score.`
+    : `Each rep's official KPI score as of right now (most recent scored period) - a snapshot at report generation time, not a week-over-week figure like the sections below.`;
   const body = `
-    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:4px">Each rep's official KPI score as of right now (most recent scored period) - a snapshot at report generation time, not a week-over-week figure like the sections below.</div>
+    <div style="font-size:12px;color:${HUDDLE_BRAND.muted};margin-bottom:4px">${intro}</div>
     <div style="font-size:11px;color:${HUDDLE_BRAND.muted};font-style:italic;margin-bottom:12px">Generated ${esc(generatedText)}</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${huddleTableHead('Team Member', 'KPI Period', 'KPI Type', 'Final KPI', 'Status')}
       <tbody>${rows}</tbody>
     </table>`;
-  return huddleSectionCard('📈 Current KPI Scores', body, HUDDLE_BRAND.blue);
+  return huddleSectionCard(override ? `📈 End-of-Month KPI Scores (${esc(monthLabel(override.month))})` : '📈 Current KPI Scores', body, HUDDLE_BRAND.blue);
 }
 function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScores = [], kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -1342,7 +1347,7 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
     try {
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
       [kpiScores, kpiTrend, attendanceTrend] = await Promise.all([
-        buildTeamKpiScores(teamMembers),
+        buildTeamKpiScores(teamMembers, weekMonday.slice(0, 7) !== weekSunday.slice(0, 7) ? { month: weekMonday.slice(0, 7), nextMonth: weekSunday.slice(0, 7) } : {}),
         buildTeamWeeklyKpiTrend(teamMembers, weekMonday, weekSunday, prevMonday, prevSunday),
         buildTeamAttendanceTrend(teamMembers, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday)
       ]);
@@ -1909,10 +1914,18 @@ function summarizeKpiMetrics(kpiRow) {
     };
   });
 }
-async function buildCoachingStandingSnapshot(email) {
+async function buildCoachingStandingSnapshot(email, options = {}) {
   const [kpiResults, attendance] = await Promise.all([loadKpiResultsSnapshot(), loadAttendanceSnapshot()]);
   const periods = kpiResults.periods || {};
-  const latestPeriod = Object.keys(periods).sort((a, b) => b.localeCompare(a)).find(period => (periods[period] || []).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email)) || '';
+  const hasRow = period => (periods[period] || []).some(x => ptoLogic.cleanEmail(x.employeeEmail) === email);
+  // options.month (YYYY-MM) pins the pick to that month's final (latest non-future) period - used by
+  // the Weekly Performance Report for weeks that straddle two months, where the newer month is
+  // too early to carry a real score. Falls back to the normal "latest period" if the rep has no
+  // row in that month (e.g. joined after it).
+  const pinnedPeriod = options.month
+    ? Object.keys(periods).filter(k => k.startsWith(`${options.month}|`) && (k.split('|')[1] || '') <= todayEasternDate()).sort((a, b) => b.localeCompare(a)).find(hasRow)
+    : '';
+  const latestPeriod = pinnedPeriod || Object.keys(periods).sort((a, b) => b.localeCompare(a)).find(hasRow) || '';
   const kpiRow = latestPeriod ? (periods[latestPeriod] || []).find(x => ptoLogic.cleanEmail(x.employeeEmail) === email) : null;
   const today = todayEasternDate();
   const last30 = ptoLogic.dateRange(shiftDate(today, -30), today);
