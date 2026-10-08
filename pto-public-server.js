@@ -1466,9 +1466,9 @@ const QA_SCORECARD_CATEGORIES = [
     { key: 'allIssuesAddressed', label: 'All issues addressed', description: 'Covered every concern raised by the client, including secondary questions.', points: 4, binary: true }
   ] },
   { key: 'technicalPerformance', label: 'Technical Performance', groupLabel: 'Issue Resolution', weight: 35, summary: 'Correct resolution, useful preventative guidance, and proper JIRA creation when escalation is required.', criteria: [
-    { key: 'guidancePreventative', label: 'Guidance & preventative support', description: 'Provided actionable steps and relevant guidance to help prevent a repeat issue.', points: 10 },
+    { key: 'guidancePreventative', label: 'Guidance & preventative support', description: 'Provided actionable steps and relevant guidance to help prevent a repeat issue.', points: 7 },
     { key: 'correctResolution', label: 'Correct resolution', description: 'Provided an accurate, complete resolution based on the available evidence.', points: 18 },
-    { key: 'correctJiraCreation', label: 'Correct JIRA creation', description: 'Created a JIRA only when appropriate and included complete evidence, examples, replication steps, and impact.', points: 7 }
+    { key: 'correctJiraCreation', label: 'Correct JIRA creation', description: 'Created a JIRA only when appropriate and included complete evidence, examples, replication steps, and impact.', points: 10 }
   ] },
   { key: 'management', label: 'Management', groupLabel: 'Efficiency & Time Management', weight: 10, summary: 'Focused troubleshooting, appropriate resource use, and effective management of holds and time.', criteria: [
     { key: 'efficiencyTimeManagement', label: 'Efficiency & time management', description: 'Managed holds well, used the right resources, and followed a focused troubleshooting path without avoidable delay.', points: 10 }
