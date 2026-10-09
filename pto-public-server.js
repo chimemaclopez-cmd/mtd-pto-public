@@ -1051,7 +1051,7 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
           }
           // A supporting document (e.g. a medical certificate) attached to this day in the Team
           // Attendance grid - noted so leadership knows the absence is documented.
-          const attachmentNote = d.attachments?.length ? ` <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#dff5e6;color:#1d6b3a">&#128206; Medcert/document attached</span>` : '';
+          const attachmentNote = (d.attachments?.length || d.attachmentFrom) ? ` <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#dff5e6;color:#1d6b3a">&#128206; Medcert/document attached${d.attachments?.length ? '' : ` (filed on ${esc(d.attachmentFrom)})`}</span>` : '';
           return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}${attachmentNote}</li>`;
         }).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
@@ -1303,6 +1303,32 @@ function computeWeeklyReliability(records, schedules, attendance, email, startDa
   }
   return eligible ? (present / eligible) * 100 : null;
 }
+// One medical certificate usually covers a whole run of consecutive sick/emergency days, but the
+// Team Attendance grid attaches per day - so a leave day with no document of its own inherits one
+// from an adjacent leave day (consecutive calendar days, or Fri to Mon across a weekend). The
+// report labels such a day with the date the file was actually attached to, so it's never
+// mistaken for a separate upload.
+function withInheritedLeaveAttachments(outDays) {
+  const isLeave = d => ATTACHMENT_LEAVE_CODES.includes(d.code);
+  const dayMs = date => Date.parse(`${date}T00:00:00Z`);
+  const adjacent = (a, b) => {
+    const gap = Math.round((dayMs(b.date) - dayMs(a.date)) / 86400000);
+    return gap === 1 || (gap === 3 && new Date(dayMs(a.date)).getUTCDay() === 5);
+  };
+  const days = [...outDays].sort((a, b) => a.date.localeCompare(b.date));
+  const runs = [];
+  for (const d of days) {
+    const last = runs[runs.length - 1];
+    if (isLeave(d) && last && adjacent(last[last.length - 1], d)) last.push(d);
+    else runs.push(isLeave(d) ? [d] : []);
+  }
+  for (const run of runs) {
+    const source = run.find(d => d.attachments.length);
+    if (!source) continue;
+    for (const d of run) if (!d.attachments.length) d.attachmentFrom = source.date;
+  }
+  return days;
+}
 async function buildTeamAttendanceTrend(members, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday) {
   const records = roster.records || [];
   const attachmentIndex = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENT_INDEX_KEY, {}).catch(() => ({}));
@@ -1320,7 +1346,7 @@ async function buildTeamAttendanceTrend(members, roster, schedules, attendance, 
       employeeEmail: email, employeeName: member.employeeName || email,
       attendancePercent: { thisWeek: thisWeekAttendance?.attendancePercentage ?? null, lastWeek: lastWeekAttendance?.attendancePercentage ?? null },
       reliabilityPercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
-      outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null, attachments: (attachmentIndex[`${email}|${d.date}`] || []).map(a => a.filename) }))
+      outDays: withInheritedLeaveAttachments(outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null, attachments: (attachmentIndex[`${email}|${d.date}`] || []).map(a => a.filename) })))
     };
   });
 }
