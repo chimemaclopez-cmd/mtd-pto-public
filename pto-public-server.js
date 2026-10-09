@@ -185,6 +185,11 @@ const SCHEDULE_OVERRIDE_UPDATES_KEY = 'mtdkpi:schedule-override-updates';
 const SCHEDULE_TEMPLATE_UPDATES_KEY = 'mtdkpi:schedule-template-updates';
 const ATTENDANCE_ATTACHMENTS_KEY = 'mtdkpi:attendance-attachments';
 const ATTACHMENT_LEAVE_CODES = ['SL', 'EL', 'SL-HD', 'EL-HD'];
+// Metadata-only index (no file contents) of which employee/date pairs have a supporting document
+// attached. The upload queue above is drained by zendesk-proxy.js as soon as it saves the file to
+// OneDrive, so without this index the portal would have no way to know a document exists (the
+// weekly report's attendance section reads it to note "medcert/document attached").
+const ATTENDANCE_ATTACHMENT_INDEX_KEY = 'mtdkpi:attendance-attachment-index';
 const MAX_ATTACHMENT_BASE64_LENGTH = 4 * 1024 * 1024; // ~3MB original file, base64-encoded
 const PROFILE_PHOTO_KEY_PREFIX = 'mtdkpi:profile-photo:';
 // The client resizes/compresses to a small square JPEG before ever uploading, so a generous
@@ -1044,7 +1049,10 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
           } else if (HUDDLE_ATTENDANCE_REASON_CODES.has(d.code)) {
             detail = `: ${d.reason ? esc(d.reason) : missingNote}`;
           }
-          return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}</li>`;
+          // A supporting document (e.g. a medical certificate) attached to this day in the Team
+          // Attendance grid - noted so leadership knows the absence is documented.
+          const attachmentNote = d.attachments?.length ? ` <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#dff5e6;color:#1d6b3a">&#128206; Medcert/document attached</span>` : '';
+          return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}${attachmentNote}</li>`;
         }).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
     return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${attendanceCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${reliabilityCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
@@ -1297,6 +1305,7 @@ function computeWeeklyReliability(records, schedules, attendance, email, startDa
 }
 async function buildTeamAttendanceTrend(members, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday) {
   const records = roster.records || [];
+  const attachmentIndex = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENT_INDEX_KEY, {}).catch(() => ({}));
   return members.map(member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
     // Two distinct numbers, per Mac: Attendance % is strictly present-or-not (the portal's
@@ -1311,7 +1320,7 @@ async function buildTeamAttendanceTrend(members, roster, schedules, attendance, 
       employeeEmail: email, employeeName: member.employeeName || email,
       attendancePercent: { thisWeek: thisWeekAttendance?.attendancePercentage ?? null, lastWeek: lastWeekAttendance?.attendancePercentage ?? null },
       reliabilityPercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
-      outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null }))
+      outDays: outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null, attachments: (attachmentIndex[`${email}|${d.date}`] || []).map(a => a.filename) }))
     };
   });
 }
@@ -4825,6 +4834,10 @@ const server = http.createServer(async (req, res) => {
       const queue = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENTS_KEY, []);
       queue.push({ employeeEmail: email, date, code, filename, contentBase64, uploadedBy: identity, uploadedAt: new Date().toISOString() });
       await cloudStore.kvSetJson(ATTENDANCE_ATTACHMENTS_KEY, queue);
+      const attachmentIndex = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENT_INDEX_KEY, {});
+      const indexKey = `${email}|${date}`;
+      attachmentIndex[indexKey] = [...(attachmentIndex[indexKey] || []), { filename, uploadedBy: identity, uploadedAt: new Date().toISOString() }];
+      await cloudStore.kvSetJson(ATTENDANCE_ATTACHMENT_INDEX_KEY, attachmentIndex);
       return json(res, 200, { ok: true, code });
     }
 
