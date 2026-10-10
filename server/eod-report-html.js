@@ -4,7 +4,7 @@
 // .huddle-* classes, so the portal's existing print stylesheet and "Print / Save PDF" flow apply as-is.
 
 function eodReportHtml(data, h) {
-  const { HUDDLE_BRAND: B, huddleSectionCard, huddleTableHead, escapeHtml: esc } = h;
+  const { HUDDLE_BRAND: B, huddleTableHead, escapeHtml: esc } = h;
   const prettyDate = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const etTime = iso => iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : '';
   const hourLabel = n => `${n % 12 === 0 ? 12 : n % 12} ${n < 12 ? 'AM' : 'PM'}`;
@@ -14,7 +14,15 @@ function eodReportHtml(data, h) {
   const table = (head, rows) => `<table style="width:100%;border-collapse:collapse;font-size:13px">${th(head)}<tbody>${rows}</tbody></table>`;
   const note = text => `<div style="font-size:11px;color:${B.muted};margin-top:10px;line-height:1.5">${text}</div>`;
   const lead = text => `<div style="background:${B.bg};border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.5">${text}</div>`;
-  const sub = text => `<div style="font-size:11px;font-weight:800;color:${B.muted};text-transform:uppercase;letter-spacing:.3px;margin:16px 0 8px">${text}</div>`;
+  // Each section gets its own accent: it colors the section title, its underline and its sub-headings.
+  const ACC = { exec: B.blue, att: '#572fb4', prod: '#0b7f93', call: '#ba7517', left: B.red, rem: B.green };
+  let subAccent = B.muted;
+  const sub = text => `<div style="font-size:11px;font-weight:800;color:${subAccent};text-transform:uppercase;letter-spacing:.3px;margin:18px 0 8px;break-after:avoid;page-break-after:avoid">${text}</div>`;
+  const card = (title, bodyHtml, accent) => `
+    <div class="huddle-section" style="background:#fff;border:1px solid ${B.line};border-left:4px solid ${accent};border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 4px 14px rgba(32,36,55,.05);break-inside:avoid;page-break-inside:avoid">
+      <div class="huddle-section-title" style="font-size:13px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;color:${accent};margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid ${accent}">${title}</div>
+      ${bodyHtml}
+    </div>`;
   const pct = (a, b) => b ? `${(100 * a / b).toFixed(1)}%` : '—';
   const ul = items => `<ul style="margin:4px 0 0;padding-left:18px">${items.map(i => `<li style="margin-bottom:5px">${i}</li>`).join('')}</ul>`;
   const nl = t => esc(t).replace(/\n/g, '<br>');
@@ -44,23 +52,25 @@ function eodReportHtml(data, h) {
   }
   if (data.notes?.inbox) parts.push(esc(data.notes.inbox) + (/[.!]$/.test(data.notes.inbox) ? '' : '.'));
   if (left) parts.push(`${left.count} tickets are left for tomorrow's shift${left.pastSla ? `, ${left.pastSla} already past SLA` : ''}.`);
-  const execSection = parts.length ? huddleSectionCard('📌 Executive Summary', `<div style="font-size:14px;line-height:1.6">${parts.join(' ')}</div>`, B.blue) : '';
+  const execSection = parts.length ? card('📌 Executive Summary', `<div style="font-size:14px;line-height:1.6">${parts.join(' ')}</div>`, ACC.exec) : '';
 
   // ---- attendance
   let attSection = '';
   if (att) {
+    subAccent = ACC.att;
     const t = att.total;
     const outBits = [t.rd && `${t.rd} Rest Day`, t.sl && `${t.sl} Sick Leave`, t.el && `${t.el} Emergency Leave`, t.suspended && `${t.suspended} Suspended`, t.other && `${t.other} other / not logged`].filter(Boolean);
     const row = (r, bold) => `<tr${bold ? ` style="font-weight:800;background:${B.bg}"` : ''}><td style="${td}">${esc(r.team)}</td>${[r.onsite, r.wfh, r.present, r.rd, r.sl, r.el, r.suspended, r.other, r.total].map(v => `<td style="${tdc}">${v}</td>`).join('')}</tr>`;
     const lead1 = lead(`<b>${t.present} of ${t.total}</b> present (${t.onsite} onsite, ${t.wfh} WFH).${outBits.length ? ` ${t.total - t.present} were out: ${outBits.join(', ')}.` : ''}${att.leadership?.length ? ` ${att.leadership.filter(l => ['WFH', 'ONSITE'].includes(l.status)).length} of ${att.leadership.length} Team Leaders reported present.` : ''}`);
     const main = table(['Team', 'Onsite', 'WFH', 'Present', 'Rest Day', 'Sick Leave', 'Emergency Leave', 'Suspended', 'Other', 'Total'], att.teams.map(r => row(r)).join('') + row({ team: 'Lofty Support', ...t }, true));
     const leaders = att.leadership?.length ? sub('Leadership attendance') + table(['Team Leader', 'Immediate Lead', 'Status'], att.leadership.map(l => `<tr><td style="${td}">${esc(l.name)}</td><td style="${td}">${esc(l.lead)}</td><td style="${tdc}">${esc(l.status || 'Not logged')}</td></tr>`).join('')) : '';
-    attSection = huddleSectionCard('🗓️ Attendance', lead1 + main + leaders + note('Source: Lofty TSR Attendance workbook. Late counts as present.'), '#572fb4');
+    attSection = card('🗓️ Attendance', lead1 + main + leaders + note('Source: Lofty TSR Attendance workbook. Late counts as present.'), ACC.att);
   }
 
   // ---- productivity
   let prodSection = '';
   if (prod) {
+    subAccent = ACC.prod;
     const pt = prod.totals;
     const rows = prod.teams.map(r => `<tr><td style="${td}">${esc(r.team)}</td><td style="${tdc}">${r.connected}</td><td style="${tdc}">${r.newTickets}</td><td style="${tdc}">${r.sunshine}</td><td style="${tdc}">${r.solved}</td><td style="${tdc}">${r.touched}</td></tr>`).join('')
       + (calls?.completedNoRep ? `<tr><td style="${td}">IVR-forwarded calls (no rep)</td><td style="${tdc}">${calls.completedNoRep}</td><td style="${tdc}">-</td><td style="${tdc}">-</td><td style="${tdc}">-</td><td style="${tdc}">-</td></tr>` : '')
@@ -74,13 +84,14 @@ function eodReportHtml(data, h) {
         data.spotlight.map(s => `<tr><td style="${td}">${esc(s.name)}</td><td style="${td}">${esc(s.role)}</td>${[s.ticketsHandled, s.abandonedTickets, s.leadImport, s.jira, s.inbound, s.callbacks].map(x => `<td style="${tdc}">${v(x)}</td>`).join('')}</tr>`).join(''))
 ;
     }
-    prodSection = huddleSectionCard('📊 Productivity', lead1 + table(['Team', 'Connected Calls', 'New Tickets Assigned', 'of which Sunshine API', 'Solved', 'Touched'], rows)
- + spot, B.blue);
+    prodSection = card('📊 Productivity', lead1 + table(['Team', 'Connected Calls', 'New Tickets Assigned', 'of which Sunshine API', 'Solved', 'Touched'], rows)
+ + spot, ACC.prod);
   }
 
   // ---- call completion
   let callSection = '';
   if (calls) {
+    subAccent = ACC.call;
     const T = calls.totals;
     const band = r => r >= 92 ? B.green : r >= 85 ? '#d99a1e' : B.red;
     const bar = (a, b) => { const r = b ? 100 * a / b : 0; return `<span style="display:inline-block;vertical-align:middle;width:90px;height:8px;background:#eceef4;border-radius:4px;overflow:hidden"><span style="display:block;width:${r.toFixed(1)}%;height:100%;background:${band(r)}"></span></span> <b style="font-size:12px">${b ? r.toFixed(1) + '%' : '—'}</b>`; };
@@ -94,29 +105,30 @@ function eodReportHtml(data, h) {
     const causes = [`<b>Hung up in the IVR (${T.ivr}):</b> callers left the menu before reaching a rep${calls.ivrWithin5s ? `; ${calls.ivrWithin5s} within 5 seconds` : ''}.`];
     if (T.queue) causes.push(`<b>Left the queue (${T.queue}):</b> see the call details below.`);
     if (T.hold) causes.push(`<b>Dropped on hold (${T.hold}):</b> a rep had answered but the caller hung up while on hold.`);
-    const legsTbl = calls.lostDetails.length ? sub('Calls lost in the queue or on hold - what the call legs show') + table(['Time (ET)', 'Result', 'What the call legs show'], calls.lostDetails.map(l => `<tr><td style="${td};white-space:nowrap">${esc(l.time)}</td><td style="${td};white-space:nowrap">${esc(l.result)}</td><td style="${td}">${esc(l.detail)}</td></tr>`).join('')) : '';
+    const legsTbl = calls.lostDetails.length ? '<div style="break-inside:avoid;page-break-inside:avoid">' + sub('Calls lost in the queue or on hold - what the call legs show') + table(['Time (ET)', 'Result', 'What the call legs show'], calls.lostDetails.map(l => `<tr><td style="${td};white-space:nowrap">${esc(l.time)}</td><td style="${td};white-space:nowrap">${esc(l.result)}</td><td style="${td}">${esc(l.detail)}</td></tr>`).join('')) + '</div>' : '';
     const resolution = data.notes?.resolution ? sub('What we did to resolve it') + `<div>${nl(data.notes.resolution)}</div>` : '';
     const chat = data.notes?.chat ? sub('Chat completion') + `<div>${nl(data.notes.chat)}</div>` : '';
     const dash = data.notes?.dashboard ? note(`Current Queue Activity dashboard: ${esc(data.notes.dashboard)}. The figures above are calculated from Zendesk Talk call records for the shift and can differ slightly.`) : note('Figures are calculated from Zendesk Talk call records for the 8 AM - 8 PM EST shift (voicemail excluded).');
-    callSection = huddleSectionCard('📞 Call Completion', lead1 + table(['Hour (EST)', 'Inbound', 'Completed', 'Lost in IVR', 'Lost in Queue', 'Lost on Hold', 'Completion'], hrows) + dash + chat + sub('What caused the drop') + ul(causes) + legsTbl + resolution, '#ba7517');
+    callSection = card('📞 Call Completion', lead1 + table(['Hour (EST)', 'Inbound', 'Completed', 'Lost in IVR', 'Lost in Queue', 'Lost on Hold', 'Completion'], hrows) + dash + chat + sub('What caused the drop') + ul(causes) + legsTbl + resolution, ACC.call);
   }
 
   // ---- leftover tickets
   let leftSection = '';
   if (left) {
+    subAccent = ACC.left;
     const crow = c => `<tr><td style="${td}">${esc(c.channel)}${c.noSla ? ' (no SLA)' : ''}</td><td style="${tdc}">${c.count}</td><td style="${tdc}">${c.noSla ? '-' : c.pastSla}</td></tr>`;
     const ctotal = `<tr style="font-weight:800;background:${B.bg}"><td style="${td}">Total</td><td style="${tdc}">${left.count}</td><td style="${tdc}">${left.pastSla}</td></tr>`;
     const lead1 = lead(`<b>${left.count}</b> tickets are still waiting (${left.unassigned} unassigned)${left.oldestCreated ? `, created between ${esc(etTime(left.oldestCreated))} and ${esc(etTime(left.newestCreated))} EST` : ''}. ${left.pastSla} are already past SLA${left.nextDue ? `; the first of the remaining ${left.upcomingCount} comes due at ${esc(etTime(left.nextDue))} EST${new Date(left.nextDue).getTime() > Date.now() ? '' : ''}` : ''}.`);
     const flags = left.flags.length ? sub("Flag for tomorrow's shift - handle first") + table(['Priority', 'Tickets', 'Why'], left.flags.map(f => `<tr><td style="${td};font-weight:700;white-space:nowrap">${esc(f.priority)}</td><td style="${td}">${f.tickets.map(id => '#' + esc(id)).join(', ')}${f.more ? ` + ${f.more} more` : ''} <span style="color:${B.muted}">(${f.count})</span></td><td style="${td}">${esc(f.why)}</td></tr>`).join('')) : '';
-    leftSection = huddleSectionCard("🎟️ Leftover Tickets for Tomorrow's Shift", lead1 + table(['Channel', 'Tickets', 'Past SLA'], left.byChannel.map(crow).join('') + ctotal) + flags
-      + note(`Priority Tickets :: All Tickets view, pulled ${esc(etTime(left.asOf))} EST when the report was generated. Priorities are suggested from priority, SLA, tags, sentiment and subject - confirm before acting.`), B.red);
+    leftSection = card("🎟️ Leftover Tickets for Tomorrow's Shift", lead1 + table(['Channel', 'Tickets', 'Past SLA'], left.byChannel.map(crow).join('') + ctotal) + flags
+      + note(`Priority Tickets :: All Tickets view, pulled ${esc(etTime(left.asOf))} EST when the report was generated. Priorities are suggested from priority, SLA, tags, sentiment and subject - confirm before acting.`), ACC.left);
   }
 
   // ---- reminders
   const rem = data.reminders || [];
-  const remSection = huddleSectionCard('📣 Reminders, Announcements and SOPs Cascaded',
+  const remSection = card('📣 Reminders, Announcements and SOPs Cascaded',
     rem.length ? rem.map(r => `<div style="margin-bottom:10px;line-height:1.55">${nl(r.text)}</div>`).join('<div style="border-top:1px solid #eef0f5;margin:10px 0"></div>') + note('From the Huddle Log entries for this date.')
-      : `<div style="color:${B.muted}">No huddle entry was logged for this date, so no reminders or announcements are listed.</div>`, B.green);
+      : `<div style="color:${B.muted}">No huddle entry was logged for this date, so no reminders or announcements are listed.</div>`, ACC.rem);
 
   const warn = (data.warnings || []).length ? `<div style="font-size:11px;color:${B.red};margin-top:4px">Some data could not be refreshed: ${data.warnings.map(esc).join('; ')}</div>` : '';
   const foot = `<div style="font-size:11px;color:${B.muted};margin-top:6px">Generated ${esc(new Date(data.generatedAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))} ET</div>${warn}`;
