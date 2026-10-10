@@ -1130,6 +1130,15 @@ function huddleKpiScoresHtml(kpiScores) {
     </table>`;
   return huddleSectionCard(override ? `📈 End-of-Month KPI Scores (${esc(monthLabel(override.month))})` : '📈 Current KPI Scores', body, HUDDLE_BRAND.blue);
 }
+// "Prepared by" line on the report header. Roster names can carry a quoted nickname the TL goes
+// by (Reymark "Mac" Lopez) - the report reads as "Mac Lopez", the way they're actually known.
+function huddlePreparedByName(tlName) {
+  const name = String(tlName || '').trim();
+  const m = name.match(/^(.*?)\s*"([^"]+)"\s*(.*)$/);
+  if (!m) return name;
+  const last = (m[3] || '').trim();
+  return `${m[2].trim()}${last ? ` ${last}` : ''}`;
+}
 function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScores = [], kpiTrend = null, attendanceTrend = [], followThrough = null, recurringConcerns = []) {
   const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const esc = escapeHtml;
@@ -1141,6 +1150,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScor
       </div>
       <div style="font-size:25px;font-weight:850;margin-top:5px">Weekly Performance Report</div>
       <div style="font-size:14px;margin-top:7px;opacity:.95">${esc(tlName)} &middot; ${fmt(weekMonday)} &ndash; ${fmt(weekSunday)}</div>
+      <div style="font-size:12px;margin-top:5px;opacity:.9">Prepared by: ${esc(huddlePreparedByName(tlName))}</div>
     </div>`;
   // Order: current KPI standing first, then the week-over-week trend sections, then huddle notes
   // last (per Mac - the report leads with numbers, huddle notes are the closing context).
