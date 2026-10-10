@@ -43,6 +43,7 @@ const cloudStore = require('./server/kv-store.js');
 const ptoLogic = require('./server/pto-logic.js');
 const ptoPassword = require('./server/password.js');
 const emailService = require('./server/email-service.js');
+const { eodReportHtml } = require('./server/eod-report-html.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
@@ -213,7 +214,7 @@ if (!cloudStore.isConfigured()) {
   process.exit(1);
 }
 
-const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js', 'learning-service.js', 'huddle-log-service.js']);
+const STATIC_SHARED = new Set(['ui-utils.js', 'date-utils.js', 'kpi-config.js', 'roster-service.js', 'pto-service.js', 'auth-service.js', 'my-data-service.js', 'chat-service.js', 'announcement-service.js', 'phone-utils.js', 'csat-dispute-service.js', 'schedule-request-service.js', 'coaching-service.js', 'evaluation-service.js', 'disciplinary-service.js', 'activity-config.js', 'loading-status.js', 'loading-status.css', 'kpi.css', 'site-metrics-service.js', 'qa-dsat-service.js', 'alignment-service.js', 'rich-text.js', 'training-service.js', 'rewards-service.js', 'mbr-report.js', 'service-recovery-service.js', 'risk-tagging-service.js', 'loftiq-service.js', 'xlsx-writer.js', 'operational-notes-service.js', 'qa-evaluation-service.js', 'learning-service.js', 'huddle-log-service.js', 'eod-report-service.js']);
 // moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
 // Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
 // silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
@@ -2129,6 +2130,13 @@ function canUseQaScorecard(email, session) {
   if (ADMIN_EMAILS.has(clean) || portalRoleFor(clean) === 'BQA' || QA_SCORECARD_REVIEWER_EMAILS.has(clean)) return true;
   return session ? effectiveViewAsRole(clean, session) === 'BQA' : false;
 }
+// Daily EOD report - Mac only. Deliberately NOT widened to admins or view-as: the report pulls
+// site-wide productivity, attendance and leadership data, and is generated on request from the
+// local proxy, so access stays on this one named account.
+const EOD_REPORT_EMAILS = new Set(['mac@lofty.com']);
+function canUseEodReport(email) { return EOD_REPORT_EMAILS.has(ptoLogic.cleanEmail(email)); }
+const EOD_REPORT_REQUEST_KEY = 'mtdkpi:eod-report-request';
+const EOD_REPORT_RESULT_PREFIX = 'mtdkpi:eod-report:';
 // Spiff Programs is open to every rep (unlike Ticket Audit), but a Team Lead should see their
 // own reports' entries too - not just their own - and SOM sees everyone company-wide, same
 // "sees it all" scope isCompanyWideOverseer() already gives her for Team Attendance/Roster/KPI.
@@ -2734,7 +2742,7 @@ const server = http.createServer(async (req, res) => {
       credential.lastLoginAt = new Date().toISOString();
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
-      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail), canUseQaScorecard: canUseQaScorecard(credential.employeeEmail) });
+      return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail), canUseQaScorecard: canUseQaScorecard(credential.employeeEmail), canUseEodReport: canUseEodReport(credential.employeeEmail) });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
@@ -2847,7 +2855,7 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/auth/session' && req.method === 'GET') {
       const viewAsRole = effectiveViewAsRole(identity, session);
-      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity), canUseQaScorecard: canUseQaScorecard(identity, session) });
+      return json(res, 200, { ok: true, authenticated: true, employeeEmail: session.employeeEmail, employeeName: session.employeeName, nickname: await nicknameFor(session.employeeEmail), mustChangePassword, tourSeen: Boolean(credential?.tourSeen), lastSeenVersion: credential?.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: viewAsRole || portalRoleFor(session.employeeEmail), isAdmin: ADMIN_EMAILS.has(identity), canUseViewAs: canUseViewAs(identity), viewAsRole, betaFeatures: await betaFeaturesFor(identity), canUseTicketAudit: await canUseTicketAudit(identity), canUseQaScorecard: canUseQaScorecard(identity, session), canUseEodReport: canUseEodReport(identity) });
     }
 
     // Admin-only, read-only: lets the platform's creator preview the QA/SOM/HR tabs (each tied
@@ -5045,6 +5053,34 @@ const server = http.createServer(async (req, res) => {
     // (a Monday, YYYY-MM-DD) selects a different week. Also returns the resolved
     // manager/co-lead recipients and this week's send status, so the UI can show a live
     // preview of who the report will go to and whether it's already gone out.
+    // Daily EOD report (Mac only). POST queues a build - the local proxy (the only process with the Zendesk /
+    // Jira / Graph credentials) picks the request up, gathers the data and writes it back; GET returns the
+    // status and, once ready, the rendered report.
+    if (parsed.pathname === '/api/my/eod-report' && req.method === 'GET') {
+      if (!canUseEodReport(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const date = String(parsed.searchParams.get('date') || '');
+      if (!ptoLogic.validDate(date)) return json(res, 400, { ok: false, error: 'A valid date is required.' });
+      const result = await cloudStore.kvGetJson(EOD_REPORT_RESULT_PREFIX + date, null);
+      if (!result) return json(res, 200, { ok: true, status: 'none' });
+      if (result.status === 'done' && result.data) return json(res, 200, { ok: true, status: 'done', generatedAt: result.generatedAt, html: eodReportHtml(result.data, { HUDDLE_BRAND, huddleSectionCard, huddleTableHead, escapeHtml }) });
+      return json(res, 200, { ok: true, status: result.status || 'none', progress: result.progress || '', error: result.error || '', requestedAt: result.requestedAt || '' });
+    }
+    if (parsed.pathname === '/api/my/eod-report' && req.method === 'POST') {
+      if (!canUseEodReport(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const body = await readJsonBody(req);
+      const date = String(body.date || '');
+      if (!ptoLogic.validDate(date)) return json(res, 400, { ok: false, error: 'A valid date is required.' });
+      if (date > new Date(Date.now() + 86400000).toISOString().slice(0, 10)) return json(res, 400, { ok: false, error: 'That date is in the future.' });
+      const current = await cloudStore.kvGetJson(EOD_REPORT_REQUEST_KEY, null);
+      if (current && ['queued', 'running'].includes(current.status) && Date.now() - Date.parse(current.requestedAt || 0) < 10 * 60 * 1000) return json(res, 409, { ok: false, error: 'A report is already being generated. Wait for it to finish.' });
+      const clip = v => String(v || '').trim().slice(0, 1500);
+      const notes = { inbox: clip(body.notes?.inbox), resolution: clip(body.notes?.resolution), chat: clip(body.notes?.chat), dashboard: clip(body.notes?.dashboard) };
+      const requestedAt = new Date().toISOString();
+      await cloudStore.kvSetJson(EOD_REPORT_RESULT_PREFIX + date, { status: 'queued', progress: 'Waiting for the report server', requestedAt });
+      await cloudStore.kvSetJson(EOD_REPORT_REQUEST_KEY, { date, notes, status: 'queued', requestedAt, requestedBy: identity });
+      return json(res, 200, { ok: true, status: 'queued' });
+    }
+
     if (parsed.pathname === '/api/my/huddle-log' && req.method === 'GET') {
       const { year, month, day } = easternDateParts(new Date());
       const requestedWeekStart = parsed.searchParams.get('weekStart');
