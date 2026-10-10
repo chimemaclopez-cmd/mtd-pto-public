@@ -72,10 +72,10 @@ function eodReportHtml(data, h) {
       const v = x => x == null ? '—' : x;
       spot = sub('Senior TSR and Lead Import Specialist') + table(['Rep', 'Role', 'Tickets Handled', 'Abandoned-Call Tickets', 'Lead Import Tickets', 'JIRA Tickets Handled', 'Inbound Calls', 'Callbacks (outbound)'],
         data.spotlight.map(s => `<tr><td style="${td}">${esc(s.name)}</td><td style="${td}">${esc(s.role)}</td>${[s.ticketsHandled, s.abandonedTickets, s.leadImport, s.jira, s.inbound, s.callbacks].map(x => `<td style="${tdc}">${v(x)}</td>`).join('')}</tr>`).join(''))
-        + note('Tickets handled = tickets the rep replied to publicly or solved. Lead import = those tickets whose subject or tags mention a lead import. JIRA tickets = AM project tickets the rep commented on, changed or created. Inbound calls = calls answered through the queue. Both reps are already counted in their team totals above.');
+;
     }
     prodSection = huddleSectionCard('📊 Productivity', lead1 + table(['Team', 'Connected Calls', 'New Tickets Assigned', 'of which Sunshine API', 'Solved', 'Touched'], rows)
-      + note(`New tickets = assigned to a rep during the shift with a status change from New to Open, whatever the creation date; call tickets excluded${prod.callTicketsExcluded ? ` (${prod.callTicketsExcluded} met the rule)` : ''}. Touched = public reply from a rep. Connected calls = answered by a rep plus calls the IVR forwarded to an outside number.`) + spot, B.blue);
+ + spot, B.blue);
   }
 
   // ---- call completion
