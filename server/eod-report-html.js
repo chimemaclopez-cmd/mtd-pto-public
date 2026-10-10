@@ -135,4 +135,51 @@ function eodReportHtml(data, h) {
   return `${header}${execSection}${attSection}${prodSection}${callSection}${leftSection}${remSection}${foot}`;
 }
 
-module.exports = { eodReportHtml };
+// Copy-and-paste email draft for the report (subject + HTML body), built from the same data. Plain
+// inline-styled HTML so it pastes cleanly into Outlook. Optional lines (resolution, inbox) appear only
+// when Mac filled them in - nothing is invented.
+function eodEmailDraft(data, h) {
+  const esc = h.escapeHtml;
+  const d = new Date(data.date + 'T00:00:00Z');
+  const short = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const long = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const hourLabel = n => `${n % 12 === 0 ? 12 : n % 12} ${n < 12 ? 'AM' : 'PM'}`;
+  const sentence = t => { const x = String(t || '').trim(); return x ? (/[.!?]$/.test(x) ? x : x + '.') : ''; };
+  const att = data.attendance, prod = data.productivity, calls = data.calls, left = data.leftover;
+  const items = [];
+  if (att) items.push(['Attendance', `${att.total.present} of ${att.total.total} TSRs present.`]);
+  if (calls && prod) {
+    const T = calls.totals, connected = prod.totals.connected + (calls.completedNoRep || 0), lost = T.total - T.completed;
+    const rate = T.total ? (100 * T.completed / T.total).toFixed(1) : null;
+    // The stretch of consecutive low hours (under 85%) that lost the most calls - one range reads cleanly.
+    const lowRuns = [];
+    for (const r of calls.hourly) {
+      if (r.total >= 5 && r.completed / r.total < 0.85) { const last = lowRuns[lowRuns.length - 1]; if (last && last.end === r.hour - 1) { last.end = r.hour; last.lost += r.total - r.completed; } else lowRuns.push({ start: r.hour, end: r.hour, lost: r.total - r.completed }); }
+    }
+    const worst = lowRuns.sort((a, b) => b.lost - a.lost)[0];
+    const low = worst ? [worst.start, worst.end] : [];
+    let txt = `${connected} connected.`;
+    if (rate) txt += ` Completion was ${rate}%`;
+    if (rate && low.length) txt += `, lowest between ${hourLabel(Math.min(...low))} and ${hourLabel(Math.max(...low) + 1)}`;
+    if (rate && lost && T.ivr / lost >= 0.5) txt += ', mostly from IVR hang-ups';
+    if (rate) txt += '.';
+    const res = sentence(data.notes?.resolution);
+    if (res) txt += ' ' + res;
+    items.push(['Calls', txt]);
+  }
+  if (prod) items.push(['Tickets', `${prod.totals.newTickets} new tickets assigned, ${prod.totals.solved} solved.`]);
+  if (data.notes?.inbox) items.push(['Inbox', sentence(data.notes.inbox)]);
+  if (left) items.push(['Leftover', `${left.count} tickets are waiting for tomorrow's shift${left.pastSla ? `, ${left.pastSla} already past SLA` : ''}. I flagged what to prioritize first in the report.`]);
+  const li = items.map(([k, v]) => `<li style="margin-bottom:4px"><b>${esc(k)}:</b> ${esc(v)}</li>`).join('');
+  const body = `<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#202437;line-height:1.5">
+<p style="margin:0 0 12px">Hi SOM Cha,</p>
+<p style="margin:0 0 12px">Here&rsquo;s the EOD report for ${esc(long)} covering the 8 AM&ndash;8 PM EST shift.</p>
+<p style="margin:0 0 6px"><b>Highlights:</b></p>
+<ul style="margin:0 0 12px;padding-left:22px">${li}</ul>
+<p style="margin:0 0 12px">Full details are attached. Let me know if you have any questions.</p>
+<p style="margin:0">Thanks!</p>
+</div>`;
+  return { subject: `EOD Report \u2013 Lofty Support | ${short}`, html: body };
+}
+
+module.exports = { eodReportHtml, eodEmailDraft };

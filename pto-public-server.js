@@ -43,7 +43,7 @@ const cloudStore = require('./server/kv-store.js');
 const ptoLogic = require('./server/pto-logic.js');
 const ptoPassword = require('./server/password.js');
 const emailService = require('./server/email-service.js');
-const { eodReportHtml } = require('./server/eod-report-html.js');
+const { eodReportHtml, eodEmailDraft } = require('./server/eod-report-html.js');
 
 const PORT = Number(process.env.PORT || 3050);
 const ADMIN_KEY = process.env.PTO_ADMIN_KEY || '';
@@ -5062,7 +5062,7 @@ const server = http.createServer(async (req, res) => {
       if (!ptoLogic.validDate(date)) return json(res, 400, { ok: false, error: 'A valid date is required.' });
       const result = await cloudStore.kvGetJson(EOD_REPORT_RESULT_PREFIX + date, null);
       if (!result) return json(res, 200, { ok: true, status: 'none' });
-      if (result.status === 'done' && result.data) return json(res, 200, { ok: true, status: 'done', generatedAt: result.generatedAt, html: eodReportHtml(result.data, { HUDDLE_BRAND, huddleSectionCard, huddleTableHead, escapeHtml }) });
+      if (result.status === 'done' && result.data) return json(res, 200, { ok: true, status: 'done', generatedAt: result.generatedAt, html: eodReportHtml(result.data, { HUDDLE_BRAND, huddleSectionCard, huddleTableHead, escapeHtml }), email: eodEmailDraft(result.data, { escapeHtml }) });
       return json(res, 200, { ok: true, status: result.status || 'none', progress: result.progress || '', error: result.error || '', requestedAt: result.requestedAt || '' });
     }
     if (parsed.pathname === '/api/my/eod-report' && req.method === 'POST') {
