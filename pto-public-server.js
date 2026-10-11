@@ -691,11 +691,8 @@ async function loadScheduleSnapshot() { return getSnapshot('schedules', 'mtdkpi:
 async function loadAttendanceSnapshot() { return getSnapshot('attendance', 'mtdkpi:snapshot:attendance', { periods: {}, autoEntries: {} }); }
 async function loadKpiResultsSnapshot() { return getSnapshot('kpi-results', 'mtdkpi:snapshot:kpi-results', { periods: {} }); }
 async function loadSiteMetricsSnapshot() { return getSnapshot('site-metrics', 'mtdkpi:snapshot:site-metrics', { periods: {} }); }
-// Leadership periodically transcribes the real per-day Call Completion figures off the "Week
-// at a Glance" report into this calibration snapshot (source-tagged per day, synced from
-// zendesk-proxy.js's local call-completion-calibration.json) - a hand-entered ground truth for
-// exactly the days where the site-metrics snapshot delta below can't be trusted (a missing
-// prior-day snapshot, or one captured before the day had ended).
+// No longer used for any displayed figure: Call Completion is always the CALCULATED value (callCompletionBucket in
+// zendesk-proxy.js), never a transcribed or imported report number. Kept only so an old snapshot read doesn't break.
 async function loadCallCompletionCalibrationSnapshot() { return getSnapshot('call-completion-calibration', 'mtdkpi:snapshot:call-completion-calibration', { mtd: {}, daily: {} }); }
 async function loadSpotlightSnapshot() { return getSnapshot('spotlight', 'mtdkpi:snapshot:spotlight', { date: '', shoutouts: [], saves: [], callLeaders: [], celebrations: { birthdays: [], anniversaries: [] }, weather: null, shiftEndThanks: [], dailyThanks: null, generatedAt: '' }); }
 // Ticket Audit: zendesk-proxy.js computes this (this server has no Zendesk credentials of its
@@ -3680,7 +3677,6 @@ const server = http.createServer(async (req, res) => {
 
     if (parsed.pathname === '/api/my/site-metrics' && req.method === 'GET') {
       const siteMetricsData = await loadSiteMetricsSnapshot();
-      const calibrationDaily = (await loadCallCompletionCalibrationSnapshot()).daily || {};
       const periods = siteMetricsData.periods || {};
       const availablePeriods = currentPeriodKeys(Object.keys(periods)).sort((a, b) => b.localeCompare(a));
       const requestedPeriod = String(parsed.searchParams.get('period') || '');
@@ -3696,12 +3692,9 @@ const server = http.createServer(async (req, res) => {
       const history = sortedByDate.map((row, i) => {
         const prev = sortedByDate[i - 1];
         const sameMonthPrev = prev && prev.month === row.month ? prev : null;
-        const calibratedDay = calibrationDaily[row.endDate];
         const storedDaily = row.daily || {};
         const storedDailyFinalized = !!row.lastUpdated && new Date(row.lastUpdated).getTime() >= easternEpochMs(row.endDate, 1440);
-        const exactCallCompletion = calibratedDay
-          ? { totalInbound: Number(calibratedDay.total || 0), completedInbound: Number(calibratedDay.completed || 0), rate: Number(calibratedDay.total || 0) ? Number(calibratedDay.completed || 0) / Number(calibratedDay.total || 0) * 100 : null }
-          : (storedDailyFinalized ? storedDaily.callCompletion || null : null);
+        const exactCallCompletion = storedDailyFinalized ? storedDaily.callCompletion || null : null; // always the calculated figure
         const exactLongCallRate = storedDailyFinalized ? storedDaily.longCallRate || null : null;
         const exactCsat = storedDailyFinalized ? storedDaily.csat || null : null;
         // No same-month day before this one: if it's the 1st, that cumulative IS the day's own
