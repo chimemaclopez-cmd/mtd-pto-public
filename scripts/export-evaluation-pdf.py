@@ -292,10 +292,13 @@ def pct_text(value):
     return '&mdash;' if value is None else f'{value:.1f}%'
 
 
-def kpi_appendix_table(styles, kpi_rows):
+def kpi_appendix_table(styles, kpi_rows, adjustment=None):
     header = ['PERIOD', 'DAYS\nWORKED', 'PRODUCTIVITY', 'CSAT', 'PROCESS\nCOMPLIANCE', 'ATTENDANCE', 'TOTAL\nSCORE']
     rows = [[Paragraph(h.replace('\n', '<br/>'), styles['AppendixTableHeader']) for h in header]]
-    for row in kpi_rows:
+    labeled_rows = [dict(r, _label=(adjustment or {}).get('baseLabel') or 'Version 1 - As calculated') for r in kpi_rows] if adjustment and adjustment.get('row') else list(kpi_rows)
+    if adjustment and adjustment.get('row'):
+        labeled_rows.append(dict(adjustment['row'], _label=adjustment.get('label') or 'Version 2 - Adjusted'))
+    for row in labeled_rows:
         kind_label = 'calls' if row.get('productivityKind') == 'calls' else 'tickets'
         productivity_raw = row.get('productivityRaw')
         productivity_text = '&mdash;' if productivity_raw is None else f"{productivity_raw} {kind_label}/day<br/><font size=7.5 color='#444444'>{row.get('productivityTotal') or 0} total &middot; Tier {pct_text(row.get('productivityTier'))}</font>"
@@ -303,7 +306,7 @@ def kpi_appendix_table(styles, kpi_rows):
         total = row.get('totalScore')
         total_text = '&mdash;' if total is None else f"<b>{total:.2f}%</b>" + (' <font size=7.5 color=\'#444444\'>(partial)</font>' if row.get('totalScoreProvisional') else '')
         rows.append([
-            Paragraph(f"Month {row['periodNumber']}<br/><font size=7.5 color='#444444'>{xml_escape(row.get('periodStart',''))} &ndash; {xml_escape(row.get('periodEnd',''))}</font>", styles['CellBody']),
+            Paragraph(f"Month {row['periodNumber']}<br/><font size=7.5 color='#444444'>{xml_escape(row.get('periodStart',''))} &ndash; {xml_escape(row.get('periodEnd',''))}</font>" + (f"<br/><b>{xml_escape(row['_label'])}</b>" if row.get('_label') else ''), styles['CellBody']),
             Paragraph(str(row.get('workedDays') if row.get('workedDays') is not None else '&mdash;'), styles['CellBody']),
             Paragraph(productivity_text, styles['CellBody']),
             Paragraph(csat_text, styles['CellBody']),
@@ -391,8 +394,15 @@ def appendix_section(styles, appendix_data):
     ))
     flow.append(Spacer(1, 6))
     flow.append(Paragraph('Current KPI Score', styles['SectionHeading']))
+    adjustment = appendix_data.get('kpiAdjustment')
     if kpi_rows:
-        flow.append(kpi_appendix_table(styles, kpi_rows))
+        flow.append(kpi_appendix_table(styles, kpi_rows, adjustment))
+        if adjustment and adjustment.get('notes'):
+            flow.append(Spacer(1, 6))
+            as_of = f" (as of {xml_escape(adjustment.get('asOf'))})" if adjustment.get('asOf') else ''
+            flow.append(Paragraph(f"<b>KPI adjustment (supplemental)</b>{as_of}", styles['BodyText9']))
+            for note in adjustment['notes']:
+                flow.append(Paragraph('&bull; ' + xml_escape(note), styles['BodyText9']))
     else:
         flow.append(Paragraph('No KPI data available for this employee/period.', styles['BodyText9']))
     flow.append(Spacer(1, 12))

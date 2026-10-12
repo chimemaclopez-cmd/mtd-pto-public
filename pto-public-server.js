@@ -5506,7 +5506,11 @@ const server = http.createServer(async (req, res) => {
         .filter(q => q.status !== 'DRAFT' && ptoLogic.cleanEmail(q.employeeEmail) === recordEmail && q.evaluationDate >= member.hireDate && q.evaluationDate <= periodEndInclusive)
         .map(q => ({ evaluationDate: q.evaluationDate, ticketId: q.ticketId, purpose: q.purpose, channel: q.channel, pct: q.score?.pct ?? null, passed: q.score?.passed ?? null, hasCriticalError: Boolean(q.score?.hasCriticalError), evaluatorName: q.evaluatorName, feedback: q.feedback }))
         .sort((a, b) => a.evaluationDate.localeCompare(b.evaluationDate));
-      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend, qaScorecards });
+      // A supplemental KPI version stored for this employee + period (e.g. attendance with documented leave excused),
+      // shown next to the official score so the appendix carries both.
+      const kpiAdjustments = await cloudStore.kvGetJson('mtdkpi:evaluation-kpi-adjustments', {});
+      const kpiAdjustment = kpiAdjustments?.[recordEmail]?.[periodNumber] || null;
+      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend, qaScorecards, kpiAdjustment });
     }
 
     const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);
