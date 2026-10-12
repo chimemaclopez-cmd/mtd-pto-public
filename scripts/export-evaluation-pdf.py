@@ -13,6 +13,8 @@
 # redesigned look, keeping the wet-signature lines physically blank for HR filing - the
 # online acknowledgment is a separate, faster digital record noted above the signature
 # block, not a replacement for it.
+import base64
+import io
 import json
 import os
 import re
@@ -22,7 +24,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROSTER_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'roster.json')
@@ -411,6 +413,26 @@ def appendix_section(styles, appendix_data):
     flow.append(Spacer(1, 12))
     flow.append(Paragraph('Coaching Logs', styles['SectionHeading']))
     flow.append(coaching_appendix_table(styles, coaching_logs))
+    documents = [d for d in (appendix_data.get('documents') or []) if d.get('dataBase64') and str(d.get('mime', '')).startswith('image/')]
+    if documents:
+        flow.append(Spacer(1, 12))
+        for index, doc in enumerate(documents):
+            block = []
+            if index == 0:
+                block.append(Paragraph('Supporting Documents', styles['SectionHeading']))
+            try:
+                raw = base64.b64decode(doc['dataBase64'])
+                from reportlab.lib.utils import ImageReader
+                iw, ih = ImageReader(io.BytesIO(raw)).getSize()
+                max_w, max_h = PAGE_WIDTH * 0.62, 6.4 * inch
+                scale = min(max_w / iw, max_h / ih)
+                block.append(Paragraph('<b>' + xml_escape(doc.get('label') or doc.get('filename') or 'Document') + '</b>', styles['BodyText9']))
+                block.append(Spacer(1, 3))
+                block.append(Image(io.BytesIO(raw), width=iw * scale, height=ih * scale))
+            except Exception as error:
+                block.append(Paragraph('(Supporting document could not be rendered: ' + xml_escape(str(error)) + ')', styles['BodyText9']))
+            # Heading, caption and image stay together so the caption is never stranded on the previous page.
+            flow.append(KeepTogether(block))
     return flow
 
 

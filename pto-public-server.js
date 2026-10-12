@@ -5510,7 +5510,10 @@ const server = http.createServer(async (req, res) => {
       // shown next to the official score so the appendix carries both.
       const kpiAdjustments = await cloudStore.kvGetJson('mtdkpi:evaluation-kpi-adjustments', {});
       const kpiAdjustment = kpiAdjustments?.[recordEmail]?.[periodNumber] || null;
-      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend, qaScorecards, kpiAdjustment });
+      // Supporting documents (e.g. a medical certificate) the team lead added to this evaluation's appendix.
+      const appendixDocuments = await cloudStore.kvGetJson('mtdkpi:evaluation-appendix-documents', {});
+      const documents = appendixDocuments?.[recordEmail]?.[periodNumber] || [];
+      return json(res, 200, { ok: true, kpiRows, coachingLogs, attendanceTrend, qaScorecards, kpiAdjustment, documents });
     }
 
     const probationComplianceMatch = parsed.pathname.match(/^\/api\/my\/team-probation-kpi\/([^/]+)\/compliance$/);
