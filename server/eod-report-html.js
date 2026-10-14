@@ -8,10 +8,11 @@ function eodReportHtml(data, h) {
   const prettyDate = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const etTime = iso => iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : '';
   const hourLabel = n => `${n % 12 === 0 ? 12 : n % 12} ${n < 12 ? 'AM' : 'PM'}`;
-  const td = 'padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top';
+  // The portal's own table CSS sets td{white-space:nowrap}, so cells that hold sentences must say normal explicitly.
+  const td = 'padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top;white-space:normal';
   const tdc = `${td};text-align:center`;
   const th = labels => huddleTableHead(...labels);
-  const table = (head, rows) => `<table style="width:100%;border-collapse:collapse;font-size:13px">${th(head)}<tbody>${rows}</tbody></table>`;
+  const table = (head, rows) => `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">${th(head)}<tbody>${rows}</tbody></table></div>`;
   const note = text => `<div style="font-size:11px;color:${B.muted};margin-top:10px;line-height:1.5">${text}</div>`;
   const lead = text => `<div style="background:${B.bg};border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.5">${text}</div>`;
   // Each section gets its own accent: it colors the section title, its underline and its sub-headings.
