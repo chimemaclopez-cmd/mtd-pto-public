@@ -1826,6 +1826,8 @@ const LOTTI_SOP_KEY = 'mtdkpi:lotti-sop-records';
 const LOTTI_SOP_STATE_KEY = 'mtdkpi:lotti-sop-sync-state';
 const LOTTI_SOP_REQUEST_KEY = 'mtdkpi:lotti-sop-sync-request';
 async function loadLottiSopRecords() { return cloudStore.kvGetJson(LOTTI_SOP_KEY, []); }
+const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
+async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
 const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
 // Ranks SOP sections for a question: matches in the SOP's name/heading count most, then the section text; common
 // filler words are ignored so "how do I handle a cancellation" finds cancellation SOPs, not every long document.
@@ -4334,7 +4336,7 @@ const server = http.createServer(async (req, res) => {
       const [state, request] = await Promise.all([cloudStore.kvGetJson(LOTTI_SOP_STATE_KEY, null), cloudStore.kvGetJson(LOTTI_SOP_REQUEST_KEY, null)]);
       const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
         .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
-      return json(res, 200, { ok: true, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+      return json(res, 200, { ok: true, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
     }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
@@ -4571,13 +4573,18 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/loftiq/knowledge-search' && req.method === 'GET') {
       const query = String(parsed.searchParams.get('q') || '').trim();
       if (!query) return json(res, 200, { ok: true, items: [] });
-      const [list, sopList] = await Promise.all([loadLottiKnowledge(), loadLottiSopRecords().catch(() => [])]);
+      const [list, sopList, annList] = await Promise.all([loadLottiKnowledge(), loadLottiSopRecords().catch(() => []), loadLottiAnnouncements().catch(() => [])]);
       const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
       const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 4);
       const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000) }));
-      return json(res, 200, { ok: true, items: [...sopItems, ...matched.slice(0, sopItems.length ? 2 : 3).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+      // Official Teams announcements can be newer than the SOP they change, so they are searched too and listed first, newest first.
+      const annMatched = searchSopRecords(query, annList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 2)
+        .sort((a, b) => String(b.source?.posted || '').localeCompare(String(a.source?.posted || '')));
+      const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000) }));
+      const regular = (annItems.length || sopItems.length) ? 2 : 3;
+      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
     }
 
     // Lofty Academy training videos, as a fourth general-knowledge source for Lotti - previously
