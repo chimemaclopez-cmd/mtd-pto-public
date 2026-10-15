@@ -5376,6 +5376,7 @@ const server = http.createServer(async (req, res) => {
         const windowEnd = isCurrentPeriod && today < periodEndInclusive ? today : periodEndInclusive;
         const metrics = periodsForEmployee[periodNumber] || null;
         const attendanceRange = ptoLogic.computeAttendanceForRange(rosterRecords, schedules, attendance, email, periodStart, windowEnd);
+        const reliability = ptoLogic.computeReliabilityForRange(rosterRecords, schedules, attendance, email, periodStart, windowEnd);
         const canChooseKind = periodNumber >= 4;
         const selectedKind = productivityKindStore?.[email]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
         const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
@@ -5389,7 +5390,8 @@ const server = http.createServer(async (req, res) => {
         const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
         const csatTier = scoreCsatTierPortal(csatRate);
         const compliancePercent = complianceStore?.[email]?.[periodNumber]?.percent ?? null;
-        const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+        // Attendance score = reliability (tardiness and lost hours factored in), not plain present-or-not days.
+        const attendancePercent = reliability?.reliabilityPercentage ?? null;
         const weighted = {
           productivity: productivityTier == null ? null : productivityTier * 0.40,
           csat: csatTier == null ? null : csatTier * 0.30,
@@ -5417,7 +5419,7 @@ const server = http.createServer(async (req, res) => {
           },
           csat: { raw: csatRate, good: metrics?.csatGood ?? null, bad: metrics?.csatBad ?? null, tierPercent: csatTier, weighted: weighted.csat },
           processCompliance: { raw: compliancePercent, weighted: weighted.processCompliance },
-          attendance: { raw: attendancePercent, weighted: weighted.attendance },
+          attendance: { raw: attendancePercent, weighted: weighted.attendance, presentPercent: attendanceRange?.attendancePercentage ?? null, lostHours: reliability?.lostHours ?? null, eligibleHours: reliability?.eligibleHours ?? null, lateDays: reliability?.lateDays ?? 0, lateMinutes: reliability?.lateMinutes ?? 0, lateEstimatedDays: reliability?.lateEstimatedDays ?? 0, halfDayAbsences: reliability?.halfDayAbsences ?? 0, absenceDays: reliability?.absenceDays ?? 0, missingEntries: reliability?.missingEntries ?? 0 },
           totalScore
         });
       }
@@ -5501,6 +5503,7 @@ const server = http.createServer(async (req, res) => {
       const windowEnd = today < periodEndInclusive ? today : periodEndInclusive;
       const metrics = metricsSnapshot.byEmployee?.[recordEmail]?.[periodNumber] || null;
       const attendanceRange = ptoLogic.computeAttendanceForRange((roster.records || []), schedules, attendance, recordEmail, periodStart, windowEnd);
+      const reliability = ptoLogic.computeReliabilityForRange((roster.records || []), schedules, attendance, recordEmail, periodStart, windowEnd);
       const attendanceTrend = ptoLogic.buildAttendanceTrend((roster.records || []), schedules, attendance, recordEmail, periodStart, windowEnd).map(t => ({ ...t, periodNumber }));
       const selectedKind = productivityKindStore?.[recordEmail]?.[periodNumber] || metrics?.defaultProductivityKind || 'tickets';
       const productivityCount = metrics && !metrics.error ? (selectedKind === 'calls' ? metrics.productivityCalls : metrics.productivityTickets) : null;
@@ -5510,7 +5513,7 @@ const server = http.createServer(async (req, res) => {
       const csatRate = metrics && !metrics.error && (metrics.csatGood + metrics.csatBad) > 0 ? metrics.csatGood / (metrics.csatGood + metrics.csatBad) * 100 : null;
       const csatTier = scoreCsatTierPortal(csatRate);
       const compliancePercent = complianceStore?.[recordEmail]?.[periodNumber]?.percent ?? null;
-      const attendancePercent = attendanceRange?.attendancePercentage ?? null;
+      const attendancePercent = reliability?.reliabilityPercentage ?? null;
       const weighted = {
         productivity: productivityTier == null ? null : productivityTier * 0.40,
         csat: csatTier == null ? null : csatTier * 0.30,
@@ -5523,6 +5526,7 @@ const server = http.createServer(async (req, res) => {
         periodNumber, periodStart, periodEnd: periodEndInclusive, workedDays,
         productivityRaw, productivityTotal: productivityCount, productivityKind: selectedKind, productivityTier,
         csatRaw: csatRate, csatTier, complianceRaw: compliancePercent, attendanceRaw: attendancePercent,
+        attendanceDetail: reliability ? { lostHours: reliability.lostHours, eligibleHours: reliability.eligibleHours, lateDays: reliability.lateDays, lateMinutes: reliability.lateMinutes, lateEstimatedDays: reliability.lateEstimatedDays, halfDayAbsences: reliability.halfDayAbsences, absenceDays: reliability.absenceDays, presentPercent: attendanceRange?.attendancePercentage ?? null } : null,
         totalScore, totalScoreProvisional: knownWeights.some(w => w == null)
       }];
       const coachingLogs = (coachingData.records || [])

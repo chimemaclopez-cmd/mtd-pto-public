@@ -294,8 +294,23 @@ def pct_text(value):
     return '&mdash;' if value is None else f'{value:.1f}%'
 
 
+def attendance_detail_html(d):
+    # Reliability breakdown shown under the attendance score (hours lost and what caused them).
+    if not d or d.get('lostHours') is None:
+        return ''
+    bits = [f"Lost {d['lostHours']:g} of {d['eligibleHours']:g} h"]
+    if d.get('lateDays'):
+        est = f", {d['lateEstimatedDays']} est." if d.get('lateEstimatedDays') else ''
+        bits.append(f"{d['lateDays']} late ({d.get('lateMinutes', 0)} min{est})")
+    if d.get('halfDayAbsences'):
+        bits.append(f"{d['halfDayAbsences']} half-day")
+    if d.get('absenceDays'):
+        bits.append(f"{d['absenceDays']} absent")
+    return "<br/><font size=7.5 color='#444444'>" + xml_escape(' / '.join(bits)) + "</font>"
+
+
 def kpi_appendix_table(styles, kpi_rows, adjustment=None):
-    header = ['PERIOD', 'DAYS\nWORKED', 'PRODUCTIVITY', 'CSAT', 'PROCESS\nCOMPLIANCE', 'ATTENDANCE', 'TOTAL\nSCORE']
+    header = ['PERIOD', 'DAYS\nWORKED', 'PRODUCTIVITY', 'CSAT', 'PROCESS\nCOMPLIANCE', 'ATTENDANCE\n(RELIABILITY)', 'TOTAL\nSCORE']
     rows = [[Paragraph(h.replace('\n', '<br/>'), styles['AppendixTableHeader']) for h in header]]
     labeled_rows = [dict(r, _label=(adjustment or {}).get('baseLabel') or 'Version 1 - As calculated') for r in kpi_rows] if adjustment and adjustment.get('row') else list(kpi_rows)
     if adjustment and adjustment.get('row'):
@@ -313,7 +328,7 @@ def kpi_appendix_table(styles, kpi_rows, adjustment=None):
             Paragraph(productivity_text, styles['CellBody']),
             Paragraph(csat_text, styles['CellBody']),
             Paragraph(pct_text(row.get('complianceRaw')), styles['CellBody']),
-            Paragraph(pct_text(row.get('attendanceRaw')), styles['CellBody']),
+            Paragraph(pct_text(row.get('attendanceRaw')) + attendance_detail_html(row.get('attendanceDetail')), styles['CellBody']),
             Paragraph(total_text, styles['CellBody']),
         ])
     widths = [PAGE_WIDTH * w for w in (0.16, 0.09, 0.21, 0.14, 0.15, 0.12, 0.13)]

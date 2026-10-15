@@ -343,6 +343,61 @@ function computeAttendanceForRange(roster, schedules, attendance, email, startDa
   };
 }
 
+// Attendance score for the probationary KPI / Performance Evaluation = RELIABILITY: the share of scheduled paid hours
+// the employee was actually there for. Unlike computeAttendanceForRange (present-or-not days), this docks
+//   - tardiness: a LATE day loses the minutes recorded for it (30 minutes is assumed when none were recorded),
+//   - lost hours: a half-day absence (SL-HD / EL-HD) loses half the paid shift, any other absence (SL, EL, A, NCNS,
+//     BL, SUSPENDED...) loses the whole paid shift.
+// Rest days, schedule gaps and approved PTO / partial PTO are left out of both sides. A scheduled day with no entry
+// counts as lost time (see below).
+// Paid hours per day = scheduled shift length minus the schedule's lunch.
+const RELIABILITY_ASSUMED_LATE_MINUTES = 30;
+function paidShiftHours(resolved) {
+  const t = resolved?.template;
+  if (!t?.shiftStartEastern || !t?.shiftEndEastern) return 8;
+  const start = minutesOf(t.shiftStartEastern);
+  let end = minutesOf(t.shiftEndEastern);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 8;
+  if (t.overnight || end <= start) end += 1440;
+  const lunch = Number.isFinite(Number(resolved.record?.lunchDurationMinutes)) ? Number(resolved.record.lunchDurationMinutes) : 60;
+  return Math.max(1, (end - start - lunch) / 60);
+}
+function computeReliabilityForRange(roster, schedules, attendance, email, startDate, endDate) {
+  const employee = roster.find(x => cleanEmail(x.employeeEmail) === cleanEmail(email));
+  if (!employee) return null;
+  const r2 = n => Math.round(n * 100) / 100;
+  let eligibleHours = 0, lostHours = 0, lateDays = 0, lateMinutes = 0, lateEstimatedDays = 0, halfDays = 0, absenceDays = 0, missing = 0, eligibleDays = 0;
+  for (const date of dateRange(startDate, endDate)) {
+    if (!rosterActiveOn(employee, date)) continue;
+    const resolved = scheduleForDate(schedules, email, date);
+    if (resolved.missingSchedule || resolved.template?.off) continue;
+    const code = attendanceCodeOnDate(attendance, email, date);
+    if (code === 'PTO' || code === 'PARTIAL_PTO') continue;
+    const paid = paidShiftHours(resolved);
+    // A scheduled day with no attendance entry counts as unaccounted time (same convention the present-or-not
+    // attendance % always used) so untracked periods cannot read as perfect; missingEntries tells the lead to fill it in.
+    if (!code) { missing++; eligibleHours += paid; lostHours += paid; continue; }
+    eligibleDays++;
+    eligibleHours += paid;
+    if (code === 'ONSITE' || code === 'WFH') continue;
+    if (code === 'LATE') {
+      const recorded = attendanceMinutesLateOnDate(attendance, email, date);
+      const minutes = Number.isFinite(recorded) && recorded >= 0 ? recorded : RELIABILITY_ASSUMED_LATE_MINUTES;
+      if (!(Number.isFinite(recorded) && recorded >= 0)) lateEstimatedDays++;
+      lateDays++; lateMinutes += minutes;
+      lostHours += Math.min(paid, minutes / 60);
+    } else if (code === 'SL-HD' || code === 'EL-HD') {
+      halfDays++; lostHours += paid / 2;
+    } else { absenceDays++; lostHours += paid; }
+  }
+  return {
+    employeeEmail: email, startDate, endDate,
+    reliabilityPercentage: eligibleHours ? Math.max(0, (eligibleHours - lostHours) / eligibleHours * 100) : null,
+    eligibleHours: r2(eligibleHours), lostHours: r2(lostHours), eligibleDays,
+    lateDays, lateMinutes, lateEstimatedDays, halfDayAbsences: halfDays, absenceDays, missingEntries: missing
+  };
+}
+
 // Day-by-day attendance trend over an arbitrary range, for the Evaluation Appendix (attendance
 // trend + reasons for absence, alongside KPI scores and coaching logs) - an additive sibling to
 // computeAttendanceForRange rather than a change to its return shape, so every existing caller
@@ -373,5 +428,5 @@ module.exports = {
   cleanEmail, validDate, validTime, minutesOf, dateRange, weekdayForDate,
   rosterActiveOn, scheduleForDate, calculatePtoWorkdays, ptoConflictsFor,
   normalizePtoRequest, ptoThreshold, forecastStatus, attendanceCodeOnDate, attendanceMinutesLateOnDate, attendanceReasonOnDate, attendanceLocationOnDate,
-  buildPtoForecast, applyPtoCapacityLimits, computeAttendanceForRange, buildAttendanceTrend
+  buildPtoForecast, applyPtoCapacityLimits, computeAttendanceForRange, computeReliabilityForRange, buildAttendanceTrend
 };
