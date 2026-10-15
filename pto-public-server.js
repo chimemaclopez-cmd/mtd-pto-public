@@ -1834,7 +1834,8 @@ const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when'
 function searchSopRecords(query, records, limit = 4) {
   const words = [...new Set(String(query).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !SOP_STOPWORDS.has(w)))];
   if (!words.length) return [];
-  const forms = w => (w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]);
+  // plural/singular, plus a 5-letter stem for longer words so "verify" also finds "verification"
+  const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
   const phrase = words.length > 1 ? words.join(' ') : '';
   return records.map(r => {
     const title = `${r.title || ''} ${r.source?.doc || ''}`.toLowerCase(), body = String(r.bodyText || '').toLowerCase();
