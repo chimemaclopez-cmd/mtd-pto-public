@@ -19,7 +19,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .tourOverlay{position:fixed;inset:0;z-index:900}
 .tourSpotlight{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(15,17,25,.6);transition:all .25s ease;pointer-events:none}
 .tourTooltip{position:fixed;width:280px;max-width:calc(100vw - 32px);background:#fff;border-radius:14px;padding:16px;box-shadow:0 18px 44px rgba(0,0,0,.3);transition:all .25s ease}
-.tourStep{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
+.tourStep{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
 .tourTitle{font-size:16px;font-weight:850;margin-bottom:6px}
 .tourBody{font-size:13px;color:var(--ink);line-height:1.5;margin-bottom:14px}
 .tourActions{display:flex;align-items:center;gap:8px}
@@ -42,7 +42,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .lottiBriefClose{border:none;background:#eef0f5;border-radius:8px;width:26px;height:26px;cursor:pointer;font-size:12px;color:#5b6378}
 .lottiBriefClose:hover{background:#e1e5ee}
 .lottiBriefSub{font-size:12px;color:var(--muted);margin:2px 0 8px}
-.lottiBriefSec{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--purple);margin:10px 0 4px}
+.lottiBriefSec{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--purple);margin:10px 0 4px}
 .lottiBriefRow{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;padding:4px 0}
 .lottiBriefRow .ico{flex:none;width:18px;text-align:center}
 .lottiBriefRow.go{cursor:pointer;border-radius:8px;padding:5px 6px;margin:0 -6px}
@@ -55,7 +55,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .lottiFloatHeader .lottiHeadIcon{width:34px;height:34px;flex:none;background:rgba(255,255,255,.2);border-radius:10px;padding:2px}
 .lottiFloatHeader .lottiHeadIcon svg{width:100%;height:100%}
 .lottiFloatHeader b{font-size:15px}
-.lottiFloatHeader .sub{color:rgba(255,255,255,.88);font-size:11px}
+.lottiFloatHeader .sub{color:rgba(255,255,255,.88);font-size:12px}
 .lottiFloatHeader .spacer{flex:1}
 .lottiFloatHeader button{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;height:28px;padding:0 9px;font-size:12px;font-weight:700;cursor:pointer}
 .lottiFloatHeader button:hover{background:rgba(255,255,255,.3)}
@@ -72,27 +72,27 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .chatBubbleBtn{width:58px;height:58px;border-radius:50%;border:none;background:var(--gradient);color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;box-shadow:0 10px 24px rgba(43,60,120,.35);position:relative;transition:transform .12s;touch-action:none;user-select:none}
 .chatBubbleBtn:hover{transform:translateY(-2px)}
 .chatBubbleBtn:active{cursor:grabbing}
-.chatBadge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:11px;font-weight:800;min-width:19px;height:19px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+.chatBadge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:12px;font-weight:800;min-width:19px;height:19px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
 .chatPanel{position:absolute;right:0;bottom:72px;width:320px;max-width:calc(100vw - 40px);height:440px;max-height:calc(100vh - 120px);background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 44px rgba(0,0,0,.18);display:flex;flex-direction:column;overflow:hidden}
 .chatPanelHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--gradient);color:#fff}
-.chatPanelHeader .sub{color:rgba(255,255,255,.85);font-size:11px}
+.chatPanelHeader .sub{color:rgba(255,255,255,.85);font-size:12px}
 .chatCloseBtn{background:none;border:none;color:#fff;font-size:15px;cursor:pointer;padding:4px 6px;border-radius:6px}
 .chatCloseBtn:hover{background:rgba(255,255,255,.2)}
 .chatPanelBody{flex:1;display:flex;flex-direction:column;min-height:0}
-.chatOnlineStrip{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line);font-size:11px;max-height:60px;overflow-y:auto}
+.chatOnlineStrip{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px;max-height:60px;overflow-y:auto}
 .chatOnlineStrip .item{display:flex;align-items:center;gap:5px;background:#eef0f5;border-radius:999px;padding:3px 9px 3px 7px}
 .chatOnlineStrip .dot{width:7px;height:7px;border-radius:50%;background:#19ab63;flex:none}
 .chatMessages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
 .chatMsg{max-width:80%;padding:8px 12px;border-radius:14px;background:#eef0f5;align-self:flex-start}
 .chatMsg.mine{background:var(--blue);color:#fff;align-self:flex-end}
-.chatMsg .who{font-size:11px;font-weight:800;opacity:.7;margin-bottom:2px}
-.chatMsg .when{font-size:10px;opacity:.6;margin-top:3px;text-align:right}
-.chatDateSeparator{text-align:center;font-size:11px;color:var(--muted);margin:6px 0;text-transform:uppercase;letter-spacing:.4px}
+.chatMsg .who{font-size:12px;font-weight:800;opacity:.7;margin-bottom:2px}
+.chatMsg .when{font-size:12px;opacity:.6;margin-top:3px;text-align:right}
+.chatDateSeparator{text-align:center;font-size:12px;color:var(--muted);margin:6px 0;text-transform:uppercase;letter-spacing:.4px}
 .loftiqHeader{margin-bottom:16px}
 .loftiqTitle{font-size:24px;font-weight:850;display:flex;align-items:center;gap:10px}
 .loftiqTitleIcon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2ecc8f 0%,#0f7a49 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px -3px rgba(15,122,73,.5);overflow:hidden}
 .loftiqTitleIcon svg,.loftiqAvatar svg{width:78%;height:78%}
-.loftiqLive{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:#e3f7ec;padding:4px 10px 4px 8px;border-radius:999px}
+.loftiqLive{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:#e3f7ec;padding:4px 10px 4px 8px;border-radius:999px}
 .loftiqLive::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:loftiqPulse 1.8s ease-in-out infinite}
 @keyframes loftiqPulse{0%,100%{box-shadow:0 0 0 0 rgba(25,171,99,.45)}50%{box-shadow:0 0 0 4px rgba(25,171,99,0)}}
 .loftiqScopeBanner{background:#eef0f5;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -108,9 +108,9 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .loftiqAvatar{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2ecc8f 0%,#0f7a49 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px -2px rgba(15,122,73,.45);overflow:hidden}
 .loftiqBubble{background:#fff;border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:12px 16px;box-shadow:0 2px 10px rgba(32,36,55,.05);min-width:0}
 .loftiqRow.mine .loftiqBubble{background:var(--gradient);color:#fff;border:none;border-radius:16px 16px 4px 16px}
-.loftiqWho{font-size:10px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.loftiqWho{font-size:12px;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
 .loftiqText{font-size:14px;line-height:1.55;white-space:pre-line;word-wrap:break-word}
-.loftiqTime{font-size:10px;opacity:.55;margin-top:5px}
+.loftiqTime{font-size:12px;opacity:.55;margin-top:5px}
 .loftiqRow.mine .loftiqTime{text-align:right}
 .loftiqTyping{display:inline-flex;gap:4px;align-items:center;padding:2px 0}
 .loftiqTyping span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:loftiqTypingBounce 1.2s infinite ease-in-out}
@@ -128,17 +128,17 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .loftiqCapIcon{width:38px;height:38px;border-radius:10px;background:#eef0f5;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
 .chatDelete{cursor:pointer;text-decoration:underline;opacity:.85}
 .chatDelete:hover{opacity:1}
-.chatReconnect{background:#fff2cc;color:#7a4a05;font-size:11px;text-align:center;padding:4px;font-weight:700}
+.chatReconnect{background:#fff2cc;color:#7a4a05;font-size:12px;text-align:center;padding:4px;font-weight:700}
 .chatInputRow{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
 .chatInputRow input{flex:1;border:1px solid #c9cdd6;border-radius:8px;padding:9px}
 @media(max-width:480px){.chatPanel{width:calc(100vw - 40px)}}
-.tabBadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;font-weight:800;vertical-align:middle}
+.tabBadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;font-weight:800;vertical-align:middle}
 .announcementCard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:12px;padding:14px 16px;margin-bottom:12px}
 .announcementCard.urgent{border-left-color:var(--red)}
 .announcementCard .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .announcementCard .head b{font-size:15px}
 .announcementCard .body{white-space:pre-wrap;line-height:1.5}
-.announcementCard .meta{color:var(--muted);font-size:11px;margin-top:8px}
+.announcementCard .meta{color:var(--muted);font-size:12px;margin-top:8px}
 .announcementCard .body.collapsed{max-height:220px;overflow:hidden;position:relative}
 .announcementCard .body.collapsed::after{content:'';position:absolute;left:0;right:0;bottom:0;height:52px;background:linear-gradient(rgba(255,255,255,0),#fff)}
 .announcementToggle{display:block;background:none;border:none;color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;padding:6px 0 0;margin:0}
@@ -162,7 +162,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 #profileCard{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:space-between}
 #profileCard .profileName{font-size:18px;font-weight:850;margin-bottom:14px}
 #profileCard .profileGrid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:6px;max-width:420px}
-#profileCard .profileGrid .item label{display:block;font-size:11px;text-transform:uppercase;font-weight:800;color:var(--muted)}
+#profileCard .profileGrid .item label{display:block;font-size:12px;text-transform:uppercase;font-weight:800;color:var(--muted)}
 #profileCard .profileGrid .item .value{font-size:13px;color:var(--ink);margin-top:3px}
 .profileAvatarBlock{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px}
 .profileAvatar{width:104px;height:104px;border-radius:50%;object-fit:cover;background:#eef0f5;border:1px solid var(--line)}
@@ -179,10 +179,10 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .teamGoalBlock{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
 .teamGoalHead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:10px}
 .teamGoalTitle{font-size:15px;font-weight:850}
-.teamGoalTarget{font-size:11px;color:var(--muted);font-weight:700}
+.teamGoalTarget{font-size:12px;color:var(--muted);font-weight:700}
 .teamGoalStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px}
 .teamGoalStat{background:#f6f7fb;border-radius:10px;padding:10px}
-.teamGoalStat .label{font-size:9px;font-weight:850;text-transform:uppercase;color:var(--muted);letter-spacing:.3px}
+.teamGoalStat .label{font-size:12px;font-weight:850;text-transform:uppercase;color:var(--muted);letter-spacing:.3px}
 .teamGoalStat .value{font-size:20px;font-weight:850;margin-top:4px}
 .teamGoalStat.goalMet{background:#e3f7ec;color:#0f7a49}
 .teamGoalStat.goalGap{background:#fff2cc;color:#7a4a05}
@@ -192,22 +192,68 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .repGoalGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px}
 .repGoalCard{background:#fff;border:1px solid #e1e5ee;border-radius:13px;padding:13px;box-shadow:0 3px 10px rgba(32,36,55,.025)}
 .repGoalIdentity{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #edf0f5}
-.repGoalName{font-size:13px;font-weight:850;line-height:1.25}.repGoalType{flex:none;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.35px;color:#4d5870;background:#eef1f7;border-radius:999px;padding:4px 7px}
-.repGoalRows{display:grid;gap:8px;margin-top:10px}.repGoalRow{display:grid;grid-template-columns:minmax(88px,1fr) auto;gap:12px;align-items:center}.repGoalMetric{font-size:11px;font-weight:800;color:#465068}.repGoalDetail{font-size:10px;color:var(--muted);margin-top:2px}.repGoalResult{text-align:right}.repGoalActual{font-size:12px;font-weight:850;margin-bottom:3px}
-.goalBadge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:850;white-space:nowrap}.goalBadge.met{background:#e3f7ec;color:#0f7a49}.goalBadge.gap{background:#fff2cc;color:#7a4a05}.goalBadge.na{background:#eef0f5;color:#697184}
+.repGoalName{font-size:13px;font-weight:850;line-height:1.25}.repGoalType{flex:none;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.35px;color:#4d5870;background:#eef1f7;border-radius:999px;padding:4px 7px}
+.repGoalRows{display:grid;gap:8px;margin-top:10px}.repGoalRow{display:grid;grid-template-columns:minmax(88px,1fr) auto;gap:12px;align-items:center}.repGoalMetric{font-size:12px;font-weight:800;color:#465068}.repGoalDetail{font-size:12px;color:var(--muted);margin-top:2px}.repGoalResult{text-align:right}.repGoalActual{font-size:12px;font-weight:850;margin-bottom:3px}
+.goalBadge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:850;white-space:nowrap}.goalBadge.met{background:#e3f7ec;color:#0f7a49}.goalBadge.gap{background:#fff2cc;color:#7a4a05}.goalBadge.na{background:#eef0f5;color:#697184}
 @media(max-width:900px){.teamGoalGrid{grid-template-columns:1fr}}@media(max-width:560px){.repGoalHead{display:block}.repGoalHead .sub{margin-top:4px}.repGoalGrid{grid-template-columns:1fr}}
 .notifClickable{cursor:pointer;border-radius:8px;transition:background .12s}.notifClickable:hover,.notifClickable:focus-visible{background:var(--brand-soft,#f1f3ff);outline:none}.notifHighlight{animation:notifFlash 2.5s ease-out}@keyframes notifFlash{0%{background:#fff2cc}100%{background:transparent}}
-.ptoCalGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}.ptoCalHead{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);text-align:center;padding:2px 0 6px}.ptoCalDay{min-height:70px;border:1px solid var(--line);border-radius:9px;padding:6px;background:#fff}.ptoCalDay.outMonth{opacity:.4;background:#fafafc}.ptoCalDay.isToday{border-color:var(--blue);border-width:2px}.ptoCalDay.hasRequests{cursor:pointer;transition:transform .1s,box-shadow .1s}.ptoCalDay.hasRequests:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(32,36,55,.08)}.ptoCalDayNum{font-size:11px;font-weight:800;color:#465068;margin-bottom:4px}.ptoCalBadges{display:flex;flex-direction:column;gap:3px}.ptoCalBadge{display:block;font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ptoCalBadge.pending{background:#fff2cc;color:#7a4a05}.ptoCalBadge.approved{background:#e3f7ec;color:#0f7a49}.ptoCalBadge.mine{outline:2px solid var(--blue)}@media(max-width:760px){.ptoCalDay{min-height:52px;font-size:10px}}
+.ptoCalGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}.ptoCalHead{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);text-align:center;padding:2px 0 6px}.ptoCalDay{min-height:70px;border:1px solid var(--line);border-radius:9px;padding:6px;background:#fff}.ptoCalDay.outMonth{opacity:.4;background:#fafafc}.ptoCalDay.isToday{border-color:var(--blue);border-width:2px}.ptoCalDay.hasRequests{cursor:pointer;transition:transform .1s,box-shadow .1s}.ptoCalDay.hasRequests:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(32,36,55,.08)}.ptoCalDayNum{font-size:12px;font-weight:800;color:#465068;margin-bottom:4px}.ptoCalBadges{display:flex;flex-direction:column;gap:3px}.ptoCalBadge{display:block;font-size:12px;font-weight:800;padding:2px 6px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ptoCalBadge.pending{background:#fff2cc;color:#7a4a05}.ptoCalBadge.approved{background:#e3f7ec;color:#0f7a49}.ptoCalBadge.mine{outline:2px solid var(--blue)}@media(max-width:760px){.ptoCalDay{min-height:52px;font-size:12px}}
 #learningMaterialsGridOnboarding,#learningMaterialsGridTraining{grid-template-columns:repeat(4,1fr)}
-</style></head><body><div class="wrap">
+.uiDialog{max-width:440px;animation:lottiBriefIn .18s ease-out}
+.uiDialogMsg{white-space:pre-line;line-height:1.5;margin:8px 0 14px;font-size:14.5px;color:var(--ink)}
+.uiDialogInput{width:100%;box-sizing:border-box;border:1px solid #c9cdd6;border-radius:10px;padding:10px 12px;font:inherit;margin-bottom:14px;resize:vertical}
+.uiDialogActions{display:flex;justify-content:flex-end;gap:8px}
+.btn.primary.dangerFill{background:var(--red);border-color:var(--red);box-shadow:0 3px 10px rgba(194,49,58,.28)}
+.toolGroup{margin-bottom:18px}
+.toolGroupTitle{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.toolGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.toolGrid.compact{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.toolTile{display:flex;align-items:center;gap:12px;padding:11px 13px;background:#fff;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);transition:transform .12s,box-shadow .12s,border-color .12s;min-width:0}
+.toolTile:hover{transform:translateY(-2px);border-color:var(--tc);box-shadow:0 8px 20px rgba(32,36,55,.1)}
+.toolMark{flex:none;width:38px;height:38px;border-radius:10px;background:var(--tc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+.toolText{display:flex;flex-direction:column;min-width:0;flex:1}
+.toolName{font-weight:800;font-size:14px;line-height:1.25}
+.toolDesc{font-size:12px;color:var(--muted);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolArrow{flex:none;color:var(--muted);font-size:14px}
+.toolGrid.compact .toolTile{padding:9px 11px}.toolGrid.compact .toolMark{width:32px;height:32px;font-size:15px}
+.navToggle{display:none}
+.navToggle[hidden]{display:none!important}
+@media(max-width:900px){.navToggle{display:flex;align-items:center;gap:10px;width:100%;margin:10px 0 0;min-height:46px;font-size:15px;justify-content:flex-start;background:#fff}#tabs.navCollapsed{display:none}}
+#tabs .qjBtn{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);background:#f6f7fb;color:var(--muted);font-weight:600;font-size:13px}
+#tabs .qjBtn:hover{background:#eef0f5;color:var(--ink)}
+#tabs .qjBtn .qjBtnText{flex:1;text-align:left}
+kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:#fff;color:var(--muted)}
+.skipLink{position:absolute;left:8px;top:-60px;z-index:100000;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:8px;padding:8px 14px;font-weight:700;text-decoration:none}
+.skipLink:focus{top:8px}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid #7d93f0;outline-offset:2px}
+.btn:focus-visible{box-shadow:0 0 0 4px rgba(59,92,222,.25)}
+.skel{display:block;border-radius:8px;height:14px;background:linear-gradient(90deg,#eceff6 25%,#f7f9fd 37%,#eceff6 63%);background-size:400% 100%;animation:skelShift 1.4s ease infinite}
+.skelCard{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px;min-width:150px;flex:1}
+@keyframes skelShift{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.qjModal{position:fixed;inset:0;background:rgba(20,24,40,.45);z-index:10001;display:flex;justify-content:center;align-items:flex-start;padding:10vh 16px 0}
+.qjBox{width:min(560px,100%);background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden}
+.qjInput{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line);padding:16px 18px;font:inherit;font-size:16px;outline:none}
+.qjList{max-height:min(52vh,420px);overflow:auto;padding:6px}
+.qjItem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer}
+.qjItem[aria-selected="true"]{background:#eef1ff}
+.qjItemMain{flex:1;min-width:0}
+.qjItemLabel{font-weight:700;font-size:14px}
+.qjItemHint{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qjItemTag{font-size:12px;color:var(--muted);flex:none}
+.qjEmpty{padding:18px;text-align:center;color:var(--muted);font-size:14px}
+</style></head><body><a class="skipLink" href="#mainContent">Skip to content</a><div class="wrap">
 <header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — schedule, performance, coaching, QA, and support tools in one place.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><div class="field" style="min-width:150px"><label>Status</label><select id="statusSelect" disabled></select></div><button class="btn primary" id="timeInBtn">Time In</button><button class="btn danger" id="timeOutBtn" hidden>Time Out</button><button class="btn" id="notifBtn" hidden>🔔<span id="notifBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="loftiq" id="loftiqTabBtn">🤖 Lotti<span id="loftiqBadge" class="tabBadge" hidden></span></button><div class="headerMenu" id="headerMenu"><button class="btn" type="button" id="headerMenuBtn" aria-haspopup="true" aria-expanded="false">☰ Menu</button><div class="headerMenuPanel" id="headerMenuPanel" hidden><div class="headerMenuWhoami sub" id="whoami"></div><div class="field" id="viewAsField" hidden><label>View As (Preview)</label><select id="viewAsSelect"><option value="">My real access</option><option value="REP">Rep (no team-lead extras)</option><option value="SENIOR TSR">Senior TSR</option><option value="BQA">BQA</option><option value="TRAINING">Training Manager</option><option value="SOM">SOM</option><option value="HR">HR</option></select></div><button class="headerMenuItem" type="button" id="refreshBtn">🔄 Refresh</button><button class="headerMenuItem" type="button" id="changePasswordBtn">🔑 Change Password</button><button class="headerMenuItem headerMenuDanger" type="button" id="logoutBtn">🚪 Log Out</button></div></div></div></div></header>
-<div id="message" class="message" hidden></div>
+<div id="message" class="message" role="status" aria-live="polite" hidden></div>
 <section id="maintenanceView" class="panel noPrint" hidden style="text-align:center;padding:36px 24px"><div style="font-size:40px;margin-bottom:6px">🛠️</div><div class="sectionTitle">We'll be right back</div><div class="sub" style="margin-top:8px;max-width:420px;margin-left:auto;margin-right:auto">The portal is temporarily unavailable for maintenance. This usually clears up on its own within a few minutes — please check back shortly.</div><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn primary" type="button" id="maintenanceRetryBtn">Try Again</button></div><div class="sub" style="margin-top:18px;font-style:italic">Thank you for your patience — Mac</div></section>
 <section id="loginView" class="panel noPrint"><div class="sectionTitle">Sign In</div><div id="workbenchNotice" role="alert" hidden style="margin:4px 0 18px;padding:20px 20px 22px;border-radius:14px;background:#fff7e6;border:2px solid #f59e0b;text-align:center"><div style="font-size:19px;font-weight:800;color:#92400e;margin-bottom:6px">Please use the Workbench</div><div style="font-size:14px;color:#78350f;line-height:1.5;margin-bottom:14px">The Support Portal is not open to your team yet. Sign in to the Workbench instead.</div><a id="workbenchLink" class="btn primary" href="https://tsr.lofty.com/bench/web/" target="_blank" rel="noopener" style="display:block;text-decoration:none;font-size:16px;padding:14px 18px;text-align:center">Open the Workbench</a><div id="workbenchUrlText" style="font-size:12px;color:#92400e;margin-top:10px;word-break:break-all">https://tsr.lofty.com/bench/web/</div></div><form id="loginForm"><div class="formGrid" style="grid-template-columns:1fr"><div class="field"><label>Email</label><input name="email" type="email" required autocomplete="username"></div><div class="field"><label>Password</label><div class="pwField"><input name="password" type="password" required autocomplete="current-password"><button type="button" class="pwToggle" aria-label="Show password"></button></div></div></div><div id="loginError" class="message error" hidden></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Sign In</button></div></form><div style="text-align:center;margin-top:14px"><a href="#" id="forgotPasswordLink" style="color:var(--blue);font-size:13px;text-decoration:none">Forgot password?</a></div><div id="forgotPasswordHint" class="message" hidden style="margin-top:12px">Forgot your password? Contact your Team Lead or Administrator to have it reset.</div></section>
 <div class="noPrint" id="viewAsBanner" hidden style="background:#fff2cc;color:#8a5a00;padding:8px 16px;font-weight:700;text-align:center">Previewing as <span id="viewAsBannerRole"></span> (read-only preview — approvals/decisions stay disabled)</div>
-<div class="portalLayout"><nav class="sidebar noPrint" id="tabs" hidden>
+<button type="button" id="navToggle" class="btn navToggle noPrint" aria-expanded="false" aria-controls="tabs" hidden><span aria-hidden="true">☰</span><span id="navToggleLabel">Menu</span></button>
+<div class="portalLayout"><nav class="sidebar noPrint" id="tabs" aria-label="Main menu" hidden>
+<button type="button" class="btn qjBtn" id="qjBtn" aria-label="Search tabs and tools"><span aria-hidden="true">🔍</span><span class="qjBtnText">Search</span><kbd>Ctrl K</kbd></button>
 <details class="tabGroup tabGroup-work" open><summary class="tabGroupLabel"><svg class="groupIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6.2" r="2.7"/><path d="M3.2 15c.5-3 2.8-5 5.8-5s5.3 2 5.8 5"/></svg>My Work</summary><div class="tabGroupButtons">
 <button class="btn primary" data-tab="dashboard"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.7 8.4 9 3l6.3 5.4"/><path d="M4.2 7.2V15h9.6V7.2"/><path d="M7.3 15v-4.2h3.4V15"/></svg>Dashboard</button>
+<button class="btn" data-tab="toolsResources" id="toolsTabBtn"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="10.3" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="2.5" y="10.3" width="5.2" height="5.2" rx="1.2"/><rect x="10.3" y="10.3" width="5.2" height="5.2" rx="1.2"/></svg>Tools &amp; Resources</button>
 <button class="btn" data-tab="profile"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6.2" r="2.7"/><path d="M3.2 15c.5-3 2.8-5 5.8-5s5.3 2 5.8 5"/></svg>Profile</button>
 <button class="btn" data-tab="schedule"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.7" y="3.6" width="12.6" height="11.7" rx="1.4"/><path d="M2.7 7.2h12.6"/><path d="M6 2.4v2.4M12 2.4v2.4"/></svg>My Schedule</button>
 <button class="btn" data-tab="attendance"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.3"/><path d="M9 5.4V9l2.7 1.8"/></svg>My Attendance</button>
@@ -251,7 +297,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <a class="btn" href="/status-wall?key=Lofty1234" target="_blank" rel="noopener"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.7" y="3.5" width="12.6" height="8.6" rx="1.2"/><path d="M6.3 15.5h5.4M9 12.1v3.4"/></svg>Status Wall</a>
 <a class="btn" href="/spotlight-wall?key=Lofty1234" target="_blank" rel="noopener"><svg class="navIcon" viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.7l1.6 3.4 3.7.5-2.7 2.6.6 3.7L9 11.2l-3.2 1.7.6-3.7-2.7-2.6 3.7-.5Z"/></svg>Spotlight Wall</a>
 </div></details>
-</nav><main class="mainContent">
+</nav><main class="mainContent" id="mainContent" tabindex="-1">
+<section id="toolsResourcesView" hidden><div class="sectionTitle" style="margin:0">Tools &amp; Resources</div><div class="sub" style="margin:4px 0 14px">Every system and reference you need for your shift, in one place. Links open in a new tab.</div><div id="toolsResourcesBody"></div></section>
 <section id="dashboardView" hidden>
 <div class="dashboardHero">
 <div class="dashboardGreeting" id="dashboardGreeting">Welcome back!</div>
@@ -262,6 +309,7 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="dashboardGrid">
 <div class="dashboardPanel"><div class="dashboardPanelTitle">Today's Schedule</div><div id="dashboardScheduleBody"></div></div>
 <div class="dashboardPanel"><div class="dashboardPanelTitle">Needs Your Attention</div><div id="dashboardAttentionBody"></div></div>
+<div class="dashboardPanel" id="dashboardToolsPanel" style="grid-column:1/-1"><div class="dashboardPanelTitle">Tools &amp; Resources<button class="btn compact noPrint" type="button" data-tab="toolsResources" style="float:right;text-transform:none;letter-spacing:0;min-height:0;padding:3px 10px;font-size:12px">See all</button></div><div id="dashboardToolsGrid" class="toolGrid compact"></div></div>
 <div class="dashboardPanel" id="dashboardUpsellReferralsPanel" style="grid-column:1/-1"><div class="dashboardPanelTitle">💰 Spiff Programs<span id="dashboardUpsellReferralsMeta" class="muted" style="float:right;font-weight:700;text-transform:none;letter-spacing:0"></span></div><div id="dashboardUpsellReferralsSnippet"></div><button class="btn compact noPrint" type="button" data-tab="upsellReferrals" style="margin-top:10px">View All</button></div>
 <div class="dashboardPanel" id="dashboardTicketAuditPanel" style="grid-column:1/-1" hidden><div class="dashboardPanelTitle">Ticket Audit<span id="dashboardTicketAuditMeta" class="muted" style="float:right;font-weight:700;text-transform:none;letter-spacing:0"></span></div><div id="dashboardTicketAuditSnippet"></div><button class="btn compact noPrint" type="button" data-tab="ticketAudit" style="margin-top:10px">View All</button></div>
 </div>
@@ -352,11 +400,11 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 <div class="sectionTitle">Lofty QA Evaluation</div>
 <div class="sub">Score a ticket interaction against the fixed rubric below. <span id="qaScorecardGeneratedAt" class="muted"></span></div>
 <div class="panel" style="margin:12px 0;padding:14px 16px;background:var(--brand-soft,#f1f3ff)">
-  <div style="font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">How scoring works</div>
+  <div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">How scoring works</div>
   <div class="sub"><b>Yes</b> earns full points, <b>Partly</b> earns half, and <b>No</b> earns zero. Use <b>N/A</b> only when a criterion genuinely does not apply - it's excluded from the available score. Any confirmed critical error automatically sets the final score to zero, regardless of points earned elsewhere. Passing score: <b id="qaScorecardPassingPctText">80%</b>.</div>
 </div>
 <div class="panel" style="margin:0 0 14px;padding:14px 16px">
-  <div style="font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">Scoring breakdown</div>
+  <div style="font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#4d5870;margin-bottom:6px">Scoring breakdown</div>
   <div class="sub" style="margin-bottom:10px">Technical Performance carries the greatest weight because providing a correct and useful resolution is the most important part of the interaction.</div>
   <div class="cards" id="qaScorecardBreakdownCards"></div>
 </div>
@@ -385,8 +433,8 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
   <div class="panel" id="qaScorecardLiveScoreBox" style="margin:0 0 14px;padding:10px 14px"></div>
   <div class="formGrid" style="grid-template-columns:1fr 1.6fr 130px;gap:12px;margin:0 0 6px">
     <div></div>
-    <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">AI Suggestion</div>
-    <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Reviewer Rating</div>
+    <div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">AI Suggestion</div>
+    <div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Reviewer Rating</div>
   </div>
   <div id="qaScorecardCategories"></div>
   <div class="panel" id="qaScorecardAiScoreBox" style="margin:0 0 14px;padding:10px 14px" hidden></div>
@@ -1048,7 +1096,7 @@ const METRIC_LABELS={csat:'CSAT',calls:'Accepted Calls',lcr:'Long Call Rate',tic
 function goodNeededFor95(good,bad){const needed=19*bad-good;return needed>0?needed:0}
 function shortCallsNeededBelow5(longCalls,eligible){if(!eligible)return 0;const needed=20*longCalls-eligible+1;return needed>0?needed:0}
 const ATTENDANCE_LABELS={ONSITE:'Onsite',WFH:'Work From Home',LATE:'Late',RD:'Rest Day',PTO:'PTO',PARTIAL_PTO:'Partial PTO',SL:'Sick Leave','SL-HD':'Sick Leave (Half Day)',EL:'Emergency Leave','EL-HD':'Emergency Leave (Half Day)',NCNS:'No Call No Show',A:'Absent',BL:'Bereavement Leave',SUSPENDED:'Suspended'};
-const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.3.48',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,huddleLogRecords=[],huddleLogWeekMonday='',huddleLogWeekSunday='',huddleLogIsTeamLead=false,huddleLogLoading=false,huddleLogViewWeekOffset=0,editingHuddleId=null,huddleFormActions=[],myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,evaluationFilterEmail='',evaluationFilterPeriod='',probationKpiRows=[],myProbationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,canUseEodReport=false,eodReportHtml='',eodPollTimer=null,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardFormAiRatings={},qaScorecardFormAiCriticalErrors={},qaScorecardFormTicketStatus='',qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingTeamLeadFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null,learningMaterials=[],learningCanManage=false,learningLoading=false,learningTeamProgress=null,learningTeamProgressLoading=false,editingLearningMaterialId=null,qaSelfAuditLoading=false,qaSelfAuditResult=null;
+const LOAD_STEPS=['Checking server','Loading profile','Loading KPI scores','Loading schedule','Loading attendance','Loading announcements','Loading PTO requests','Rendering'];const SUBMIT_STEPS=['Validating request','Checking schedule','Checking conflicts','Calculating requested workdays','Saving request','Refreshing request list'];const KPI_AUTO_REFRESH_MS=15*60*1000;const loading=createLoadingStatus({title:'Loading'});let profile=null,profilePhoto='',photoUploading=false,kpiResults=[],teamKpiResults=[],isTeamLeader=false,canManageTeamAttendance=false,teamKpiPeriod='',teamKpiAverage=null,teamKpiLeadName='',teamKpiSize=0,teamKpiLastRefreshedAt=0,kpiRefreshTimer=null,kpiRefreshing=false,selectedKpiPeriod='',kpiAvailablePeriods=[],siteMetricsData=null,siteMetricsAvailablePeriods=[],siteMetricsHistory=[],selectedSiteMetricsPeriod='',scheduleDays=[],scheduleSubView='today',attendanceDays=[],requests=[],teamRequests=[],ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false},teamPtoDecision=null,scheduleRequests=[],editingScheduleRequest=null,scheduleRequestSubmitIntent='draft',editing=null,forecast=null,submitIntent='draft',sessionUser=null,mustChangePassword=false,activeTab='profile',portalVersion='2.3.49',chatMessages=[],chatOnline=[],chatPollTimer=null,chatHeartbeatTimer=null,chatUnread=0,chatPanelOpen=false,announcements=[],notifBirthdays=[],notifEvaluations=[],notifAnniversaries=[],notifRegularizations=[],notifKpiAlerts=[],notifAttendanceFlags=[],notifPendingApprovals=0,notifAsOf='',notifMyCoachingFollowUps=[],notifTeamCoachingFollowUps=[],notifMyDisciplinaryPending=[],notifDisciplinaryPreReviewPending=[],notifDisciplinaryDecisionPending=[],teamAttendanceMembers=[],teamAttendanceDates=[],teamAttendanceDirty=new Map(),teamAttendanceLoading=false,teamRosterMembers=[],teamRosterEditingEmail=null,teamScheduleSelectedEmail='',teamScheduleBlocks=[],teamScheduleMissing=false,teamScheduleLoading=false,myCoachingRecords=[],teamCoachingRecords=[],teamCoachingMembers=[],teamCoachingCategories=[],coachingIsTeamLeader=false,editingCoachingId=null,signingCoachingRecord=null,huddleLogRecords=[],huddleLogWeekMonday='',huddleLogWeekSunday='',huddleLogIsTeamLead=false,huddleLogLoading=false,huddleLogViewWeekOffset=0,editingHuddleId=null,huddleFormActions=[],myEvaluationRecords=[],teamEvaluationRecords=[],teamEvaluationMembers=[],teamEvaluationPeriods=[],evaluationIsTeamLeader=false,editingEvaluationId=null,signingEvaluationRecord=null,evaluationFilterEmail='',evaluationFilterPeriod='',probationKpiRows=[],myProbationKpiRows=[],disciplinaryRecords=[],disciplinaryMembers=[],disciplinaryIsTeamLeader=false,disciplinaryCanPreDecide=false,disciplinaryCanDecide=false,editingDisciplinaryId=null,viewingDisciplinaryRecord=null,portalRole='REP',isAdminUser=false,canUseViewAs=false,viewAsRole='',dsatReviewTickets=[],copilotConnected=false,copilotIsAdmin=false,copilotConnectedEmail='',copilotToken='',dsatAiCache=new Map(),dsatReviewAvailablePeriods=[],selectedDsatReviewPeriod='',coachingOnBehalfContext=null,siteCoachingOverview=null,siteCoachingTeamFilterValue='',canManageAnnouncementsFlag=false,editingAnnouncementId=null,alignmentIsTeamLeader=false,teamAlignmentMembers=[],teamAlignmentCategories=[],teamAlignmentRecords=[],editingAlignmentId=null,myAlignmentRecords=[],signingAlignmentRecord=null,alignmentReviewRecords=[],alignmentReviewSummary=null,decidingAlignmentRecord=null,alignmentTargetChecked=new Set(),includeLeadersInAlignmentTargets=false,aiAssistTargetFieldId=null,aiAssistTargetIsTextarea=false,aiAssistOriginalText='',aiAssistRawSuggestion='',alignmentQuizState={questions:[],correctByIndex:{},selectedByIndex:{},attempts:0},alignmentReadGateTimer=null,alignmentBlockActive=false,alignmentBlockQueue=[],alignmentBlockResolve=null,lottiKnowledgeItems=[],lottiKnowledgeCategories=[],editingLottiKnowledgeId=null,operationalNotes=[],operationalNoteCategoryGroups=[],editingOperationalNoteId=null,trainingNewHires=[],trainingDestinations=[],trainingProductionKpiTypes=[],trainingScoresByEmail=new Map(),trainingScoreCategories=[],expandedTraineeEmail=null,endorsingTraineeEmail=null,myPointsBalance={earned:0,spent:0,balance:0},leaderboardData=[],selectedPointsMonth='',availablePointsMonths=[],rewardCatalogItems=[],canManageRewardsFlag=false,myRedemptionsList=[],allRedemptionsList=[],editingRewardId=null,rewardFormImageBase64='',announcementFormImageBase64='',selectedSeniorJiraMonth='',notifPendingApprovalIds=[],ptoCalMonth='',ptoCalRequests=[],leaderPtoMonth='',leaderPtoRequests=[],serviceRecoveryTickets=[],serviceRecoveryAvailablePeriods=[],selectedServiceRecoveryPeriod='',serviceRecoveryLeaderboardRows=[],serviceRecoveryOverall=null,serviceRecoveryAiCache=new Map(),suggestReplyTarget=null,suggestReplyDraft='',suggestReplyLoading=false,loftIqScopeType='general',loftIqScopeId='',loftIqContext=null,loftIqThreadMessages=[],loftIqAsking=false,loftIqPendingQuestion='',notifLoftIqUnread=0,myBetaFeatures=[],guidesData=null,guidesTrail=[],ticketAuditTickets=[],ticketAuditGeneratedAt='',ticketAuditBucketFilter='',ticketAuditLoading=false,suggestResolutionTarget=null,suggestResolutionDraft='',suggestResolutionLoading=false,suggestResolutionContext=null,canUseTicketAudit=false,canUseEodReport=false,eodReportHtml='',eodPollTimer=null,suggestResolutionSource=null,upsellReferrals=[],upsellReferralsGeneratedAt='',upsellReferralsLoading=false,upsellReferralsIsTeamView=false,escalationReconciliationData=null,escalationReconciliationLoading=false,canUseQaScorecard=false,qaScorecardSubView='form',qaScorecardLookupLists=null,qaScorecardRecords=[],qaScorecardReporting=null,myQaScorecardRecords=[],editingQaScorecardId=null,qaScorecardFormAgentEmail='',qaScorecardFormRatings={},qaScorecardFormCriticalErrors={},qaScorecardFormReasons={},qaScorecardFormAiRatings={},qaScorecardFormAiCriticalErrors={},qaScorecardFormTicketStatus='',qaScorecardLoading=false,qaScorecardPreQaLoading=false,qaScorecardReportingAgentFilter='',qaScorecardReportingTeamLeadFilter='',qaScorecardReportingFrom='',qaScorecardReportingTo='',qaScorecardViewingRecord=null,learningMaterials=[],learningCanManage=false,learningLoading=false,learningTeamProgress=null,learningTeamProgressLoading=false,editingLearningMaterialId=null,qaSelfAuditLoading=false,qaSelfAuditResult=null;
 $('alignmentBodyFieldContainer').innerHTML=richTextFieldHtml('alignmentBodyField');$('announcementBodyFieldContainer').innerHTML=richTextFieldHtml('announcementBodyField');$('lottiKnowledgeBodyFieldContainer').innerHTML=richTextFieldHtml('lottiKnowledgeBodyField');wireRichTextToolbar(document,{onAiAssist:openDraftAssistModal});wireRephraseButtons(document,{onRephrase:openDraftAssistModal});
 // Copilot first, Groq (the existing server-side /api/my/draft-assist and /api/my/generate-quiz
 // routes) as fallback whenever Copilot isn't connected, its shared token has expired, or the
@@ -1348,7 +1396,8 @@ function kpiStatusClass(status){const s=String(status||'').toLowerCase();return 
 function greetingFirstName(){const nick=(profile?.nickname||sessionUser?.nickname||'').trim();if(nick)return nick;return(profile?.employeeName||sessionUser?.employeeName||'').split(' ')[0]||'there'}
 function dashboardGreeting(){const hour=new Date().getHours();const period=hour<12?'morning':hour<18?'afternoon':'evening';return`Good ${period}, ${esc(greetingFirstName())}!`}
 function renderDashboard(){
-  $('dashboardGreeting').textContent=dashboardGreeting();
+  $('dashboardGreeting').innerHTML=dashboardGreeting();
+  if(!dashboardReady){$('dashboardKpiCards').innerHTML=skeletonCards(3);$('dashboardScheduleBody').innerHTML=skeletonHtml(4);$('dashboardAttentionBody').innerHTML=skeletonHtml(2);return}
   $('dashboardDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   $('dashboardStatusChip').classList.toggle('offline',!clockedIn);
   $('dashboardStatusText').textContent=clockedIn?'Clocked In':'Not Clocked In';
@@ -1378,7 +1427,7 @@ function renderDashboard(){
   if(notifAttendanceFlags.length)attentionItems.push({label:`${notifAttendanceFlags.length} attendance flag${notifAttendanceFlags.length===1?'':'s'}`,tab:'teamAttendance'});
   if(notifRegularizations.length)attentionItems.push({label:`${notifRegularizations.length} regularization decision${notifRegularizations.length===1?'':'s'} due`,tab:'teamRoster'});
   if(notifLoftIqUnread)attentionItems.push({label:`${notifLoftIqUnread} new answer${notifLoftIqUnread===1?'':'s'} from Lotti`,tab:'loftiq'});
-  lottiAttentionItems=attentionItems;
+  lottiAttentionItems=attentionItems;renderNavCounts();
   $('dashboardAttentionBody').innerHTML=attentionItems.length?attentionItems.map(x=>`<div class="attentionRow" data-goto-dashboard-tab="${x.tab}"><span>${esc(x.label)}</span><span class="pill status-pending">Action needed</span></div>`).join(''):'<div class="attentionEmpty">You\'re all caught up 🎉</div>';
   {
     // A Team Lead/SOM's full Spiff Programs tab shows their team's or the whole company's
@@ -1479,7 +1528,7 @@ const ZENDESK_SUBDOMAIN='chimecrm';
 function disputeStatusPill(status){const cls=status==='APPROVED'?'status-ready':status==='REJECTED'?'status-failed':'status-pending';const label=status==='APPROVED'?'Dispute Approved':status==='REJECTED'?'Dispute Rejected':'Dispute Pending Review';return`<span class="pill ${cls}" style="margin-top:6px;display:inline-block">${label}</span>`}
 function csatTicketItem(t,isBad,period,dispute){const date=t.surveyDate?new Date(t.surveyDate).toLocaleDateString():'';const ticketLabel=t.ticketId!=null?`<a href="https://${ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${encodeURIComponent(t.ticketId)}" target="_blank" rel="noopener noreferrer">Ticket #${esc(String(t.ticketId))}</a>`:'Ticket #—';const disputeControl=!isBad?'':dispute?disputeStatusPill(dispute.status):`<br><button type="button" class="btn compact" style="margin-top:6px" data-dispute-ticket="${esc(String(t.ticketId))}" data-dispute-period="${esc(period||'')}">Dispute this rating</button>`;return`<div class="csatTicketItem"><b>${ticketLabel}</b> · ${esc(t.subject||'(no subject)')}<br><span class="muted">${esc(date)}</span>${t.comment?`<div class="csatComment">"${esc(t.comment)}"</div>`:''}${disputeControl}</div>`}
 async function openCsatDetail(csat,period){const good=csat?.goodTickets||[],bad=csat?.badTickets||[],needed=goodNeededFor95(good.length,bad.length);$('csatDetailMeta').innerHTML=`Period: ${esc(period||'')} · ${good.length+bad.length} survey(s)${csat?.formula?`<br>Formula: ${esc(csat.formula)}`:''}<br>Good needed to reach 95%: <b>${needed?`${needed} more good rating${needed===1?'':'s'}`:'On target'}</b>`;$('csatGoodCount').textContent=good.length;$('csatBadCount').textContent=bad.length;$('csatGoodList').innerHTML=good.map(t=>csatTicketItem(t,false,period)).join('')||'<div class="muted">No good ratings.</div>';$('csatBadList').innerHTML=bad.length?'<div class="muted">Loading dispute status…</div>':'<div class="muted">No bad ratings.</div>';$('csatDetailModal').hidden=false;if(!bad.length)return;let disputesByTicket={};try{const result=await loadMyCsatDisputes();for(const d of result.disputes||[])disputesByTicket[String(d.ticketId)]=d}catch{}$('csatBadList').innerHTML=bad.map(t=>csatTicketItem(t,true,period,disputesByTicket[String(t.ticketId)])).join('')}
-$('csatBadList').addEventListener('click',async event=>{const ticketId=event.target.dataset.disputeTicket;if(!ticketId)return;const period=event.target.dataset.disputePeriod;const reason=prompt('Why do you believe this rating is inaccurate? This will be emailed to your Reports To for review.');if(!reason||!reason.trim())return;event.target.disabled=true;event.target.textContent='Submitting…';try{await createCsatDispute({ticketId,period,reason:reason.trim()});event.target.outerHTML=disputeStatusPill('PENDING');setMessage('Dispute submitted for review.','ok')}catch(error){event.target.disabled=false;event.target.textContent='Dispute this rating';setMessage(`Could not submit dispute. ${error.response?.error||error.message}`,'error')}});
+$('csatBadList').addEventListener('click',async event=>{const ticketId=event.target.dataset.disputeTicket;if(!ticketId)return;const period=event.target.dataset.disputePeriod;const reason=(await uiPrompt('Why do you believe this rating is inaccurate? This will be emailed to your Reports To for review.'));if(!reason||!reason.trim())return;event.target.disabled=true;event.target.textContent='Submitting…';try{await createCsatDispute({ticketId,period,reason:reason.trim()});event.target.outerHTML=disputeStatusPill('PENDING');setMessage('Dispute submitted for review.','ok')}catch(error){event.target.disabled=false;event.target.textContent='Dispute this rating';setMessage(`Could not submit dispute. ${error.response?.error||error.message}`,'error')}});
 function openMetricDetail(key,label,m,period){if(key==='csat'){openCsatDetail(m,period);return}const lcrRow=key==='lcr'?(()=>{const needed=shortCallsNeededBelow5(m.longCalls,m.accepted);return`<div class="metricDetailRow"><span>Short calls needed below 5%</span><b>${needed?`${needed} more short call${needed===1?'':'s'}`:'On target'}</b></div>`})():'';$('metricDetailTitle').textContent=label;$('metricDetailBody').innerHTML=`<div class="metricDetailRow"><span>Period</span><b>${esc(period||'')}</b></div><div class="metricDetailRow"><span>Actual</span><b>${esc(metricValue(key,m))}</b></div>${lcrRow}<div class="metricDetailRow"><span>Points</span><b>${fmt(m.points??m.bonus)}</b></div><div class="metricDetailRow"><span>Formula</span><b>${esc(m.formula||'—')}</b></div><div class="metricDetailRow"><span>Status</span>${statusPill(m.status||'')}</div>`;$('metricDetailModal').hidden=false}
 const STATUS_GROUP_LABELS={'Queue Activities':'Online','Break Activities':'Break & Lunch','Planned Non-Queue Activities':'Offline Task'};
 const STATUS_EXCLUDED_IDS=new Set(['SYSTEM_DOWNTIME']);
@@ -1489,7 +1538,7 @@ function updateClockUI(){$('timeInBtn').hidden=clockedIn;$('timeOutBtn').hidden=
 async function loadMyStatus(){$('statusSelect').innerHTML=`<option value="" disabled>Set your status…</option>${statusOptions()}`;try{const result=await getMyStatus();clockedIn=Boolean(result.clockedIn);$('statusSelect').value=clockedIn?(result.activityId||''):'';updateClockUI()}catch(_){}}
 $('statusSelect').onchange=async()=>{const activityId=$('statusSelect').value;if(!activityId)return;try{await setMyStatus(activityId);setMessage('Status updated.','ok')}catch(error){setMessage(`Could not update status. ${error.response?.error||error.message}`,'error')}};
 $('timeInBtn').onclick=async()=>{try{await clockInStatus();clockedIn=true;$('statusSelect').value='';updateClockUI();setMessage('Timed in. Set your status below.','ok')}catch(error){setMessage(`Could not time in. ${error.response?.error||error.message}`,'error')}};
-$('timeOutBtn').onclick=async()=>{if(!confirm('Time out? This clears your current status until you time in again.'))return;try{await clockOutStatus();clockedIn=false;$('statusSelect').value='';updateClockUI();setMessage('Timed out.','ok')}catch(error){setMessage(`Could not time out. ${error.response?.error||error.message}`,'error')}};
+$('timeOutBtn').onclick=async()=>{if(!(await uiConfirm('Time out? This clears your current status until you time in again.')))return;try{await clockOutStatus();clockedIn=false;$('statusSelect').value='';updateClockUI();setMessage('Timed out.','ok')}catch(error){setMessage(`Could not time out. ${error.response?.error||error.message}`,'error')}};
 function scheduleDayCell(d){
   if(d.missingSchedule)return'<span class="pill status-missing-attendance">Not scheduled yet</span>';
   if(d.off)return'<span class="pill status-no-data">Rest Day</span>';
@@ -1518,12 +1567,12 @@ function toggleScheduleRequestFields(){const form=$('scheduleRequestForm'),isShi
 $('scheduleRequestForm').addEventListener('click',event=>{if(event.target.type==='submit')scheduleRequestSubmitIntent=event.target.dataset.intent||'draft'});
 $('scheduleRequestForm').onchange=event=>{if(['requestType','requestedOff'].includes(event.target.name))toggleScheduleRequestFields()};
 $('scheduleRequestForm').onsubmit=async event=>{event.preventDefault();if(loading.isActive)return;const form=event.currentTarget,values=Object.fromEntries(new FormData(form));values.requestedOff=values.requestedOff==='true';$('scheduleRequestError').hidden=true;try{let result=editingScheduleRequest?await updateScheduleRequest(editingScheduleRequest.requestId,values):await createScheduleRequest(values);if(scheduleRequestSubmitIntent==='submit'&&result.request.status==='DRAFT')result=await scheduleRequestAction(result.request.requestId,'submit',{});scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();$('scheduleRequestModal').hidden=true;setMessage(`${result.request.requestId} ${scheduleRequestSubmitIntent==='submit'?'was submitted for approval':'was saved as a draft'}.`,'ok')}catch(error){$('scheduleRequestError').hidden=false;$('scheduleRequestError').textContent=`Request could not be saved. ${error.response?.error||error.message}`}};
-$('scheduleRequestBody').onclick=async event=>{const id=event.target.dataset.schedreqEdit||event.target.dataset.schedreqSubmit||event.target.dataset.schedreqWithdraw;if(!id)return;const request=scheduleRequests.find(x=>x.requestId===id);try{if(event.target.dataset.schedreqEdit)openScheduleRequest(request);else if(event.target.dataset.schedreqSubmit){await scheduleRequestAction(id,'submit',{});scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();setMessage(`${id} submitted for approval.`,'ok')}else if(event.target.dataset.schedreqWithdraw){const reason=prompt('Withdrawal reason (optional):','');if(reason===null)return;await scheduleRequestAction(id,'withdraw',{reason});scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();setMessage(`${id} withdrawn.`,'ok')}}catch(error){setMessage(`${id} action failed. ${error.response?.error||error.message}`,'error')}};
+$('scheduleRequestBody').onclick=async event=>{const id=event.target.dataset.schedreqEdit||event.target.dataset.schedreqSubmit||event.target.dataset.schedreqWithdraw;if(!id)return;const request=scheduleRequests.find(x=>x.requestId===id);try{if(event.target.dataset.schedreqEdit)openScheduleRequest(request);else if(event.target.dataset.schedreqSubmit){await scheduleRequestAction(id,'submit',{});scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();setMessage(`${id} submitted for approval.`,'ok')}else if(event.target.dataset.schedreqWithdraw){const reason=(await uiPrompt('Withdrawal reason (optional):',''));if(reason===null)return;await scheduleRequestAction(id,'withdraw',{reason});scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();setMessage(`${id} withdrawn.`,'ok')}}catch(error){setMessage(`${id} action failed. ${error.response?.error||error.message}`,'error')}};
 $('newScheduleRequestBtn').onclick=()=>openScheduleRequest();$('scheduleRequestCancel').onclick=()=>{$('scheduleRequestModal').hidden=true};
 function renderAttendance(){const counts={present:0,rd:0,pto:0,other:0,none:0};attendanceDays.forEach(d=>{if(!d.code)counts.none++;else if(['ONSITE','WFH','LATE'].includes(d.code))counts.present++;else if(d.code==='RD')counts.rd++;else if(['PTO','PARTIAL_PTO'].includes(d.code))counts.pto++;else counts.other++});$('attendanceCards').innerHTML=[['Present',counts.present],['Rest Days',counts.rd],['PTO',counts.pto],['Leave / Absence',counts.other]].map(([a,b])=>`<div class="card"><div class="label">${a}</div><div class="value">${b}</div></div>`).join('');$('attendanceMeta').textContent=attendanceDays.length?`Showing ${attendanceDays[0].date} through ${attendanceDays[attendanceDays.length-1].date}`:'';$('attendanceBody').innerHTML=attendanceDays.map(d=>`<tr><td><b>${esc(d.date)}</b></td><td>${esc(weekday(d.date))}</td><td class="att-${esc((d.code||'').split('-')[0])}">${esc(d.code?ATTENDANCE_LABELS[d.code]||d.code:'—')}</td></tr>`).join('')||'<tr><td colspan="3">No attendance data available.</td></tr>'}
 function chatDateLabel(iso){const d=new Date(iso),today=new Date(),yesterday=new Date(today.getTime()-86400000),sameDay=(a,b)=>a.toDateString()===b.toDateString();if(sameDay(d,today))return'Today';if(sameDay(d,yesterday))return'Yesterday';return d.toLocaleDateString([],{month:'short',day:'numeric',year:d.getFullYear()!==today.getFullYear()?'numeric':undefined})}
 function renderChatMessages(){const wrap=$('chatMessages');const wasAtBottom=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<40;let lastDay='';wrap.innerHTML=chatMessages.map(m=>{const mine=sessionUser&&m.senderEmail===sessionUser.employeeEmail;const when=m.sentAt?new Date(m.sentAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';const day=m.sentAt?new Date(m.sentAt).toDateString():'';let separator='';if(day&&day!==lastDay){separator=`<div class="chatDateSeparator">${esc(chatDateLabel(m.sentAt))}</div>`;lastDay=day}return`${separator}<div class="chatMsg${mine?' mine':''}">${mine?'':`<div class="who">${esc(m.senderName||m.senderEmail)}</div>`}<div>${esc(m.text)}</div><div class="when">${esc(when)}${mine?` · <span class="chatDelete" data-delete-msg="${esc(m.id)}">Delete</span>`:''}</div></div>`}).join('')||'<div class="muted">No messages yet. Say hello!</div>';if(wasAtBottom)wrap.scrollTop=wrap.scrollHeight}
-$('chatMessages').addEventListener('click',async event=>{const id=event.target.dataset.deleteMsg;if(!id)return;if(!confirm('Delete this message?'))return;try{await deleteChatMessage(id);chatMessages=chatMessages.filter(m=>m.id!==id);renderChatMessages()}catch(error){setMessage(error.response?.error||error.message,'error')}});
+$('chatMessages').addEventListener('click',async event=>{const id=event.target.dataset.deleteMsg;if(!id)return;if(!(await uiConfirm('Delete this message?')))return;try{await deleteChatMessage(id);chatMessages=chatMessages.filter(m=>m.id!==id);renderChatMessages()}catch(error){setMessage(error.response?.error||error.message,'error')}});
 function renderChatOnline(){$('chatOnlineCount').textContent=`${chatOnline.length} online`;$('chatOnlineList').innerHTML=chatOnline.map(p=>`<div class="item"><span class="dot"></span>${esc(p.name||p.email)}</div>`).join('')||'<div class="muted">No one online.</div>'}
 function renderChatBadge(){$('chatBadge').hidden=!chatUnread;$('chatBadge').textContent=chatUnread>9?'9+':String(chatUnread)}
 function notifRow(label,detail,pillText,pillClass,goto=null){
@@ -1713,13 +1762,13 @@ $('announcementList').addEventListener('click',async event=>{
   const deleteId=event.target.dataset.deleteAnnouncement;
   if(editId){const item=announcements.find(x=>x.id===editId);if(item)openAnnouncementForm(item);return}
   if(deleteId){
-    if(!confirm('Delete this announcement? This cannot be undone.'))return;
+    if(!(await uiConfirm('Delete this announcement? This cannot be undone.')))return;
     try{await deleteMyAnnouncement(deleteId);setMessage('Announcement deleted.','ok');const result=await loadMyAnnouncements();announcements=result.announcements||[];canManageAnnouncementsFlag=Boolean(result.canManage);renderAnnouncements()}catch(error){setMessage(error.response?.error||error.message,'error')}
   }
 });
 function markAnnouncementsSeen(){if(announcements.length){const latest=announcements.reduce((a,b)=>(a.createdAt||'')>(b.createdAt||'')?a:b);localStorage.setItem('mtdkpi-lastSeenAnnouncementAt',latest.createdAt||new Date().toISOString())}renderAnnouncementBadge()}
-function setTab(next){activeTab=next;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('eodReportView').hidden=next!=='eodReport'||!canUseEodReport;$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='copilotConnection'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('huddleLogView').hidden=next!=='huddleLog';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('qaScorecardView').hidden=next!=='qaScorecard';$('qaSelfAuditView').hidden=next!=='qaSelfAudit';$('learningView').hidden=next!=='learning';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='huddleLog')loadHuddleLogTab();if(next==='eodReport')loadEodReportTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='qaScorecard'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='qaSelfAudit'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='learning'&&!learningMaterials.length)loadLearningTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
-const TAB_VIEW_IDS={dashboard:'dashboardView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',huddleLog:'huddleLogView',eodReport:'eodReportView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView',qaScorecard:'qaScorecardView',qaSelfAudit:'qaSelfAuditView',learning:'learningView',copilotConnection:'adminCopilotView'};
+function setTab(next){activeTab=next;afterTabChange();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('primary',x.dataset.tab===next));$('dashboardView').hidden=next!=='dashboard';$('eodReportView').hidden=next!=='eodReport'||!canUseEodReport;$('toolsResourcesView').hidden=next!=='toolsResources';$('profileCard').hidden=next!=='profile';$('loftiqView').hidden=next!=='loftiq';$('adminCopilotView').hidden=next!=='copilotConnection'||!isAdminUser;$('adminAlignmentCheckView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('kpiView').hidden=next!=='kpi';$('seniorJiraView').hidden=next!=='seniorJira';$('siteMetricsView').hidden=next!=='siteMetrics';$('scheduleView').hidden=next!=='schedule';$('attendanceView').hidden=next!=='attendance';$('teamAttendanceView').hidden=next!=='teamAttendance';$('teamRosterView').hidden=next!=='teamRoster';$('teamScheduleView').hidden=next!=='teamSchedule';$('mbrReportView').hidden=next!=='mbrReport';$('serviceRecoveryView').hidden=next!=='serviceRecovery';$('coachingView').hidden=next!=='coaching';$('huddleLogView').hidden=next!=='huddleLog';$('evaluationsView').hidden=next!=='evaluations';$('disciplinaryView').hidden=next!=='disciplinary';$('requestsView').hidden=next!=='pto';$('leaderPtoView').hidden=next!=='leaderPto';$('announcementsView').hidden=next!=='announcements';$('rewardsView').hidden=next!=='rewards';$('dsatReviewView').hidden=next!=='dsatReview';$('siteCoachingView').hidden=next!=='siteCoaching';$('alignmentView').hidden=next!=='alignment';$('lottiKnowledgeView').hidden=next!=='lottiKnowledge'||!isAdminUser;$('operationalNotesView').hidden=next!=='operationalNotes';$('trainingView').hidden=next!=='training';$('guidesView').hidden=next!=='guides';$('ticketAuditView').hidden=next!=='ticketAudit';$('upsellReferralsView').hidden=next!=='upsellReferrals';$('escalationReconciliationView').hidden=next!=='escalationReconciliation'||!isAdminUser;$('qaScorecardView').hidden=next!=='qaScorecard';$('qaSelfAuditView').hidden=next!=='qaSelfAudit';$('learningView').hidden=next!=='learning';$('forecastView').hidden=true;if(next==='announcements')markAnnouncementsSeen();if(next==='rewards')loadRewardsTab();if(next==='teamAttendance'&&!$('teamAttendanceMonth').value)loadTeamAttendance();if(next==='teamRoster')loadTeamRoster();if(next==='teamSchedule')loadTeamScheduleTab();if(next==='coaching')loadCoachingTab();if(next==='huddleLog')loadHuddleLogTab();if(next==='eodReport')loadEodReportTab();if(next==='evaluations')loadEvaluationsTab();if(next==='disciplinary')loadDisciplinaryTab();if(next==='siteMetrics'&&!siteMetricsData&&!siteMetricsAvailablePeriods.length)loadSiteMetricsTab();if(next==='dsatReview'){if(!dsatReviewAvailablePeriods.length)loadDsatReviewTab();if(!teamCoachingCategories.length)loadCoachingTab()}if(next==='siteCoaching'&&!siteCoachingOverview)loadSiteCoachingTab();if(next==='alignment')loadAlignmentTab();if(next==='lottiKnowledge')loadLottiKnowledgeTab();if(next==='operationalNotes')loadOperationalNotesTab();if(next==='training')loadTrainingTab();if(next==='guides'&&!guidesData)loadGuidesTab();if(next==='ticketAudit')loadTicketAuditTab();if(next==='upsellReferrals')loadUpsellReferralsTab();if(next==='escalationReconciliation'&&!escalationReconciliationData)loadEscalationReconciliationTab();if(next==='qaScorecard'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='qaSelfAudit'&&!qaScorecardLookupLists)loadQaScorecardTab();if(next==='learning'&&!learningMaterials.length)loadLearningTab();if(next==='seniorJira')loadSeniorJiraTab();if(next==='leaderPto')loadLeaderPtoTab();if(next==='mbrReport'&&!$('mbrReportMonth').value)$('mbrReportMonth').value=lastCompleteMonth();if(next==='serviceRecovery'&&!serviceRecoveryAvailablePeriods.length)loadServiceRecoveryTab();if(next==='loftiq')loadLoftIqTab();if(next==='dashboard')renderDashboard();applyTabFadeIn(next);}
+const TAB_VIEW_IDS={dashboard:'dashboardView',toolsResources:'toolsResourcesView',profile:'profileCard',loftiq:'loftiqView',kpi:'kpiView',seniorJira:'seniorJiraView',siteMetrics:'siteMetricsView',schedule:'scheduleView',attendance:'attendanceView',teamAttendance:'teamAttendanceView',teamRoster:'teamRosterView',teamSchedule:'teamScheduleView',mbrReport:'mbrReportView',serviceRecovery:'serviceRecoveryView',coaching:'coachingView',huddleLog:'huddleLogView',eodReport:'eodReportView',evaluations:'evaluationsView',disciplinary:'disciplinaryView',pto:'requestsView',leaderPto:'leaderPtoView',announcements:'announcementsView',rewards:'rewardsView',dsatReview:'dsatReviewView',siteCoaching:'siteCoachingView',alignment:'alignmentView',lottiKnowledge:'lottiKnowledgeView',operationalNotes:'operationalNotesView',training:'trainingView',guides:'guidesView',ticketAudit:'ticketAuditView',escalationReconciliation:'escalationReconciliationView',qaScorecard:'qaScorecardView',qaSelfAudit:'qaSelfAuditView',learning:'learningView',copilotConnection:'adminCopilotView'};
 function applyTabFadeIn(next){const el=$(TAB_VIEW_IDS[next]);if(!el)return;el.classList.remove('tabViewActive');void el.offsetWidth;el.classList.add('tabViewActive');initSortableTables()}
 // WFE beta: interactive troubleshooting guides. guidesData is fetched once per session
 // (categories+steps); guidesTrail tracks where the viewer is in the tree - see the comment
@@ -1900,6 +1949,7 @@ function beginTourSteps(){$('tourWelcomeModal').hidden=true;tourIndex=0;$('tourO
 function endTour(){$('tourWelcomeModal').hidden=true;$('tourOverlay').hidden=true;clearInterval(tourRepositionTimer);tourRepositionTimer=null;if(sessionUser)sessionUser.tourSeen=true;markTourComplete().catch(()=>{})}
 // Oldest first - append a new {version,items} entry here whenever a feature worth flagging
 // ships, and bump PORTAL_VERSION in pto-public-server.js to match.
+const BUILD_VERSION=portalVersion;
 const CHANGELOG=[
   {version:'1.2.0',items:['New "Site KPI" tab showing company-wide MTD Call Completion Rate (8AM–8PM ET), Long Call Rate, and CSAT.']},
   {version:'1.3.0',items:['Upload a profile photo from your Profile tab - no photo yet? You still get a colored initials avatar.','A "Tenure" field next to Hire Date shows how long you\'ve been with the team.','Uploaded photos now also show up on the Spotlight Wall whenever you\'re highlighted.']},
@@ -2008,6 +2058,7 @@ const CHANGELOG=[
   {version:'2.3.25',items:['Fixed a bug where a Team Attendance save could silently be ignored: attendance is saved in date-range batches, and a batch\'s "most authoritative" pick used to be whichever batch happened to cover a later end date - not whichever was actually saved most recently. A correction saved under a smaller date range could get shadowed by an older, less-detailed save that just happened to reach further into the month. Saves are now timestamped and the newest one always wins.']},
   {version:'2.3.26',items:['Fixed a Weekly Performance Report bug: a Late entry\'s optional note (e.g. "Traffic - reminded and coached") was being silently dropped whenever minutes-late was also logged - only one of the two ever showed, never both. Both now show together.']},
   {version:'2.3.27',items:['Weekly Performance Report: when the report week runs into a new month, the KPI section now shows each rep\'s end-of-month KPI for the earlier month (titled "End-of-Month KPI Scores") with a note that the new month is still too early to display, instead of a column of "Not Rated".']},
+  {version:'2.3.49',items:['New Tools & Resources tab and Dashboard panel: Zendesk, Aircall, Jira Cloud, Old Jira, CRM and CMS backends, Help Center, Confluence, TSR Playbook, Lofty SharePoint, ENT Playbook, Lofty Quizzes and the ESS payroll site, all one click away.','Press Ctrl+K (or use Search in the menu) to jump to any tab or open any tool.','Menu is easier to use: on phones it collapses behind a Menu button, it remembers which groups you opened, and tabs with pending items show a count.','Questions like delete or withdraw now use a clear in-page confirmation instead of the browser pop-up, and the portal loads faster because it fetches your data in parallel.','Dashboard shows loading placeholders instead of briefly showing empty cards, small text is larger, and keyboard focus is easier to see.','What\'s New popups work again and now list the latest updates newest first; the sign-in footer shows the correct version.']},
   {version:'2.3.48',items:['Lotti now greets you when the portal finishes loading with a short daily briefing: your shift and break times, a Time In reminder, your latest KPI, upcoming time off, unread announcements and anything waiting on you. It shows once per day per browser session; reopen it any time from Today\'s briefing in Lotti\'s chat.']},
   {version:'2.3.47',items:['Lotti now has a floating robot avatar you can drag anywhere on the screen. Click it to chat with Lotti without leaving the page you are on; it keeps the same conversation as the Lotti page.']},
   {version:'2.3.46',items:['Sidebar menu remembers which tabs you have, so it comes up complete instead of showing a few tabs and then adding the rest while the portal loads.']},
@@ -2028,8 +2079,12 @@ const CHANGELOG=[
   {version:'2.3.30',items:['Weekly Report: any Sick/Emergency Leave day that has a supporting document (e.g. a medical certificate) attached in the Team Attendance grid now shows a green "Medcert/document attached" note beside it in the Attendance This Week section.']},
   {version:'2.3.28',items:['QA Scorecard point values now match the QA Evaluation tool: Guidance & preventative support is 7 pts and Correct JIRA creation is 10 pts (they were swapped). Existing scorecards were re-scored. A scorecard with no Partly/No ratings is still 100%, but points earned/available and any scorecard with a Guidance or JIRA rating other than Yes/N-A now change.']}
 ];
-function pendingChangelog(){const idx=CHANGELOG.findIndex(c=>c.version===sessionUser?.lastSeenVersion);const pending=idx===-1?CHANGELOG:CHANGELOG.slice(idx+1);return pending.filter(c=>c.items.length)}
-function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}$('whatsNewBody').innerHTML=pending.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('');$('whatsNewModal').hidden=false}
+function versionParts(v){return String(v||'0').split('.').map(n=>parseInt(n,10)||0)}
+function versionCompare(a,b){const x=versionParts(a),y=versionParts(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
+// Newest first, only entries after what this person last saw. The changelog array is not strictly in version order
+// (recent entries were added above older ones), so this sorts by version instead of trusting array position.
+function pendingChangelog(){const seen=sessionUser?.lastSeenVersion||'';return CHANGELOG.filter(c=>c.items.length&&(!seen||versionCompare(c.version,seen)>0)&&versionCompare(c.version,portalVersion)<=0).sort((a,b)=>versionCompare(b.version,a.version))}
+function showWhatsNewIfNeeded(){if(!sessionUser?.tourSeen)return;if(sessionUser.lastSeenVersion===portalVersion)return;const pending=pendingChangelog();if(!pending.length){sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{});return}const shown=pending.slice(0,8),hidden=pending.length-shown.length;$('whatsNewBody').innerHTML=shown.map(c=>`<div class="sub" style="font-weight:800;margin-top:10px;text-align:left">v${esc(c.version)}</div><ul style="margin:6px 0 0;padding-left:20px;text-align:left">${c.items.map(i=>`<li style="margin-bottom:6px">${esc(i)}</li>`).join('')}</ul>`).join('')+(hidden>0?`<div class="sub" style="margin-top:12px;text-align:left">…and ${hidden} earlier update${hidden===1?'':'s'}.</div>`:'');$('whatsNewModal').hidden=false}
 function dismissWhatsNew(){$('whatsNewModal').hidden=true;if(sessionUser)sessionUser.lastSeenVersion=portalVersion;markWhatsNewSeen().catch(()=>{})}
 function tourNext(){if(tourIndex>=activeTourSteps.length-1){endTour();return}tourIndex++;positionTour()}
 function tourBack(){if(tourIndex>0){tourIndex--;positionTour()}}
@@ -2044,6 +2099,141 @@ let navKpiTypeHint='';
 function navFlagsKey(){return 'navFlags:'+String(sessionUser?.employeeEmail||'').toLowerCase()}
 function saveNavFlags(){try{localStorage.setItem(navFlagsKey(),JSON.stringify({isTeamLeader,canManageTeamAttendance,kpiType:profile?.kpiType||''}))}catch{}}
 function restoreNavFlags(){let f=null;try{f=JSON.parse(localStorage.getItem(navFlagsKey())||'null')}catch{}isTeamLeader=Boolean(f?.isTeamLeader);canManageTeamAttendance=Boolean(f?.canManageTeamAttendance);navKpiTypeHint=f?.kpiType||''}
+// ---- Styled confirm / prompt dialogs. These replace the browser's native pop-ups so every question looks like the
+// rest of the portal, can be answered from the keyboard (Enter / Esc), and never blocks the page.
+function uiDialog({title='',message='',okLabel='OK',cancelLabel='Cancel',danger=false,input=null,hideCancel=false}){
+  return new Promise(resolve=>{
+    const prev=document.activeElement,uid='uiDlg'+Math.random().toString(36).slice(2,8);
+    const wrap=document.createElement('div');wrap.className='modal uiDialogModal';wrap.style.zIndex='10000';
+    const box=document.createElement('div');box.className='dialog uiDialog';box.setAttribute('role','alertdialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-labelledby',uid+'t');box.setAttribute('aria-describedby',uid+'m');
+    const h=document.createElement('div');h.className='title';h.id=uid+'t';h.textContent=title;
+    const msg=document.createElement('div');msg.className='uiDialogMsg';msg.id=uid+'m';msg.textContent=message;
+    box.append(h,msg);
+    let field=null;
+    if(input){field=document.createElement(input.multiline?'textarea':'input');if(input.multiline)field.rows=3;else field.type='text';field.className='uiDialogInput';field.maxLength=1000;field.value=input.value||'';field.setAttribute('aria-label',title||message);box.append(field)}
+    const actions=document.createElement('div');actions.className='uiDialogActions';
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='btn';cancel.textContent=cancelLabel;
+    const ok=document.createElement('button');ok.type='button';ok.className='btn primary'+(danger?' dangerFill':'');ok.textContent=okLabel;
+    if(!hideCancel)actions.append(cancel);actions.append(ok);box.append(actions);wrap.append(box);document.body.append(wrap);
+    const close=value=>{wrap.remove();try{prev?.focus?.()}catch{}resolve(value)};
+    cancel.onclick=()=>close(field?null:false);
+    ok.onclick=()=>close(field?field.value:true);
+    wrap.addEventListener('mousedown',e=>{if(e.target===wrap&&!hideCancel)close(field?null:false)});
+    wrap.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){e.stopPropagation();close(hideCancel?true:(field?null:false));return}
+      if(e.key==='Enter'&&!(field&&field.tagName==='TEXTAREA'&&!e.ctrlKey&&!e.metaKey)&&e.target!==cancel){e.preventDefault();ok.click();return}
+      if(e.key==='Tab'){const f=[...box.querySelectorAll('button,input,textarea')];const i=f.indexOf(document.activeElement);if(e.shiftKey&&i<=0){e.preventDefault();f[f.length-1].focus()}else if(!e.shiftKey&&i===f.length-1){e.preventDefault();f[0].focus()}}
+    });
+    setTimeout(()=>(field||ok).focus(),0);
+  });
+}
+const UI_DANGER_WORDS=/^(delete|remove|withdraw|clear|disconnect|not endorse|time out)/i;
+function uiConfirm(message,opts={}){
+  const text=String(message||''),danger=opts.danger??UI_DANGER_WORDS.test(text),first=(text.match(/^[A-Za-z ]{3,14}?(?=\b[ ?])/)||[''])[0].trim();
+  const label=opts.okLabel||(/^delete/i.test(text)?'Delete':/^remove/i.test(text)?'Remove':/^withdraw/i.test(text)?'Withdraw':/^clear/i.test(text)?'Clear':/^disconnect/i.test(text)?'Disconnect':/^send/i.test(text)?'Send':/^redeem/i.test(text)?'Redeem':/^time out/i.test(text)?'Time out':/^not endorse/i.test(text)?'Not endorse':'Confirm');
+  return uiDialog({title:opts.title||(danger?'Please confirm':'Confirm'),message:text,okLabel:label,danger});
+}
+function uiPrompt(message,defaultValue='',opts={}){
+  const text=String(message||'');
+  return uiDialog({title:opts.title||'Add details',message:text,okLabel:opts.okLabel||'Submit',input:{value:defaultValue,multiline:opts.multiline??(text.length>45||/reason|why|notes/i.test(text))}});
+}
+// ---- Tools & Resources: one launcher for everything reps need during a shift (also shown on the Dashboard and in Ctrl+K search).
+const PORTAL_TOOLS=[
+  {group:'Support systems',name:'Zendesk',desc:'Tickets, calls and chat',url:'https://chimecrm.zendesk.com/agent/dashboard',color:'#03363d',mark:'Z'},
+  {group:'Support systems',name:'Aircall',desc:'Phone workspace',url:'https://workspace.aircall.io/',color:'#00a67e',mark:'A'},
+  {group:'Support systems',name:'Jira Cloud',desc:'Escalations and requests',url:'https://loftyinc.atlassian.net/jira/dashboards/10095',color:'#0052cc',mark:'J'},
+  {group:'Support systems',name:'Old Jira',desc:'Legacy Jira dashboard',url:'https://jira.chimeinc.com/secure/Dashboard.jspa',color:'#2f6fd1',mark:'J'},
+  {group:'Lofty admin',name:'CRM Backend',desc:'Lofty CRM admin',url:'https://admin.lofty.com/backend/static/index.html?role=1',color:'#4338ca',mark:'C'},
+  {group:'Lofty admin',name:'CMS Backend',desc:'Website CMS admin',url:'https://cms.lofty.com/cmsnew/toLogin',color:'#6d28d9',mark:'W'},
+  {group:'Knowledge & training',name:'Help Center',desc:'Public help articles',url:'https://help.lofty.com/hc/en-us',color:'#d9382f',mark:'H'},
+  {group:'Knowledge & training',name:'Confluence',desc:'Internal wiki',url:'https://wiki.chimeinc.com/#all-updates',color:'#1868db',mark:'C'},
+  {group:'Knowledge & training',name:'TSR Playbook',desc:'Training home and SOPs',url:'https://moatable.sharepoint.com/sites/ChimePlaybook/SitePages/TrainingHome.aspx',color:'#0f7a49',mark:'T'},
+  {group:'Knowledge & training',name:'Lofty SharePoint',desc:'Product operations site',url:'https://moatable.sharepoint.com/sites/LoftyProductOperations',color:'#0b6bcb',mark:'S'},
+  {group:'Knowledge & training',name:'ENT Playbook',desc:'Enterprise learning team',url:'https://moatable.sharepoint.com/sites/LoftyEnterprisePlaybook/SitePages/LearningTeamHome.aspx?e=4%3aabf9b244be6546e5a7c5e0e155b09c63&web=1&sharingv2=true&fromShare=true&at=9&CT=1719342808409&OR=OWA-NT-Mail&CID=7217a9ae-6d5a-bc3d-5675-d992869b9790&cidOR=Client',color:'#7c3aed',mark:'E'},
+  {group:'Knowledge & training',name:'Lofty Quizzes',desc:'Practice and knowledge checks',url:'https://lofty-retention-quiz.moatable-7580.chatgpt.site/',color:'#c2410c',mark:'Q'},
+  {group:'Employee',name:'ESS Payroll',desc:'Payslips, filings and requests',url:'https://my-ess.payroll.ph/login/account_code',color:'#0e7490',mark:'E'}
+];
+function toolTileHtml(t){return `<a class="toolTile" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" style="--tc:${t.color}" title="Open ${esc(t.name)} in a new tab"><span class="toolMark" aria-hidden="true">${esc(t.mark)}</span><span class="toolText"><span class="toolName">${esc(t.name)}</span><span class="toolDesc">${esc(t.desc)}</span></span><span class="toolArrow" aria-hidden="true">↗</span></a>`}
+function renderToolsResources(){
+  const groups=[...new Set(PORTAL_TOOLS.map(t=>t.group))];
+  $('toolsResourcesBody').innerHTML=groups.map(g=>`<div class="toolGroup"><div class="toolGroupTitle">${esc(g)}</div><div class="toolGrid">${PORTAL_TOOLS.filter(t=>t.group===g).map(toolTileHtml).join('')}</div></div>`).join('');
+  $('dashboardToolsGrid').innerHTML=PORTAL_TOOLS.map(toolTileHtml).join('');
+}
+renderToolsResources();
+// ---- Navigation helpers: mobile menu, current-tab marking, remembered groups, count badges, Ctrl+K quick jump ----
+function navLabelFor(tab){const b=document.querySelector(`#tabs button[data-tab="${tab}"]`);if(!b)return'Menu';return[...b.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim()||'Menu'}
+function afterTabChange(){
+  const t=$('tabs');t.classList.add('navCollapsed');$('navToggle').setAttribute('aria-expanded','false');$('navToggleLabel').textContent=`Menu · ${navLabelFor(activeTab)}`;
+  document.querySelectorAll('#tabs button[data-tab]').forEach(b=>{if(b.dataset.tab===activeTab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  const cur=document.querySelector(`#tabs button[data-tab="${activeTab}"]`),grp=cur?.closest('details');if(grp&&!grp.open)grp.open=true;
+  labelIconButtons();
+}
+$('navToggle').onclick=()=>{const open=$('tabs').classList.toggle('navCollapsed')===false;$('navToggle').setAttribute('aria-expanded',String(open))};
+function navGroupKey(d){return[...d.classList].find(c=>c.startsWith('tabGroup-'))||''}
+function restoreNavGroups(){try{const saved=JSON.parse(localStorage.getItem('navGroupsOpen')||'null');if(!saved)return;document.querySelectorAll('#tabs details.tabGroup').forEach(d=>{const k=navGroupKey(d);if(k in saved)d.open=Boolean(saved[k])})}catch{}}
+document.querySelectorAll('#tabs details.tabGroup').forEach(d=>d.addEventListener('toggle',()=>{try{const o=JSON.parse(localStorage.getItem('navGroupsOpen')||'{}');o[navGroupKey(d)]=d.open;localStorage.setItem('navGroupsOpen',JSON.stringify(o))}catch{}}));
+function setNavCount(tab,n){const b=document.querySelector(`#tabs button[data-tab="${tab}"]`);if(!b)return;let el=b.querySelector('.navCount');if(!n){el?.remove();return}if(!el){el=document.createElement('span');el.className='tabBadge navCount';b.append(el)}el.textContent=n>9?'9+':String(n);el.setAttribute('aria-label',`${n} pending`)}
+function renderNavCounts(){
+  setNavCount('pto',notifPendingApprovals||0);
+  setNavCount('coaching',(notifMyCoachingFollowUps.length+notifTeamCoachingFollowUps.length)||0);
+  setNavCount('disciplinary',(notifMyDisciplinaryPending.length+notifDisciplinaryPreReviewPending.length+notifDisciplinaryDecisionPending.length)||0);
+  setNavCount('kpi',notifKpiAlerts.length||0);
+  setNavCount('teamAttendance',notifAttendanceFlags.length||0);
+  setNavCount('teamRoster',notifRegularizations.length||0);
+}
+const ICON_BUTTON_LABELS={'✕':'Close','×':'Close','✖':'Close','x':'Close','X':'Close','▲':'Move up','▼':'Move down','‹':'Previous','›':'Next','<':'Previous','>':'Next','+':'Add','−':'Remove'};
+function labelIconButtons(){document.querySelectorAll('button:not([aria-label])').forEach(b=>{const t=b.textContent.trim();if(t.length&&t.length<=2&&ICON_BUTTON_LABELS[t]&&!b.querySelector('svg'))b.setAttribute('aria-label',ICON_BUTTON_LABELS[t])})}
+// Quick jump (Ctrl/Cmd+K): jump to any tab you have, or open any tool.
+function quickJumpItems(){
+  const tabs=[...document.querySelectorAll('#tabs button[data-tab]')].filter(b=>!b.hidden&&!b.closest('[hidden]')).map(b=>({kind:'tab',label:navLabelFor(b.dataset.tab),hint:NAV_TOOLTIPS[b.dataset.tab]||'',group:(b.closest('.tabGroup')?.querySelector('summary')?.textContent||'').trim(),button:b}));
+  const tools=PORTAL_TOOLS.map(t=>({kind:'tool',label:t.name,hint:t.desc,group:'Tool',url:t.url}));
+  return[...tabs,...tools];
+}
+function openQuickJump(){
+  if($('tabs').hidden||document.querySelector('.qjModal')||document.querySelector('.uiDialogModal'))return;
+  const items=quickJumpItems(),prev=document.activeElement;let shown=items,sel=0;
+  const wrap=document.createElement('div');wrap.className='qjModal';
+  const box=document.createElement('div');box.className='qjBox';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Search tabs and tools');
+  const input=document.createElement('input');input.className='qjInput';input.type='text';input.placeholder='Jump to a tab or open a tool…';input.setAttribute('aria-label','Search tabs and tools');input.setAttribute('role','combobox');input.setAttribute('aria-expanded','true');input.setAttribute('aria-controls','qjList');
+  const list=document.createElement('div');list.className='qjList';list.id='qjList';list.setAttribute('role','listbox');
+  box.append(input,list);wrap.append(box);document.body.append(wrap);
+  const close=()=>{wrap.remove();try{prev?.focus?.()}catch{}};
+  const go=item=>{close();if(item.kind==='tab')item.button.click();else window.open(item.url,'_blank','noopener,noreferrer')};
+  const render=()=>{
+    list.innerHTML='';
+    if(!shown.length){const e=document.createElement('div');e.className='qjEmpty';e.textContent='Nothing matches that search.';list.append(e);return}
+    shown.forEach((item,i)=>{
+      const row=document.createElement('div');row.className='qjItem';row.setAttribute('role','option');row.setAttribute('aria-selected',String(i===sel));
+      const main=document.createElement('div');main.className='qjItemMain';
+      const l=document.createElement('div');l.className='qjItemLabel';l.textContent=item.label;
+      const h=document.createElement('div');h.className='qjItemHint';h.textContent=item.hint;
+      main.append(l);if(item.hint)main.append(h);
+      const tag=document.createElement('span');tag.className='qjItemTag';tag.textContent=item.kind==='tool'?'Tool ↗':item.group;
+      row.append(main,tag);row.onmousedown=e=>{e.preventDefault();go(item)};row.onmousemove=()=>{if(sel!==i){sel=i;list.querySelectorAll('.qjItem').forEach((r,k)=>r.setAttribute('aria-selected',String(k===i)))}};
+      list.append(row);if(i===sel)row.scrollIntoView({block:'nearest'});
+    });
+  };
+  input.oninput=()=>{const q=input.value.trim().toLowerCase();shown=q?items.filter(x=>`${x.label} ${x.hint} ${x.group}`.toLowerCase().includes(q)):items;sel=0;render()};
+  wrap.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();close()}
+    else if(e.key==='ArrowDown'){e.preventDefault();if(shown.length){sel=(sel+1)%shown.length;render()}}
+    else if(e.key==='ArrowUp'){e.preventDefault();if(shown.length){sel=(sel-1+shown.length)%shown.length;render()}}
+    else if(e.key==='Enter'){e.preventDefault();if(shown[sel])go(shown[sel])}
+  });
+  wrap.addEventListener('mousedown',e=>{if(e.target===wrap)close()});
+  render();input.focus();
+}
+$('qjBtn').onclick=openQuickJump;
+document.addEventListener('keydown',event=>{
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openQuickJump();return}
+  if(event.key==='Escape'&&!document.querySelector('.qjModal,.uiDialogModal')){
+    const open=[...document.querySelectorAll('.modal:not([hidden])')].filter(m=>!m.classList.contains('uiDialogModal')).pop();
+    if(open&&!open.matches('#tourOverlay,#whatsNewModal')){const btn=[...open.querySelectorAll('button')].find(b=>/cancel|close|dismiss|✕|×/i.test(b.id+' '+b.textContent+' '+(b.getAttribute('aria-label')||'')));if(btn)btn.click()}
+  }
+});
+function skeletonHtml(lines=3){return Array.from({length:lines},(_,i)=>`<span class="skel" style="margin:10px 0;width:${[92,78,64,86][i%4]}%"></span>`).join('')}
+function skeletonCards(n=3){return Array.from({length:n},()=>`<div class="skelCard"><span class="skel" style="width:48%;height:11px"></span><span class="skel" style="width:64%;height:26px;margin-top:12px"></span></div>`).join('')}
+let dashboardReady=false;
 function applyPortalRoleView(){
   const hideTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=true});
   const showTabs=names=>names.forEach(n=>{const el=document.querySelector(`[data-tab="${n}"]`);if(el)el.hidden=false});
@@ -2127,10 +2317,10 @@ function applyPortalRoleView(){
   $('viewAsBanner').hidden=!viewAsRole;
   if(viewAsRole)$('viewAsBannerRole').textContent=viewAsRole;
 }
-function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;$('lottiFloat').hidden=false;restoreLottiPosition();restoreNavFlags();applyPortalRoleView();restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();startSiteMetricsAutoRefresh();startAlignmentPolling();startAnnouncementPolling();setTab(activeTab);loadMyStatus();setTimeout(()=>{if(sessionUser?.tourSeen)showWhatsNewIfNeeded();else startTour()},300)}
+function showApp(){$('loginView').hidden=true;$('signedInActions').hidden=false;$('tabs').hidden=false;$('whoami').textContent=`Signed in as ${sessionUser.employeeName}`;$('chatWidget').hidden=false;$('lottiFloat').hidden=false;$('navToggle').hidden=false;restoreNavGroups();labelIconButtons();restoreLottiPosition();restoreNavFlags();applyPortalRoleView();restoreChatWidgetPosition();startChatPolling();startKpiAutoRefresh();startSiteMetricsAutoRefresh();startAlignmentPolling();startAnnouncementPolling();setTab(activeTab);loadMyStatus();setTimeout(()=>{if(sessionUser?.tourSeen)showWhatsNewIfNeeded();else startTour()},300)}
 function isMaintenanceError(error){return Boolean(error?.response?.maintenance)||error?.status===503}
 function showMaintenance(){$('maintenanceView').hidden=false;$('loginView').hidden=true;$('signedInActions').hidden=true;$('tabs').hidden=true}
-function showLogin(){$('lottiFloat').hidden=true;hideLottiBriefing();closeLottiPanel();lottiFloatLoaded=false;stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling();stopAnnouncementPolling();chatInitialized=false;chatMessages=[];chatOnline=[];chatUnread=0;profile=null;profilePhoto='';kpiResults=[];teamKpiResults=[];teamRequests=[];ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false};teamPtoDecision=null;isTeamLeader=false;canManageTeamAttendance=false;ptoCalMonth='';ptoCalRequests=[];leaderPtoMonth='';leaderPtoRequests=[];teamKpiPeriod='';teamKpiAverage=null;teamKpiLeadName='';teamKpiSize=0;teamKpiLastRefreshedAt=0;$('maintenanceView').hidden=true;$('loginView').hidden=false;$('signedInActions').hidden=true;$('dashboardView').hidden=true;$('profileCard').hidden=true;$('tabs').hidden=true;$('kpiView').hidden=true;$('scheduleView').hidden=true;$('attendanceView').hidden=true;$('requestsView').hidden=true;$('leaderPtoView').hidden=true;$('announcementsView').hidden=true;$('chatWidget').hidden=true;$('forecastView').hidden=true;$('teamPtoSection').hidden=true;$('coachingView').hidden=true;
+function showLogin(){$('navToggle').hidden=true;dashboardReady=false;$('toolsResourcesView').hidden=true;$('lottiFloat').hidden=true;hideLottiBriefing();closeLottiPanel();lottiFloatLoaded=false;stopChatPolling();stopKpiAutoRefresh();stopAlignmentPolling();stopAnnouncementPolling();chatInitialized=false;chatMessages=[];chatOnline=[];chatUnread=0;profile=null;profilePhoto='';kpiResults=[];teamKpiResults=[];teamRequests=[];ptoReviewPermissions={isTeamLeader:false,canFinalApprove:false};teamPtoDecision=null;isTeamLeader=false;canManageTeamAttendance=false;ptoCalMonth='';ptoCalRequests=[];leaderPtoMonth='';leaderPtoRequests=[];teamKpiPeriod='';teamKpiAverage=null;teamKpiLeadName='';teamKpiSize=0;teamKpiLastRefreshedAt=0;$('maintenanceView').hidden=true;$('loginView').hidden=false;$('signedInActions').hidden=true;$('dashboardView').hidden=true;$('profileCard').hidden=true;$('tabs').hidden=true;$('kpiView').hidden=true;$('scheduleView').hidden=true;$('attendanceView').hidden=true;$('requestsView').hidden=true;$('leaderPtoView').hidden=true;$('announcementsView').hidden=true;$('chatWidget').hidden=true;$('forecastView').hidden=true;$('teamPtoSection').hidden=true;$('coachingView').hidden=true;
   // #tabs only hides the nav BUTTONS - each content <section> below it is a separate sibling
   // with its own `hidden`, toggled independently by setTab(). Logging out only ever cleared a
   // handful of the oldest ones here (a pre-existing gap this list keeps growing into), so
@@ -2784,7 +2974,7 @@ $('huddleEntriesBody').addEventListener('click',async event=>{
   const editId=event.target.dataset.editHuddle,deleteId=event.target.dataset.deleteHuddle;
   if(editId){const record=huddleLogRecords.find(r=>r.huddleId===editId);if(record)openHuddleForm(record);return}
   if(deleteId){
-    if(!confirm('Delete this huddle entry? This cannot be undone.'))return;
+    if(!(await uiConfirm('Delete this huddle entry? This cannot be undone.')))return;
     try{await deleteHuddleEntry(deleteId);setMessage('Huddle entry deleted.','ok');await loadHuddleLogTab()}
     catch(error){$('huddleLogMessage').hidden=false;$('huddleLogMessage').className='message error';$('huddleLogMessage').textContent=error.response?.error||error.message}
   }
@@ -2793,7 +2983,7 @@ $('huddleWeekPrevBtn').onclick=()=>{huddleLogViewWeekOffset-=1;loadHuddleLogTab(
 $('huddleWeekNextBtn').onclick=()=>{if(huddleLogViewWeekOffset<0){huddleLogViewWeekOffset+=1;loadHuddleLogTab()}};
 function openReportWindow(subject,html){
     const win=window.open('','_blank');
-    if(!win){alert('Please allow pop-ups to preview the report.');return}
+    if(!win){setMessage('Please allow pop-ups to preview the report.','error');return}
     win.document.open();
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><base href="${location.origin}/"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title><style>
       body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#202437;margin:0;padding:32px 16px;background:#f6f7fb;line-height:1.45}
@@ -2953,17 +3143,17 @@ async function handleProbationComplianceSave(button){
   const email=input.dataset.email,periodNumber=Number(input.dataset.period);
   const clearing=input.value==='';
   const percent=clearing?null:Number(input.value);
-  if(!clearing&&(!Number.isFinite(percent)||percent<0||percent>100))return alert('Enter a Process Compliance percent between 0 and 100, or leave it blank to clear.');
+  if(!clearing&&(!Number.isFinite(percent)||percent<0||percent>100))return setMessage('Enter a Process Compliance percent between 0 and 100, or leave it blank to clear.','error');
   const originalLabel=button.textContent;
   button.disabled=true;input.disabled=true;button.textContent=clearing?'Clearing…':'Saving…';
   try{await saveProbationCompliance(email,periodNumber,percent);await loadProbationKpi()}
-  catch(error){alert(error.response?.error||error.message);button.disabled=false;input.disabled=false;button.textContent=originalLabel}
+  catch(error){setMessage(error.response?.error||error.message,'error');button.disabled=false;input.disabled=false;button.textContent=originalLabel}
 }
 async function handleProbationKindChange(select){
   const email=select.dataset.email,periodNumber=Number(select.dataset.period),kind=select.value;
   select.disabled=true;
   try{await saveProbationProductivityKind(email,periodNumber,kind);await loadProbationKpi()}
-  catch(error){alert(error.response?.error||error.message)}
+  catch(error){setMessage(error.response?.error||error.message,'error')}
   finally{select.disabled=false}
 }
 // This table is inside a <script type="module">, so top-level functions here are module-scoped,
@@ -3280,7 +3470,7 @@ $('teamAlignmentBody').addEventListener('click',async event=>{
   if(viewId){const record=teamAlignmentRecords.find(r=>r.alignmentId===viewId);if(record)openAlignmentViewModal(record,false);return}
   if(dueDateId){
     const current=event.target.dataset.dueDate||'';
-    const input=prompt('Due date (YYYY-MM-DD), or leave blank to clear it:',current);
+    const input=(await uiPrompt('Due date (YYYY-MM-DD), or leave blank to clear it:',current));
     if(input===null)return;
     const trimmed=input.trim();
     if(trimmed&&!/^\d{4}-\d{2}-\d{2}$/.test(trimmed))return setMessage('Enter the date as YYYY-MM-DD (e.g. 2026-08-15).','error');
@@ -3291,12 +3481,12 @@ $('teamAlignmentBody').addEventListener('click',async event=>{
   if(editId){const record=teamAlignmentRecords.find(r=>r.alignmentId===editId);if(record)openAlignmentForm(record);return}
   if(submitId){
     const confirmMsg=portalRole==='SOM'?'Submit this alignment item? Since you\'re a SOM, it\'s auto-approved on submit - no separate review needed.':'Submit this alignment item for approval? It will be sent to the SOM for review.';
-    if(!confirm(confirmMsg))return;
+    if(!(await uiConfirm(confirmMsg)))return;
     try{const result=await submitTeamAlignment(submitId);setMessage(result.record?.status==='APPROVED'?'Submitted and auto-approved.':'Submitted for approval.','ok');await loadAlignmentTab()}catch(error){$('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message}
     return;
   }
   if(deleteId){
-    if(!confirm('Delete this alignment item? This cannot be undone.'))return;
+    if(!(await uiConfirm('Delete this alignment item? This cannot be undone.')))return;
     try{await deleteTeamAlignment(deleteId);setMessage('Alignment item deleted.','ok');await loadAlignmentTab()}catch(error){$('teamAlignmentMessage').hidden=false;$('teamAlignmentMessage').className='message error';$('teamAlignmentMessage').textContent=error.response?.error||error.message}
   }
 });
@@ -3364,7 +3554,7 @@ $('lottiKnowledgeBody').addEventListener('click',async event=>{
     return;
   }
   if(deleteId){
-    if(!confirm('Delete this knowledge item? This cannot be undone.'))return;
+    if(!(await uiConfirm('Delete this knowledge item? This cannot be undone.')))return;
     try{await deleteLottiKnowledge(deleteId);setMessage('Knowledge item deleted.','ok');await loadLottiKnowledgeTab()}
     catch(error){$('lottiKnowledgeMessage').hidden=false;$('lottiKnowledgeMessage').className='message error';$('lottiKnowledgeMessage').textContent=error.response?.error||error.message}
   }
@@ -3441,7 +3631,7 @@ $('operationalNotesBody').addEventListener('click',async event=>{
   const deleteId=event.target.dataset.deleteOperationalNote;
   if(editId){const note=operationalNotes.find(x=>x.id===editId);if(note)openOperationalNoteForm(note);return}
   if(deleteId){
-    if(!confirm('Delete this operational note? This cannot be undone.'))return;
+    if(!(await uiConfirm('Delete this operational note? This cannot be undone.')))return;
     try{await deleteOperationalNote(deleteId);setMessage('Operational note deleted.','ok');await loadOperationalNotesTab()}
     catch(error){$('operationalNotesMessage').hidden=false;$('operationalNotesMessage').className='message error';$('operationalNotesMessage').textContent=error.response?.error||error.message}
   }
@@ -3730,7 +3920,7 @@ $('learningMaterialsGrid').addEventListener('click',async event=>{
   }
   if(editId){const item=learningMaterials.find(x=>x.id===editId);if(item)openLearningMaterialForm(item);return}
   if(deleteId){
-    if(!confirm('Remove this training material? This cannot be undone.'))return;
+    if(!(await uiConfirm('Remove this training material? This cannot be undone.')))return;
     try{await deleteLearningMaterial(deleteId);setMessage('Training material removed.','ok');await loadLearningTab()}
     catch(error){$('learningMessage').hidden=false;$('learningMessage').className='message error';$('learningMessage').textContent=error.response?.error||error.message}
     return;
@@ -4528,7 +4718,7 @@ ${card('Acknowledgment',qaScorecardAckBodyHtml(record,false))}
 }
 function previewQaScorecardPdf(record){
   const win=window.open('','_blank');
-  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  if(!win){setMessage('Please allow pop-ups to preview the PDF.','error');return}
   win.document.write(qaScorecardPrintableHtml(record));
   win.document.close();
   win.onload=()=>win.print();
@@ -4538,7 +4728,7 @@ $('qaScorecardHistoryBody').addEventListener('click',async event=>{
   const viewId=event.target.dataset.qaView;if(viewId){openQaScorecardView(viewId);return}
   const editId=event.target.dataset.qaEdit;if(editId){qaScorecardResumeEdit(editId);return}
   const deleteId=event.target.dataset.qaDelete;if(!deleteId)return;
-  if(!confirm(`Delete QA scorecard ${deleteId}? This cannot be undone.`))return;
+  if(!(await uiConfirm(`Delete QA scorecard ${deleteId}? This cannot be undone.`)))return;
   try{await deleteQaScorecard(deleteId);setMessage('QA scorecard deleted.','ok');loadQaScorecardReporting()}
   catch(error){setMessage(error.response?.error||error.message,'error')}
 });
@@ -4958,7 +5148,7 @@ async function loadLoftIqTab(){
   renderLoftIqQuickActions();
   await loadCopilotStatus();
   setLoftIqWarning(copilotConnected);
-  $('loftiqMessages').innerHTML='<div class="muted" style="padding:12px">Loading…</div>';
+  $('loftiqMessages').innerHTML=skeletonHtml(3);
   try{
     const[contextResult,threadResult]=await Promise.all([loadLoftIqContext(),loadLoftIqThread(loftIqScopeType,loftIqScopeId)]);
     loftIqContext=contextResult.context||null;
@@ -5010,7 +5200,7 @@ async function askLoftIq(question){
 $('loftiqForm').onsubmit=event=>{event.preventDefault();askLoftIq($('loftiqInput').value)};
 $('loftiqClearBtn').onclick=async()=>{
   if(loftIqAsking)return;
-  if(!confirm('Clear this conversation? This cannot be undone.'))return;
+  if(!(await uiConfirm('Clear this conversation? This cannot be undone.')))return;
   $('loftiqClearBtn').disabled=true;
   try{
     await clearLoftIqThread(loftIqScopeType,loftIqScopeId);
@@ -5026,7 +5216,7 @@ function renderLottiFloatQuick(){const actions=(isTeamLeader?LOFTIQ_LEAD_QUICK_A
 function clampLottiPosition(left,top){const w=$('lottiFloat'),width=w.offsetWidth||68,height=w.offsetHeight||74;return{left:Math.min(Math.max(left,4),innerWidth-width-4),top:Math.min(Math.max(top,4),innerHeight-height-4)}}
 function positionLottiPanel(){const rect=$('lottiFloat').getBoundingClientRect(),panel=$('lottiFloatPanel'),openRight=rect.left<innerWidth/2,openUp=rect.top>innerHeight/2;panel.style.left=openRight?'0':'auto';panel.style.right=openRight?'auto':'0';panel.style.bottom=openUp?'84px':'auto';panel.style.top=openUp?'auto':'84px';$('lottiFloat').classList.toggle('left',openRight)}
 function restoreLottiPosition(){try{const saved=JSON.parse(localStorage.getItem('mtdkpi-lotti-widget-pos')||'null');if(saved){const{left,top}=clampLottiPosition(saved.left,saved.top),w=$('lottiFloat');w.style.left=`${left}px`;w.style.top=`${top}px`;w.style.right='auto';w.style.bottom='auto'}}catch{}positionLottiPanel()}
-function openLottiPanel(){hideLottiBriefing();positionLottiPanel();lottiPanelOpen=true;$('lottiFloatPanel').hidden=false;renderLottiFloatQuick();renderLoftIqBadge();if(!lottiFloatLoaded){lottiFloatLoaded=true;$('lottiFloatMessages').innerHTML='<div class="muted" style="padding:12px">Loading…</div>';loadLoftIqTab()}else renderLoftIqMessages();setTimeout(()=>{try{$('lottiFloatInput').focus()}catch{}},50)}
+function openLottiPanel(){hideLottiBriefing();positionLottiPanel();lottiPanelOpen=true;$('lottiFloatPanel').hidden=false;renderLottiFloatQuick();renderLoftIqBadge();if(!lottiFloatLoaded){lottiFloatLoaded=true;$('lottiFloatMessages').innerHTML=skeletonHtml(3);loadLoftIqTab()}else renderLoftIqMessages();setTimeout(()=>{try{$('lottiFloatInput').focus()}catch{}},50)}
 function closeLottiPanel(){lottiPanelOpen=false;$('lottiFloatPanel').hidden=true}
 // ---- Lotti's daily briefing: greets the user when the portal finishes loading, with today's shift, reminders and
 // anything waiting on them. Built from data the portal already loaded (no extra AI call), shown once per browser
@@ -5147,7 +5337,7 @@ $('copilotVerifyBtn').onclick=async()=>{
   finally{$('copilotVerifyBtn').disabled=false}
 };
 $('copilotDisconnectBtn').onclick=async()=>{
-  if(!confirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.'))return;
+  if(!(await uiConfirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.')))return;
   try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();serviceRecoveryAiCache.clear();renderCopilotBar();renderAdminCopilotBar();renderDsatReviewBody();renderServiceRecoveryBody();setMessage('Copilot disconnected.','ok')}
   catch(error){setMessage(error.response?.error||error.message,'error')}
 };
@@ -5175,7 +5365,7 @@ $('adminCopilotVerifyBtn').onclick=async()=>{
   finally{$('adminCopilotVerifyBtn').disabled=false}
 };
 $('adminCopilotDisconnectBtn').onclick=async()=>{
-  if(!confirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.'))return;
+  if(!(await uiConfirm('Disconnect Copilot? AI triage will stop working for everyone until reconnected.')))return;
   try{await disconnectCopilot();copilotConnected=false;copilotToken='';dsatAiCache.clear();serviceRecoveryAiCache.clear();renderCopilotBar();renderAdminCopilotBar();setMessage('Copilot disconnected.','ok')}
   catch(error){setMessage(error.response?.error||error.message,'error')}
 };
@@ -5230,7 +5420,7 @@ function renderPendingRedemptions(){
 }
 async function loadSeniorJiraTab(month){
   const el=$('seniorJiraDays');
-  el.innerHTML='<div class="sub">Loading…</div>';
+  el.innerHTML=skeletonHtml(3);
   $('seniorTsrSummaryBody').innerHTML='<tr><td colspan="4">Loading…</td></tr>';
   try{
     const result=await getMySeniorJiraActivity(month||selectedSeniorJiraMonth);
@@ -5298,14 +5488,14 @@ $('rewardCatalogCards').addEventListener('click',async event=>{
   if(redeemId){
     const item=rewardCatalogItems.find(x=>x.id===redeemId);
     if(!item)return;
-    if(!confirm(`Redeem "${item.name}" for ${item.pointCost} points?`))return;
+    if(!(await uiConfirm(`Redeem "${item.name}" for ${item.pointCost} points?`)))return;
     try{await redeemReward(redeemId);setMessage('Redemption requested - awaiting approval.','ok');await loadRewardsTab()}
     catch(error){setMessage(error.response?.error||error.message,'error')}
     return;
   }
   if(editId){openRewardForm(rewardCatalogItems.find(x=>x.id===editId));return}
   if(deleteId){
-    if(!confirm('Remove this reward from the catalog?'))return;
+    if(!(await uiConfirm('Remove this reward from the catalog?')))return;
     try{await deleteReward(deleteId);setMessage('Reward removed.','ok');await loadRewardsTab()}
     catch(error){setMessage(error.response?.error||error.message,'error')}
   }
@@ -5314,7 +5504,7 @@ $('rewardCatalogManageBody').addEventListener('click',async event=>{
   const editId=event.target.dataset.editReward,deleteId=event.target.dataset.deleteReward;
   if(editId){openRewardForm(rewardCatalogItems.find(x=>x.id===editId));return}
   if(deleteId){
-    if(!confirm('Remove this reward from the catalog?'))return;
+    if(!(await uiConfirm('Remove this reward from the catalog?')))return;
     try{await deleteReward(deleteId);setMessage('Reward removed.','ok');await loadRewardsTab()}
     catch(error){setMessage(error.response?.error||error.message,'error')}
   }
@@ -5322,7 +5512,7 @@ $('rewardCatalogManageBody').addEventListener('click',async event=>{
 $('pendingRedemptionsBody').addEventListener('click',async event=>{
   const approveId=event.target.dataset.approveRedemption,rejectId=event.target.dataset.rejectRedemption;
   if(!approveId&&!rejectId)return;
-  const notes=prompt('Notes for this decision (optional):')||'';
+  const notes=(await uiPrompt('Notes for this decision (optional):'))||'';
   try{
     await decideRedemption(approveId||rejectId,{decision:approveId?'APPROVED':'REJECTED',notes});
     setMessage(approveId?'Redemption approved.':'Redemption rejected.','ok');
@@ -5562,7 +5752,7 @@ function renderTrainingTraineeList(){
   });
   $('trainingTraineeList').querySelectorAll('[data-delete-score]').forEach(btn=>{
     btn.onclick=async()=>{
-      if(!confirm('Remove this scorecard entry?'))return;
+      if(!(await uiConfirm('Remove this scorecard entry?')))return;
       try{
         await deleteTrainingScore(btn.dataset.deleteScore);
         for(const [email,list] of trainingScoresByEmail)trainingScoresByEmail.set(email,list.filter(x=>x.scoreId!==btn.dataset.deleteScore));
@@ -5610,7 +5800,7 @@ $('trainingEndorseConfirmBtn').onclick=async()=>{
 };
 $('trainingRejectBtn').onclick=async()=>{
   if(!endorsingTraineeEmail)return;
-  if(!confirm('Not endorse this trainee? They will be marked Terminated in the roster.'))return;
+  if(!(await uiConfirm('Not endorse this trainee? They will be marked Terminated in the roster.')))return;
   try{
     await endorseTrainingNewHire(endorsingTraineeEmail,{decision:'REJECTED'});
     $('trainingEndorseModal').hidden=true;endorsingTraineeEmail=null;
@@ -5626,7 +5816,7 @@ $('dsatReviewBody').addEventListener('click',async event=>{
   }
   if(approveTicket){
     const email=event.target.dataset.dsatEmail,disputeId=event.target.dataset.dsatDispute||undefined;
-    const notes=prompt('Notes for this decision (optional):')||'';
+    const notes=(await uiPrompt('Notes for this decision (optional):'))||'';
     try{
       await decideDsatTicket({disputeId,ticketId:approveTicket,employeeEmail:email,period:selectedDsatReviewPeriod,decision:'APPROVED',notes});
       setMessage('Marked as Not Valid DSAT.','ok');
@@ -5635,7 +5825,7 @@ $('dsatReviewBody').addEventListener('click',async event=>{
     return;
   }
   if(rejectDisputeId){
-    const notes=prompt('Reason for rejecting this dispute:');
+    const notes=(await uiPrompt('Reason for rejecting this dispute:'));
     if(!notes)return;
     try{
       await decideDsatTicket({disputeId:rejectDisputeId,decision:'REJECTED',notes});
@@ -5734,14 +5924,14 @@ $('teamCoachingBody').addEventListener('click',async event=>{
   if(viewId){const record=teamCoachingRecords.find(r=>r.coachingId===viewId);if(record)openCoachingViewModal(record,false);return}
   if(editId){const record=teamCoachingRecords.find(r=>r.coachingId===editId);if(record)openCoachingForm(record);return}
   if(sendId){
-    if(!confirm('Send this coaching session to the employee now? They will be able to view and sign it on their portal.'))return;
+    if(!(await uiConfirm('Send this coaching session to the employee now? They will be able to view and sign it on their portal.')))return;
     try{await sendTeamCoaching(sendId);setMessage('Coaching session sent.','ok');await loadCoachingTab()}catch(error){$('teamCoachingMessage').hidden=false;$('teamCoachingMessage').className='message error';$('teamCoachingMessage').textContent=error.response?.error||error.message}
     return;
   }
   if(deleteId){
     const record=teamCoachingRecords.find(r=>r.coachingId===deleteId);
     const isSent=record?.status==='SENT';
-    if(!confirm(isSent?'Delete this coaching session? It is awaiting the employee\'s signature and this cannot be undone.':'Delete this draft coaching session? This cannot be undone.'))return;
+    if(!(await uiConfirm(isSent?'Delete this coaching session? It is awaiting the employee\'s signature and this cannot be undone.':'Delete this draft coaching session? This cannot be undone.')))return;
     try{await deleteTeamCoaching(deleteId);setMessage(isSent?'Coaching session deleted.':'Draft deleted.','ok');await loadCoachingTab()}catch(error){$('teamCoachingMessage').hidden=false;$('teamCoachingMessage').className='message error';$('teamCoachingMessage').textContent=error.response?.error||error.message}
     return;
   }
@@ -5853,7 +6043,7 @@ ${card('Acknowledgment',ackBody)}
 }
 function previewCoachingPdf(record){
   const win=window.open('','_blank');
-  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  if(!win){setMessage('Please allow pop-ups to preview the PDF.','error');return}
   win.document.write(coachingPrintableHtml(record));
   win.document.close();
   win.onload=()=>win.print();
@@ -6019,14 +6209,14 @@ $('teamEvaluationsBody').addEventListener('click',async event=>{
   if(viewId){const record=teamEvaluationRecords.find(r=>r.evaluationId===viewId);if(record)openEvaluationViewModal(record,false);return}
   if(editId){const record=teamEvaluationRecords.find(r=>r.evaluationId===editId);if(record)openEvaluationForm(record);return}
   if(sendId){
-    if(!confirm('Send this evaluation to the employee now? They will be able to view and sign it on their portal.'))return;
+    if(!(await uiConfirm('Send this evaluation to the employee now? They will be able to view and sign it on their portal.')))return;
     try{await sendTeamEvaluation(sendId);setMessage('Evaluation sent.','ok');await loadEvaluationsTab()}catch(error){$('teamEvaluationsMessage').hidden=false;$('teamEvaluationsMessage').className='message error';$('teamEvaluationsMessage').textContent=error.response?.error||error.message}
     return;
   }
   if(deleteId){
     const record=teamEvaluationRecords.find(r=>r.evaluationId===deleteId);
     const isSent=record?.status==='SENT';
-    if(!confirm(isSent?'Delete this evaluation? It is awaiting the employee\'s signature and this cannot be undone.':'Delete this draft evaluation? This cannot be undone.'))return;
+    if(!(await uiConfirm(isSent?'Delete this evaluation? It is awaiting the employee\'s signature and this cannot be undone.':'Delete this draft evaluation? This cannot be undone.')))return;
     try{await deleteTeamEvaluation(deleteId);setMessage(isSent?'Evaluation deleted.':'Draft deleted.','ok');await loadEvaluationsTab()}catch(error){$('teamEvaluationsMessage').hidden=false;$('teamEvaluationsMessage').className='message error';$('teamEvaluationsMessage').textContent=error.response?.error||error.message}
     return;
   }
@@ -6215,7 +6405,7 @@ ${evaluationAppendixHtml(appendix)}
 }
 async function previewEvaluationPdf(record){
   const win=window.open('','_blank');
-  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  if(!win){setMessage('Please allow pop-ups to preview the PDF.','error');return}
   win.document.write('<p style="font-family:sans-serif;padding:20px">Loading…</p>');
   let appendix={kpiRows:[],coachingLogs:[],qaScorecards:[]};
   try{appendix=await loadMyEvaluationAppendix(record.evaluationId)}catch(_){}
@@ -6364,7 +6554,7 @@ $('disciplinaryBody').addEventListener('click',async event=>{
   if(viewId){const record=disciplinaryRecords.find(r=>r.violationId===viewId);if(record)openDisciplinaryViewModal(record);return}
   if(editId){const record=disciplinaryRecords.find(r=>r.violationId===editId);if(record)openDisciplinaryForm(record);return}
   if(withdrawId){
-    if(!confirm('Withdraw this incident report? This cannot be undone.'))return;
+    if(!(await uiConfirm('Withdraw this incident report? This cannot be undone.')))return;
     try{await withdrawTeamDisciplinary(withdrawId);setMessage('Incident report withdrawn.','ok');await loadDisciplinaryTab()}catch(error){$('teamDisciplinaryMessage').hidden=false;$('teamDisciplinaryMessage').className='message error';$('teamDisciplinaryMessage').textContent=error.response?.error||error.message}
     return;
   }
@@ -6418,7 +6608,7 @@ ${card('Acknowledgment',ackBody)}
 }
 function previewDisciplinaryPdf(record){
   const win=window.open('','_blank');
-  if(!win){alert('Please allow pop-ups to preview the PDF.');return}
+  if(!win){setMessage('Please allow pop-ups to preview the PDF.','error');return}
   win.document.write(disciplinaryPrintableHtml(record));
   win.document.close();
   win.onload=()=>win.print();
@@ -6465,7 +6655,7 @@ $('disciplinaryFinalTierInput').onchange=()=>{populateSanctionOptions('disciplin
 $('disciplinaryViewClose').onclick=()=>{$('disciplinaryViewModal').hidden=true};
 $('disciplinaryWithdrawBtn').onclick=async()=>{
   if(!viewingDisciplinaryRecord)return;
-  if(!confirm('Withdraw this incident report? This cannot be undone.'))return;
+  if(!(await uiConfirm('Withdraw this incident report? This cannot be undone.')))return;
   try{await withdrawTeamDisciplinary(viewingDisciplinaryRecord.violationId);$('disciplinaryViewModal').hidden=true;setMessage('Incident report withdrawn.','ok');await loadDisciplinaryTab()}catch(error){$('disciplinaryDecideError').hidden=false;$('disciplinaryDecideError').textContent=error.response?.error||error.message}
 };
 $('disciplinaryPreDecideSubmit').onclick=async()=>{
@@ -6511,14 +6701,14 @@ $('disciplinaryAckSubmit').onclick=async()=>{
     $('disciplinaryAckError').hidden=false;$('disciplinaryAckError').textContent=error.response?.error||error.message;
   }finally{$('disciplinaryAckSubmit').disabled=false}
 };
-async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);loading.begin(step=1);const profileResult=await getMyProfile();profile=profileResult.employee||null;profilePhoto=(await getMyProfilePhoto().catch(()=>({photoBase64:''}))).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await getMyKpi());loading.complete(2);loading.begin(step=3);const scheduleResult=await getMySchedule();scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await loadMyScheduleRequests()).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();await loadAttendanceMonth($('attendanceMonth').value,$('attendanceEndDate').value);loading.complete(4);loading.begin(step=5);const announcementResult=await loadMyAnnouncements();announcements=announcementResult.announcements||[];canManageAnnouncementsFlag=Boolean(announcementResult.canManage);renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto,ptoCal]=await Promise.all([loadPtoRequests(),loadTeamPtoRequests(),loadPtoTeamCalendar()]);requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};ptoCalMonth=ptoCal.month||todayET().slice(0,7);ptoCalRequests=ptoCal.requests||[];loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();renderPtoCalGrid();loading.complete(7);loadNotifications();if(portalRole!=='TRAINING'){$('teamAttendanceTabBtn').hidden=!canManageTeamAttendance||viewAsRole==='REP';$('teamRosterTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('teamScheduleTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('mbrReportTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('serviceRecoveryTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('ticketAuditTabBtn').hidden=!canUseTicketAudit}$('leaderPtoTabBtn').hidden=!(isTeamLeader||portalRole==='BQA'||portalRole==='SOM')||viewAsRole==='REP';$('operationalNotesTabBtn').hidden=!(isTeamLeader||portalRole==='BQA'||portalRole==='SOM'||portalRole==='HR')||viewAsRole==='REP';$('seniorJiraTabBtn').hidden=profile?.kpiType!=='Senior TSR'&&viewAsRole!=='SENIOR TSR';saveNavFlags();refreshMyCoaching();refreshMyEvaluations();refreshMyDisciplinary();if(portalRole==='TRAINING')loadTrainingTab();loadCopilotStatus();if(canUseTicketAudit){try{const ticketAuditResult=await getMyTicketAudit();ticketAuditTickets=ticketAuditResult.tickets||[];ticketAuditGeneratedAt=ticketAuditResult.generatedAt||''}catch{}}try{const upsellResult=await getMyUpsellReferrals();upsellReferrals=upsellResult.referrals||[];upsellReferralsGeneratedAt=upsellResult.generatedAt||''}catch{}renderDashboard();loading.finish('Loaded',{state:'success',collapse:true});setTimeout(()=>showLottiBriefing(),900)}catch(error){loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
+async function load(){if(loading.isActive)return;loading.start('Loading',LOAD_STEPS,{retry:load});let step=0;try{loading.begin(step=0);await loading.checkConnection();loading.complete(0);if(!$('attendanceMonth').value)$('attendanceMonth').value=todayET().slice(0,7);if(!$('attendanceEndDate').value)$('attendanceEndDate').value=todayET();const pProfile=getMyProfile(),pPhoto=getMyProfilePhoto().catch(()=>({photoBase64:''})),pKpi=getMyKpi(),pSchedule=getMySchedule(),pScheduleReq=loadMyScheduleRequests(),pAttendance=getMyAttendance($('attendanceMonth').value,$('attendanceEndDate').value),pAnnouncements=loadMyAnnouncements(),pPto=Promise.all([loadPtoRequests(),loadTeamPtoRequests(),loadPtoTeamCalendar()]);[pProfile,pPhoto,pKpi,pSchedule,pScheduleReq,pAttendance,pAnnouncements,pPto].forEach(x=>x.catch(()=>{}));loading.begin(step=1);const profileResult=await pProfile;profile=profileResult.employee||null;profilePhoto=(await pPhoto).photoBase64||'';renderProfile();loading.complete(1);loading.begin(step=2);applyKpiResult(await pKpi);loading.complete(2);loading.begin(step=3);const scheduleResult=await pSchedule;scheduleDays=scheduleResult.days||[];renderSchedule();scheduleRequests=(await pScheduleReq).requests||[];renderScheduleRequests();loading.complete(3);loading.begin(step=4);attendanceDays=(await pAttendance).days||[];renderAttendance();loading.complete(4);loading.begin(step=5);const announcementResult=await pAnnouncements;announcements=announcementResult.announcements||[];canManageAnnouncementsFlag=Boolean(announcementResult.canManage);renderAnnouncements();loading.complete(5);loading.begin(step=6);const[pto,teamPto,ptoCal]=await pPto;requests=pto.requests||[];teamRequests=teamPto.requests||[];ptoReviewPermissions={isTeamLeader:Boolean(teamPto.isTeamLeader),canFinalApprove:Boolean(teamPto.canFinalApprove)};ptoCalMonth=ptoCal.month||todayET().slice(0,7);ptoCalRequests=ptoCal.requests||[];loading.complete(6);loading.begin(step=7);renderRequests();renderTeamRequests();renderPtoCalGrid();loading.complete(7);loadNotifications();if(portalRole!=='TRAINING'){$('teamAttendanceTabBtn').hidden=!canManageTeamAttendance||viewAsRole==='REP';$('teamRosterTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('teamScheduleTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('mbrReportTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('serviceRecoveryTabBtn').hidden=!isTeamLeader||viewAsRole==='REP';$('ticketAuditTabBtn').hidden=!canUseTicketAudit}$('leaderPtoTabBtn').hidden=!(isTeamLeader||portalRole==='BQA'||portalRole==='SOM')||viewAsRole==='REP';$('operationalNotesTabBtn').hidden=!(isTeamLeader||portalRole==='BQA'||portalRole==='SOM'||portalRole==='HR')||viewAsRole==='REP';$('seniorJiraTabBtn').hidden=profile?.kpiType!=='Senior TSR'&&viewAsRole!=='SENIOR TSR';saveNavFlags();refreshMyCoaching();refreshMyEvaluations();refreshMyDisciplinary();if(portalRole==='TRAINING')loadTrainingTab();loadCopilotStatus();if(canUseTicketAudit){try{const ticketAuditResult=await getMyTicketAudit();ticketAuditTickets=ticketAuditResult.tickets||[];ticketAuditGeneratedAt=ticketAuditResult.generatedAt||''}catch{}}try{const upsellResult=await getMyUpsellReferrals();upsellReferrals=upsellResult.referrals||[];upsellReferralsGeneratedAt=upsellResult.generatedAt||''}catch{}dashboardReady=true;renderDashboard();loading.finish('Loaded',{state:'success',collapse:true});setTimeout(()=>showLottiBriefing(),900)}catch(error){dashboardReady=true;try{renderDashboard()}catch{}loading.fail(step,error);setMessage(`Could not load. ${error.endpoint||''} returned HTTP ${error.status||'unknown'}: ${error.response?.error||error.message}`,'error')}}
 $('attendanceMonth').onchange=async()=>{const month=$('attendanceMonth').value;if(!month)return;$('attendanceEndDate').min=`${month}-01`;$('attendanceEndDate').max=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`;if(!$('attendanceEndDate').value.startsWith(month))$('attendanceEndDate').value=$('attendanceEndDate').max;try{await loadAttendanceMonth(month,$('attendanceEndDate').value)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceEndDate').onchange=async()=>{const month=$('attendanceMonth').value,endDate=$('attendanceEndDate').value;if(!month||!endDate)return;try{await loadAttendanceMonth(month,endDate)}catch(error){setMessage(`Could not load attendance for ${month}. ${error.response?.error||error.message}`,'error')}};
 $('attendanceThisMonthBtn').onclick=async()=>{const month=todayET().slice(0,7);$('attendanceMonth').value=month;$('attendanceEndDate').value=todayET();try{await loadAttendanceMonth(month,todayET())}catch(error){setMessage(`Could not load attendance. ${error.response?.error||error.message}`,'error')}};
 $('attendanceLastMonthBtn').onclick=async()=>{const[y,m]=todayET().slice(0,7).split('-').map(Number),prevDate=new Date(Date.UTC(y,m-2,1)),month=`${prevDate.getUTCFullYear()}-${String(prevDate.getUTCMonth()+1).padStart(2,'0')}`,endDate=`${month}-${String(daysInMonth(month)).padStart(2,'0')}`;$('attendanceMonth').value=month;$('attendanceEndDate').value=endDate;try{await loadAttendanceMonth(month,endDate)}catch(error){setMessage(`Could not load attendance. ${error.response?.error||error.message}`,'error')}};
 $('kpiPeriod').onchange=async()=>{const period=$('kpiPeriod').value;if(!period)return;selectedKpiPeriod=period;try{applyKpiResult(await getMyKpi(period))}catch(error){setMessage(`KPI period could not be loaded. ${error.response?.error||error.message}`,'error')}};
 $('siteMetricsPeriod').onchange=()=>{const period=$('siteMetricsPeriod').value;if(!period)return;selectedSiteMetricsPeriod=period;loadSiteMetricsTab(period)};
-function renderAppCredit(){$('appCreditVersion').textContent=`V${portalVersion}`}
+function renderAppCredit(){$('appCreditVersion').textContent=`V${BUILD_VERSION}`}
 renderAppCredit();
 async function init(){
   let session;
@@ -6645,7 +6835,7 @@ function openRequest(x=null){editing=x;setTab('pto');$('requestTitle').textConte
 $('requestForm').addEventListener('click',event=>{if(event.target.type==='submit')submitIntent=event.target.dataset.intent||'draft'});$('requestForm').onchange=event=>{if(event.target.name==='requestType'||event.target.name==='startDate')partialFields();if(['requestType','startDate','endDate','partialStartTime','partialEndTime'].includes(event.target.name))previewRequestWorkdays()};$('requestForm').onsubmit=async event=>{event.preventDefault();if(loading.isActive)return;const form=event.currentTarget;const values=Object.fromEntries(new FormData(form));values.employeeEmail=sessionUser.employeeEmail;values.createdBy=sessionUser.employeeEmail;loading.start(submitIntent==='submit'?'Submitting PTO request':'Saving PTO draft',SUBMIT_STEPS,{retry:()=>form.requestSubmit()});let step=0;try{loading.begin(step=0);if(!values.reason.trim())throw new Error('Reason is required.');if(values.startDate>values.endDate)throw new Error('Start date cannot follow end date.');loading.complete(0);loading.begin(step=1);const preview=await loadPtoForecast({...values,kpiType:profile?.kpiType});values.requestedWorkdays=preview.forecastStatus==='SCHEDULE_MISSING'?Math.round((new Date(`${values.endDate}T12:00:00Z`)-new Date(`${values.startDate}T12:00:00Z`))/86400000)+1:preview.dates.length;loading.complete(1,{state:preview.forecastStatus==='SCHEDULE_MISSING'?'warning':'complete',detail:preview.forecastStatus==='SCHEDULE_MISSING'?'Schedule has not yet been created for this employee/date range - continuing anyway.':''});loading.begin(step=2);if(preview.conflicts?.length)throw new Error(`Conflicting active requests: ${preview.conflicts.map(x=>x.requestId).join(', ')}`);loading.complete(2);loading.begin(step=3);form.elements.requestedWorkdays.value=values.requestedWorkdays;loading.complete(3);loading.begin(step=4);let result=editing?await updatePtoRequest(editing.requestId,{...values,...localContext()}):await createPtoRequest(values);if(submitIntent==='submit'&&result.request.status==='DRAFT')result=await ptoAction(result.request.requestId,'submit',localContext());loading.complete(4);loading.begin(step=5);requests=(await loadPtoRequests()).requests||[];renderRequests();loading.complete(5);loading.finish(submitIntent==='submit'?'PTO request submitted':'PTO draft saved',{state:'success',collapse:false});$('requestModal').hidden=true;setMessage(`${result.request.requestId} ${submitIntent==='submit'?'was submitted for approval':'was saved as a draft'}.`,'ok')}catch(error){loading.fail(step,error);$('requestError').hidden=false;$('requestError').textContent=`Request could not be saved. ${error.endpoint?`${error.endpoint} returned HTTP ${error.status||'unknown'}. `:''}${error.response?.error||error.message}`} };
 function renderForecast(){if(!forecast)return;if(forecast.forecastStatus==='SCHEDULE_MISSING'){$('forecastCards').innerHTML='';$('forecastStatus').innerHTML=`<span class="pill status-missing-attendance">⚠ Schedule Missing</span> ${esc(forecast.warning||'Schedule has not yet been created for this employee/date range.')} Staffing forecast will recalculate automatically once a schedule exists.`;$('forecastBody').innerHTML='<tr><td colspan="13">No staffing forecast available - schedule has not been created yet.</td></tr>';return}const all=forecast.dates||[];$('forecastCards').innerHTML=[['Voice Remaining',all.length?Math.min(...all.map(x=>x.groups.VOICE.remaining)):'—'],['Non-Voice Remaining',all.length?Math.min(...all.map(x=>x.groups.NON_VOICE.remaining)):'—'],['Senior Remaining',all.length?Math.min(...all.map(x=>x.groups.SENIOR.remaining)):'—'],['Conflicting Requests',forecast.conflicts?.length||0]].map(([a,b])=>`<div class="card"><div class="label">${a}</div><div class="value">${b}</div></div>`).join('');$('forecastStatus').textContent=`${forecast.dataStatus} forecast · Calculated ${forecast.calculatedAt}`;$('forecastBody').innerHTML=all.map(x=>{const v=x.groups.VOICE,n=x.groups.NON_VOICE,s=x.groups.SENIOR;return`<tr><td><b>${x.date}</b></td><td>${v.scheduled}</td><td>${v.alreadyUnavailable}</td><td>${v.proposedPto}</td><td>${v.remaining} / ${v.minimum??'Not configured'}</td><td>${n.scheduled}</td><td>${n.alreadyUnavailable}</td><td>${n.proposedPto}</td><td>${n.remaining} / ${n.minimum??'Not configured'}</td><td>${s.scheduled}</td><td>${s.alreadyUnavailable}</td><td>${s.proposedPto}</td><td>${s.remaining} / ${s.minimum??'Not configured'}</td><td>${statusPill(x.status==='Unknown'?'Threshold Not Configured':x.status)}</td></tr>`}).join('')}
 async function showForecast(requestId){try{forecast=await loadPtoForecast({requestId});const allRequests=[...requests,...teamRequests],source=allRequests.find(x=>x.requestId===requestId);if(source)forecast.conflicts=allRequests.filter(x=>x.requestId!==requestId&&['SUBMITTED','PENDING','PRE_APPROVED','FINAL_APPROVAL_QUEUED','FINAL_APPROVAL_APPLYING','APPROVED','PARTIALLY_APPROVED'].includes(x.status)&&source.startDate<=x.endDate&&x.startDate<=source.endDate);renderForecast();$('requestsView').hidden=true;$('forecastView').hidden=false}catch(error){setMessage(`Forecast failed. ${error.response?.error||error.message}`,'error')}}
-$('requestBody').onclick=async event=>{const id=event.target.dataset.details||event.target.dataset.forecast||event.target.dataset.edit||event.target.dataset.submit||event.target.dataset.withdraw;if(!id)return;const request=requests.find(x=>x.requestId===id);try{if(event.target.dataset.details){$('detailsContent').innerHTML=`<pre>${esc(JSON.stringify(request,null,2))}</pre>`;$('detailsModal').hidden=false}else if(event.target.dataset.forecast)await showForecast(id);else if(event.target.dataset.edit)openRequest(request);else if(event.target.dataset.submit){await ptoAction(id,'submit',localContext());requests=(await loadPtoRequests()).requests||[];renderRequests()}else if(event.target.dataset.withdraw){const reason=prompt('Withdrawal reason (optional):','');if(reason===null)return;await ptoAction(id,'withdraw',{...localContext(),reason});requests=(await loadPtoRequests()).requests||[];renderRequests()}}catch(error){setMessage(`${id} action failed. ${error.response?.error||error.message}`,'error')}};
+$('requestBody').onclick=async event=>{const id=event.target.dataset.details||event.target.dataset.forecast||event.target.dataset.edit||event.target.dataset.submit||event.target.dataset.withdraw;if(!id)return;const request=requests.find(x=>x.requestId===id);try{if(event.target.dataset.details){$('detailsContent').innerHTML=`<pre>${esc(JSON.stringify(request,null,2))}</pre>`;$('detailsModal').hidden=false}else if(event.target.dataset.forecast)await showForecast(id);else if(event.target.dataset.edit)openRequest(request);else if(event.target.dataset.submit){await ptoAction(id,'submit',localContext());requests=(await loadPtoRequests()).requests||[];renderRequests()}else if(event.target.dataset.withdraw){const reason=(await uiPrompt('Withdrawal reason (optional):',''));if(reason===null)return;await ptoAction(id,'withdraw',{...localContext(),reason});requests=(await loadPtoRequests()).requests||[];renderRequests()}}catch(error){setMessage(`${id} action failed. ${error.response?.error||error.message}`,'error')}};
 function openTeamPtoDecision(request,action){teamPtoDecision={request,action};const final=action==='final-approve';$('teamPtoDecisionTitle').textContent=final?'Final PTO Approval':'Team Lead Pre-Approval';$('teamPtoDecisionDetails').innerHTML=`<b>${esc(request.employeeName)}</b> · ${esc(request.requestId)}<br>${esc(request.startDate)}${request.endDate!==request.startDate?` – ${esc(request.endDate)}`:''} · ${fmt(request.requestedWorkdays)} workday(s)<br><span class="muted">${esc(request.reason)}</span>`;$('teamPtoDecisionNotes').value='';$('teamPtoDecisionNotes').placeholder=final?'Add final approval notes. Required when staffing warnings exist.':'Add context for Charlotte or the final admin reviewer.';$('teamPtoDecisionConfirm').textContent=final?'Queue Final Approval':'Pre-Approve';$('teamPtoDecisionError').hidden=true;$('teamPtoDecisionModal').hidden=false}
 $('teamRequestBody').onclick=async event=>{const id=event.target.dataset.teamDetails||event.target.dataset.teamForecast||event.target.dataset.teamPreapprove||event.target.dataset.teamFinalapprove;if(!id)return;const request=teamRequests.find(x=>x.requestId===id);if(!request)return;try{if(event.target.dataset.teamDetails){$('detailsContent').innerHTML=`<pre>${esc(JSON.stringify(request,null,2))}</pre>`;$('detailsModal').hidden=false}else if(event.target.dataset.teamForecast)await showForecast(id);else if(event.target.dataset.teamPreapprove)openTeamPtoDecision(request,'pre-approve');else if(event.target.dataset.teamFinalapprove)openTeamPtoDecision(request,'final-approve')}catch(error){setMessage(`${id} action failed. ${error.response?.error||error.message}`,'error')}};
 $('teamPtoDecisionCancel').onclick=()=>{$('teamPtoDecisionModal').hidden=true;teamPtoDecision=null};
