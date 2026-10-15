@@ -2076,6 +2076,28 @@ function portalRoleFor(email) {
   if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
 }
+// Portal access is limited to Mac's own team plus leadership while the rest of Support works from the
+// Workbench. Everyone else is sent to the Workbench link instead of the portal. Leadership = anyone who has
+// direct reports on the roster, the Operations Manager's direct reports (Training, QA, etc.), and the role
+// holders named above. Set PORTAL_OPEN_ACCESS=1 on the host to reopen the portal to everyone without a deploy.
+const WORKBENCH_URL = 'https://tsr.lofty.com/bench/web/';
+const PORTAL_OPEN_ACCESS = ['1', 'true', 'yes'].includes(String(process.env.PORTAL_OPEN_ACCESS || '').toLowerCase());
+async function portalAccessAllowed(email) {
+  if (PORTAL_OPEN_ACCESS) return true;
+  const clean = ptoLogic.cleanEmail(email);
+  if (!clean) return false;
+  if (ADMIN_EMAILS.has(clean) || VIEW_AS_ALLOWED_EMAILS.has(clean) || PRE_DISCIPLINARY_APPROVER_EMAILS.has(clean)
+    || clean === FINAL_DISCIPLINARY_APPROVER_EMAIL || clean === DSAT_REVIEWER_EMAIL || TRAINING_MANAGER_EMAILS.has(clean)) return true;
+  const records = ((await loadRosterSnapshot()).records || []).filter(x => x.active !== false);
+  const me = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === clean);
+  if (!me) return false;
+  if (records.some(x => ptoLogic.cleanEmail(x.teamLeadEmail) === clean)) return true; // team lead / manager
+  const lead = ptoLogic.cleanEmail(me.teamLeadEmail);
+  return ADMIN_EMAILS.has(lead) || lead === 'charlotte@lofty.com'; // Mac's own team, or the leadership group under the Operations Manager
+}
+function workbenchOnlyResponse(res) {
+  return json(res, 403, { ok: false, workbenchOnly: true, workbenchUrl: WORKBENCH_URL, error: 'The Support Portal is not open to your team yet. Please use the Workbench instead.' });
+}
 // Per-person beta feature flags (e.g. 'wfe' for the Guides troubleshooting-tree beta) live
 // directly on the roster record (betaFeatures: string[]), toggled via Roster Management -
 // unlike the role gates above, this needs to be flippable per-person without a code deploy.
@@ -2728,6 +2750,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const email = ptoLogic.cleanEmail(body.email);
       if (!email || !body.password) return json(res, 400, { ok: false, error: 'Email and password are required.' });
+      if (!(await portalAccessAllowed(email))) return workbenchOnlyResponse(res);
       try { assertNotLockedOut(email); } catch (err) { return json(res, err.statusCode || 429, { ok: false, error: err.message }); }
       const credential = await loadCredential(email);
       if (!credential || !ptoPassword.verifyPassword(body.password, credential.passwordHash)) {
@@ -2840,6 +2863,13 @@ const server = http.createServer(async (req, res) => {
 
     const identity = ptoLogic.cleanEmail(session.employeeEmail);
     const credential = await loadCredential(identity);
+
+    if (!(await portalAccessAllowed(identity))) {
+      await destroySession(sessionToken);
+      res.setHeader('Set-Cookie', clearSessionCookieHeader(isSecureReq));
+      if (parsed.pathname === '/api/auth/session' && req.method === 'GET') return json(res, 200, { ok: true, authenticated: false, workbenchOnly: true, workbenchUrl: WORKBENCH_URL });
+      return workbenchOnlyResponse(res);
+    }
 
     if (credential && (session.sessionVersion || 0) !== (credential.sessionVersion || 0)) {
       await destroySession(sessionToken);
