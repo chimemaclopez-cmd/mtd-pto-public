@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.49';
+const PORTAL_VERSION = '2.3.53';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1819,6 +1819,33 @@ function autoApproveAlignmentIfSom(record, identity) {
 const LOTTI_KNOWLEDGE_KEY = 'mtdkpi:lotti-knowledge-records';
 async function loadLottiKnowledge() { return cloudStore.kvGetJson(LOTTI_KNOWLEDGE_KEY, []); }
 async function saveLottiKnowledge(list) { return cloudStore.kvSetJson(LOTTI_KNOWLEDGE_KEY, list); }
+// The TSR Playbook SOPs and guides on SharePoint are Lotti's source of truth for process questions. The local proxy
+// (lotti-sop-sync.js, which has Microsoft Graph access) re-reads them on a timer and on request and keeps these
+// records current - kept apart from the hand-written knowledge above so the sync never touches admin edits.
+const LOTTI_SOP_KEY = 'mtdkpi:lotti-sop-records';
+const LOTTI_SOP_STATE_KEY = 'mtdkpi:lotti-sop-sync-state';
+const LOTTI_SOP_REQUEST_KEY = 'mtdkpi:lotti-sop-sync-request';
+async function loadLottiSopRecords() { return cloudStore.kvGetJson(LOTTI_SOP_KEY, []); }
+const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
+// Ranks SOP sections for a question: matches in the SOP's name/heading count most, then the section text; common
+// filler words are ignored so "how do I handle a cancellation" finds cancellation SOPs, not every long document.
+function searchSopRecords(query, records, limit = 4) {
+  const words = [...new Set(String(query).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !SOP_STOPWORDS.has(w)))];
+  if (!words.length) return [];
+  const forms = w => (w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]);
+  const phrase = words.length > 1 ? words.join(' ') : '';
+  return records.map(r => {
+    const title = `${r.title || ''} ${r.source?.doc || ''}`.toLowerCase(), body = String(r.bodyText || '').toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      if (forms(w).some(v => title.includes(v))) score += 5;
+      const hits = forms(w).reduce((n, v) => n + (body.split(v).length - 1), 0);
+      if (hits) score += Math.min(4, 1 + Math.log2(hits));
+    }
+    if (phrase && (title.includes(phrase) || body.includes(phrase))) score += 6;
+    return { r, score };
+  }).filter(x => x.score >= 3).sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.r);
+}
 // Operational Notes: leadership-only log of anything that affected productivity or KPI
 // performance (completion rate, CSAT especially) - outages, policy changes, staffing gaps,
 // leadership actions - so a dip or spike has a documented reason instead of just a bare number
@@ -4302,6 +4329,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, item });
     }
 
+    if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const [state, request] = await Promise.all([cloudStore.kvGetJson(LOTTI_SOP_STATE_KEY, null), cloudStore.kvGetJson(LOTTI_SOP_REQUEST_KEY, null)]);
+      const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
+        .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
+      return json(res, 200, { ok: true, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+    }
+    if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const current = await cloudStore.kvGetJson(LOTTI_SOP_REQUEST_KEY, null);
+      if (current && ['queued', 'running'].includes(current.status) && Date.now() - Date.parse(current.requestedAt || 0) < 15 * 60 * 1000) return json(res, 200, { ok: true, status: current.status, alreadyQueued: true });
+      await cloudStore.kvSetJson(LOTTI_SOP_REQUEST_KEY, { status: 'queued', requestedAt: new Date().toISOString(), requestedBy: identity });
+      return json(res, 202, { ok: true, status: 'queued' });
+    }
+
     const lottiKnowledgeMatch = parsed.pathname.match(/^\/api\/admin\/lotti-knowledge\/([^/]+)$/);
     if (lottiKnowledgeMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
@@ -4529,10 +4571,13 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/loftiq/knowledge-search' && req.method === 'GET') {
       const query = String(parsed.searchParams.get('q') || '').trim();
       if (!query) return json(res, 200, { ok: true, items: [] });
-      const list = await loadLottiKnowledge();
+      const [list, sopList] = await Promise.all([loadLottiKnowledge(), loadLottiSopRecords().catch(() => [])]);
       const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
-      return json(res, 200, { ok: true, items: matched.map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) })) });
+      // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
+      const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 4);
+      const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000) }));
+      return json(res, 200, { ok: true, items: [...sopItems, ...matched.slice(0, sopItems.length ? 2 : 3).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
     }
 
     // Lofty Academy training videos, as a fourth general-knowledge source for Lotti - previously
