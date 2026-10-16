@@ -2769,40 +2769,6 @@ function recordLoginFailure(email) {
 }
 function clearLoginFailures(email) { loginAttempts.delete(email); }
 
-// --- Self-service password reset: a single-use link emailed to the employee's own Lofty address. Only a hash of the token is stored,
-// it expires in 30 minutes, and the "forgot" endpoint answers the same way whether or not the account exists. ---
-const RESET_TOKEN_PREFIX = 'mtdkpi:pto-reset-token:';
-const RESET_TTL_SECONDS = 30 * 60;
-const RESET_FROM_EMAIL = process.env.SENDGRID_RESET_FROM_EMAIL || 'noreply@loftysupportportal.com';
-const PORTAL_BASE_URL = (process.env.PORTAL_BASE_URL || 'https://loftysupportportal.com').replace(/\/$/, '');
-const resetRateWindows = new Map();
-function resetRateLimited(key, max, windowMs) {
-  const now = Date.now();
-  const hits = (resetRateWindows.get(key) || []).filter(t => now - t < windowMs);
-  hits.push(now);
-  resetRateWindows.set(key, hits);
-  if (resetRateWindows.size > 5000) for (const [k, v] of resetRateWindows) if (!v.some(t => now - t < windowMs)) resetRateWindows.delete(k);
-  return hits.length > max;
-}
-const hashResetToken = token => crypto.createHash('sha256').update(String(token)).digest('hex');
-function resetEmailHtml(name, link) {
-  const first = escapeHtml(String(name || '').split(' ')[0] || 'there');
-  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#202437">
-<h2 style="margin:0 0 12px">Reset your portal password</h2>
-<p>Hi ${first}, we got a request to reset the password for your Lofty Support Portal account.</p>
-<p style="margin:22px 0"><a href="${escapeHtml(link)}" style="background:#3b5cde;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:9px;display:inline-block">Choose a new password</a></p>
-<p style="font-size:13px;color:#5b6274">This link works once and expires in 30 minutes. If you did not ask for this, you can ignore this email and your password stays the same.</p>
-<p style="font-size:12px;color:#8a90a3;word-break:break-all">If the button does not work, copy this address into your browser:<br>${escapeHtml(link)}</p></div>`;
-}
-// Sends from the portal's own domain; if that sender is not verified in SendGrid yet, falls back to the default verified sender.
-async function sendFromPortal(message) {
-  try { await emailService.send({ ...message, from: RESET_FROM_EMAIL }); }
-  catch (error) {
-    if (!/HTTP 40[13]/.test(String(error.message))) throw error;
-    await emailService.send(message);
-  }
-}
-
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') return json(res, 200, { ok: true });
@@ -2864,54 +2830,6 @@ const server = http.createServer(async (req, res) => {
       await saveCredential(credential);
       res.setHeader('Set-Cookie', sessionCookieHeader(token, isSecureReq));
       return json(res, 200, { ok: true, employeeEmail: credential.employeeEmail, employeeName: credential.employeeName, nickname: await nicknameFor(credential.employeeEmail), mustChangePassword: Boolean(credential.mustChangePassword), tourSeen: Boolean(credential.tourSeen), lastSeenVersion: credential.lastSeenVersion || '', portalVersion: PORTAL_VERSION, portalRole: portalRoleFor(credential.employeeEmail), isAdmin: ADMIN_EMAILS.has(ptoLogic.cleanEmail(credential.employeeEmail)), canUseViewAs: canUseViewAs(credential.employeeEmail), viewAsRole: '', betaFeatures: await betaFeaturesFor(credential.employeeEmail), canUseTicketAudit: await canUseTicketAudit(credential.employeeEmail), canUseQaScorecard: canUseQaScorecard(credential.employeeEmail), canUseEodReport: canUseEodReport(credential.employeeEmail) });
-    }
-
-    // Public: ask for a password-reset link. Always the same answer, and the email is sent after replying, so nobody can use it to
-    // find out who has an account (or time the difference).
-    if (parsed.pathname === '/api/auth/forgot-password' && req.method === 'POST') {
-      const body = await readJsonBody(req);
-      const email = ptoLogic.cleanEmail(body.email);
-      const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-      const reply = () => json(res, 200, { ok: true, message: 'If that email belongs to a portal account, a reset link is on its way. It expires in 30 minutes.' });
-      if (!email || !email.includes('@') || resetRateLimited('e:' + email, 3, 3600000) || resetRateLimited('i:' + ip, 10, 3600000)) return reply();
-      reply();
-      (async () => {
-        try {
-          const credential = await loadCredential(email);
-          if (!credential || !(await portalAccessAllowed(email, 'reset'))) return;
-          const token = crypto.randomBytes(32).toString('base64url');
-          const now = Date.now();
-          await cloudStore.kvSetJson(RESET_TOKEN_PREFIX + hashResetToken(token), { email, createdAt: new Date(now).toISOString(), expiresAt: new Date(now + RESET_TTL_SECONDS * 1000).toISOString() }, { exSeconds: RESET_TTL_SECONDS });
-          await sendFromPortal({ to: email, subject: 'Reset your Lofty Support Portal password', html: resetEmailHtml(credential.employeeName, `${PORTAL_BASE_URL}/?reset=${token}`) });
-        } catch (error) { console.error('[password-reset] could not send:', error.message); }
-      })();
-      return;
-    }
-
-    // Public: set a new password with the emailed single-use token.
-    if (parsed.pathname === '/api/auth/reset-password' && req.method === 'POST') {
-      const body = await readJsonBody(req);
-      const token = String(body.token || ''), newPassword = String(body.newPassword || '');
-      const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-      if (resetRateLimited('r:' + ip, 20, 3600000)) return json(res, 429, { ok: false, error: 'Too many attempts. Please try again later.' });
-      if (newPassword.length < 8) return json(res, 400, { ok: false, error: 'New password must be at least 8 characters.' });
-      const invalid = () => json(res, 400, { ok: false, error: 'This reset link is invalid or has expired. Please request a new one.' });
-      if (token.length < 20) return invalid();
-      const key = RESET_TOKEN_PREFIX + hashResetToken(token);
-      const record = await cloudStore.kvGetJson(key, null);
-      if (!record || Date.parse(record.expiresAt) < Date.now()) return invalid();
-      if (!(await cloudStore.kvDel(key))) return invalid(); // someone else used it first
-      const credential = await loadCredential(record.email);
-      if (!credential) return invalid();
-      credential.passwordHash = ptoPassword.hashPassword(newPassword);
-      credential.mustChangePassword = false;
-      credential.sessionVersion = (credential.sessionVersion || 0) + 1; // signs out every other session
-      credential.lastPasswordResetAt = new Date().toISOString();
-      credential.updatedAt = credential.lastPasswordResetAt;
-      await saveCredential(credential);
-      clearLoginFailures(record.email);
-      sendFromPortal({ to: record.email, subject: 'Your Lofty Support Portal password was changed', html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;color:#202437"><p>Hi ${escapeHtml(String(credential.employeeName || '').split(' ')[0] || 'there')}, your portal password was just changed using a reset link.</p><p style="font-size:13px;color:#5b6274">If this was not you, tell your Team Lead right away.</p></div>` }).catch(error => console.error('[password-reset] confirmation not sent:', error.message));
-      return json(res, 200, { ok: true });
     }
 
     // Admin-only: reset (or first-create) a rep's password. Not session-gated - gated by a
