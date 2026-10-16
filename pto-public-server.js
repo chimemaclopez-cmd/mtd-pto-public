@@ -2112,18 +2112,55 @@ function portalRoleFor(email) {
 // holders named above. Set PORTAL_OPEN_ACCESS=1 on the host to reopen the portal to everyone without a deploy.
 const WORKBENCH_URL = 'https://tsr.lofty.com/bench/web/';
 const PORTAL_OPEN_ACCESS = ['1', 'true', 'yes'].includes(String(process.env.PORTAL_OPEN_ACCESS || '').toLowerCase());
-async function portalAccessAllowed(email) {
-  if (PORTAL_OPEN_ACCESS) return true;
+const PORTAL_ACCESS_DENIALS_KEY = 'mtdkpi:portal-access-denials';
+let lastGoodAccess = null; // { at, byEmail: Map(email -> reason) } from the last roster read that had real data
+function buildPortalAccess(records) {
+  const active = (records || []).filter(x => x.active !== false);
+  const byEmail = new Map();
+  const leaders = new Set(active.map(x => ptoLogic.cleanEmail(x.teamLeadEmail)).filter(Boolean));
+  for (const x of active) {
+    const e = ptoLogic.cleanEmail(x.employeeEmail), lead = ptoLogic.cleanEmail(x.teamLeadEmail);
+    if (!e) continue;
+    if (leaders.has(e)) byEmail.set(e, 'leadership (leads a team)');
+    else if (ADMIN_EMAILS.has(lead)) byEmail.set(e, "Mac's team");
+    else if (lead === 'charlotte@lofty.com') byEmail.set(e, 'leadership group under the Operations Manager');
+  }
+  return byEmail;
+}
+async function portalAccessDecision(email) {
+  if (PORTAL_OPEN_ACCESS) return { allowed: true, reason: 'portal is open to everyone' };
   const clean = ptoLogic.cleanEmail(email);
-  if (!clean) return false;
+  if (!clean) return { allowed: false, reason: 'no email' };
   if (ADMIN_EMAILS.has(clean) || VIEW_AS_ALLOWED_EMAILS.has(clean) || PRE_DISCIPLINARY_APPROVER_EMAILS.has(clean)
-    || clean === FINAL_DISCIPLINARY_APPROVER_EMAIL || clean === DSAT_REVIEWER_EMAIL || TRAINING_MANAGER_EMAILS.has(clean)) return true;
-  const records = ((await loadRosterSnapshot()).records || []).filter(x => x.active !== false);
-  const me = records.find(x => ptoLogic.cleanEmail(x.employeeEmail) === clean);
-  if (!me) return false;
-  if (records.some(x => ptoLogic.cleanEmail(x.teamLeadEmail) === clean)) return true; // team lead / manager
-  const lead = ptoLogic.cleanEmail(me.teamLeadEmail);
-  return ADMIN_EMAILS.has(lead) || lead === 'charlotte@lofty.com'; // Mac's own team, or the leadership group under the Operations Manager
+    || clean === FINAL_DISCIPLINARY_APPROVER_EMAIL || clean === DSAT_REVIEWER_EMAIL || TRAINING_MANAGER_EMAILS.has(clean)) return { allowed: true, reason: 'portal role holder' };
+  // The roster comes from the shared store. If a read comes back empty or fails (a hiccup must never lock the whole team
+  // out), re-read once without the cache and otherwise fall back to the last roster that had real data.
+  let records = [];
+  try { records = (await loadRosterSnapshot()).records || []; } catch (_) { records = []; }
+  if (records.length < 5) {
+    snapshotCache.delete('mtdkpi:snapshot:roster');
+    try { records = (await loadRosterSnapshot()).records || []; } catch (_) { records = []; }
+  }
+  if (records.length >= 5) lastGoodAccess = { at: Date.now(), byEmail: buildPortalAccess(records) };
+  if (!lastGoodAccess) return { allowed: false, reason: 'roster unavailable' };
+  const reason = lastGoodAccess.byEmail.get(clean);
+  return reason ? { allowed: true, reason } : { allowed: false, reason: 'not on the roster under Mac or leadership' };
+}
+async function portalAccessAllowed(email, where = 'login') {
+  const d = await portalAccessDecision(email);
+  if (!d.allowed) {
+    // Keep a short log of who was turned away, so a "my team cannot get in" report can be checked, not guessed at.
+    (async () => {
+      try {
+        const log = await cloudStore.kvGetJson(PORTAL_ACCESS_DENIALS_KEY, []);
+        const clean = ptoLogic.cleanEmail(email);
+        if (log[0] && log[0].email === clean && Date.now() - Date.parse(log[0].at) < 60000) return;
+        log.unshift({ email: clean, at: new Date().toISOString(), where, reason: d.reason });
+        await cloudStore.kvSetJson(PORTAL_ACCESS_DENIALS_KEY, log.slice(0, 100));
+      } catch (_) { /* logging must never block sign-in */ }
+    })();
+  }
+  return d.allowed;
 }
 function workbenchOnlyResponse(res) {
   return json(res, 403, { ok: false, workbenchOnly: true, workbenchUrl: WORKBENCH_URL, error: 'The Support Portal is not open to your team yet. Please use the Workbench instead.' });
@@ -2780,7 +2817,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const email = ptoLogic.cleanEmail(body.email);
       if (!email || !body.password) return json(res, 400, { ok: false, error: 'Email and password are required.' });
-      if (!(await portalAccessAllowed(email))) return workbenchOnlyResponse(res);
+      if (!(await portalAccessAllowed(email, 'login'))) return workbenchOnlyResponse(res);
       try { assertNotLockedOut(email); } catch (err) { return json(res, err.statusCode || 429, { ok: false, error: err.message }); }
       const credential = await loadCredential(email);
       if (!credential || !ptoPassword.verifyPassword(body.password, credential.passwordHash)) {
@@ -2894,7 +2931,7 @@ const server = http.createServer(async (req, res) => {
     const identity = ptoLogic.cleanEmail(session.employeeEmail);
     const credential = await loadCredential(identity);
 
-    if (!(await portalAccessAllowed(identity))) {
+    if (!(await portalAccessAllowed(identity, 'session'))) {
       await destroySession(sessionToken);
       res.setHeader('Set-Cookie', clearSessionCookieHeader(isSecureReq));
       if (parsed.pathname === '/api/auth/session' && req.method === 'GET') return json(res, 200, { ok: true, authenticated: false, workbenchOnly: true, workbenchUrl: WORKBENCH_URL });
@@ -4332,6 +4369,14 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, item });
     }
 
+    if (parsed.pathname === '/api/admin/portal-access' && req.method === 'GET') {
+      if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
+      const roster = await loadRosterSnapshot();
+      const byEmail = buildPortalAccess(roster.records || []);
+      const names = new Map((roster.records || []).map(x => [ptoLogic.cleanEmail(x.employeeEmail), x.employeeName]));
+      const denials = await cloudStore.kvGetJson(PORTAL_ACCESS_DENIALS_KEY, []);
+      return json(res, 200, { ok: true, openAccess: PORTAL_OPEN_ACCESS, allowed: [...byEmail].map(([email, reason]) => ({ email, name: names.get(email) || '', reason })).sort((a, b) => a.reason.localeCompare(b.reason) || a.name.localeCompare(b.name)), denials: denials.slice(0, 50) });
+    }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'GET') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
       const [state, request] = await Promise.all([cloudStore.kvGetJson(LOTTI_SOP_STATE_KEY, null), cloudStore.kvGetJson(LOTTI_SOP_REQUEST_KEY, null)]);
