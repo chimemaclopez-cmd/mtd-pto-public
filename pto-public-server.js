@@ -2796,21 +2796,11 @@ function resetEmailHtml(name, link) {
 }
 // Sends from the portal's own domain; if that sender is not verified in SendGrid yet, falls back to the default verified sender.
 async function sendFromPortal(message) {
-  try { await emailService.send({ ...message, from: RESET_FROM_EMAIL }); return { from: RESET_FROM_EMAIL }; }
+  try { await emailService.send({ ...message, from: RESET_FROM_EMAIL }); }
   catch (error) {
     if (!/HTTP 40[13]/.test(String(error.message))) throw error;
-    const first = String(error.message).slice(0, 200);
     await emailService.send(message);
-    return { from: 'default sender', note: `portal-domain sender refused: ${first}` };
   }
-}
-// Short log of reset emails (no tokens): lets an admin see whether an email was handed to SendGrid, and the exact error if not.
-async function logResetEmail(entry) {
-  try {
-    const log = await cloudStore.kvGetJson('mtdkpi:password-reset-log', []);
-    log.unshift({ at: new Date().toISOString(), ...entry });
-    await cloudStore.kvSetJson('mtdkpi:password-reset-log', log.slice(0, 50));
-  } catch (_) { /* never block */ }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -2892,9 +2882,8 @@ const server = http.createServer(async (req, res) => {
           const token = crypto.randomBytes(32).toString('base64url');
           const now = Date.now();
           await cloudStore.kvSetJson(RESET_TOKEN_PREFIX + hashResetToken(token), { email, createdAt: new Date(now).toISOString(), expiresAt: new Date(now + RESET_TTL_SECONDS * 1000).toISOString() }, { exSeconds: RESET_TTL_SECONDS });
-          const sent = await sendFromPortal({ to: email, subject: 'Reset your Lofty Support Portal password', html: resetEmailHtml(credential.employeeName, `${PORTAL_BASE_URL}/?reset=${token}`) });
-          await logResetEmail({ email, result: 'handed to SendGrid', ...sent, sendgridConfigured: emailService.isConfigured() });
-        } catch (error) { console.error('[password-reset] could not send:', error.message); await logResetEmail({ email, result: 'FAILED', error: String(error.message).slice(0, 300), sendgridConfigured: emailService.isConfigured() }); }
+          await sendFromPortal({ to: email, subject: 'Reset your Lofty Support Portal password', html: resetEmailHtml(credential.employeeName, `${PORTAL_BASE_URL}/?reset=${token}`) });
+        } catch (error) { console.error('[password-reset] could not send:', error.message); }
       })();
       return;
     }
