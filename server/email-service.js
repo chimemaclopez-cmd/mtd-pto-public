@@ -8,6 +8,7 @@
     SENDGRID_FROM_EMAIL - the address verified as a Single Sender in SendGrid
 */
 const https = require('https');
+const http = require('http');
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'mac@lofty.com';
@@ -17,7 +18,10 @@ function isConfigured() {
   return Boolean(SENDGRID_API_KEY);
 }
 
-function send({ to, cc = [], subject, html }) {
+// SENDGRID_API_BASE exists only so a local test can point sending at a fake; production leaves it unset.
+const SENDGRID_API_BASE = process.env.SENDGRID_API_BASE || 'https://api.sendgrid.com';
+
+function send({ to, cc = [], subject, html, from }) {
   return new Promise((resolve, reject) => {
     if (!isConfigured()) return reject(new Error('SendGrid is not configured (missing SENDGRID_API_KEY).'));
     if (!to) return reject(new Error('An email recipient is required.'));
@@ -28,13 +32,15 @@ function send({ to, cc = [], subject, html }) {
     if (ccList.length) personalization.cc = ccList;
     const body = JSON.stringify({
       personalizations: [personalization],
-      from: { email: SENDGRID_FROM_EMAIL, name: FROM_NAME },
+      from: { email: from || SENDGRID_FROM_EMAIL, name: FROM_NAME },
       subject: String(subject || '(no subject)'),
       content: [{ type: 'text/html', value: String(html || '') }]
     });
-    const req = https.request({
-      hostname: 'api.sendgrid.com',
-      port: 443,
+    const target = new URL(SENDGRID_API_BASE);
+    const transport = target.protocol === 'http:' ? http : https;
+    const req = transport.request({
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'http:' ? 80 : 443),
       path: '/v3/mail/send',
       method: 'POST',
       headers: {
