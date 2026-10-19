@@ -119,7 +119,7 @@ export function isLoftIqBadAnswer(text){
 // server-side and scoped strictly to the signed-in user's real identity) + this scope's prior
 // exchanges (manual context-stuffing, since Copilot's chat/messages call is single-shot with no
 // visible native multi-turn support) + the new question.
-export function buildLoftIqPrompt({context,priorMessages,question,helpArticles,alignments,trainingVideos}){
+export function buildLoftIqPrompt({context,priorMessages,question,helpArticles,alignments,trainingVideos,imageCount=0}){
   const history=(priorMessages||[]).slice(-8).map(m=>`${m.role==='user'?'Employee':'Lotti'}: ${String(m.content||'').replace(/\n\nSources: [\s\S]*$/,'')}`).join('\n');
   // Number every general-knowledge entry (help articles first, then SOP/knowledge entries) so the answer can cite which ones it used.
   const refHelp=(helpArticles||[]).map((a,i)=>({ref:`S${i+1}`,...a})),refAlign=(alignments||[]).map((a,i)=>({ref:`S${refHelp.length+i+1}`,...a}));
@@ -146,6 +146,6 @@ EMPLOYEE'S OWN DATA (this is everything you're allowed to reference about them p
 ${JSON.stringify(context)}
 ${hasGeneralKnowledge?`\nGENERAL_KNOWLEDGE (Lofty product help + company Alignment SOPs, not personal data):\n${JSON.stringify({helpArticles:refHelp,alignments:refAlign})}\n`:''}${trainingVideos&&trainingVideos.length?`\nTRAINING_VIDEOS (Lofty Academy catalog - title/description only, no transcript):\n${JSON.stringify(trainingVideos)}\n`:''}
 ${history?`\nPRIOR CONVERSATION (this scope only):\n${history}\n`:''}
-Employee: ${question}
+${imageCount?`\nThe employee attached ${imageCount} image${imageCount===1?'':'s'} (screenshots or photos) to this question. Look at ${imageCount===1?'it':'them'} and answer about what is actually visible: read the text, ticket numbers, settings and error messages you can see, and combine that with the data and sources above. Describe only what you can really see - if something is blurry, cut off or not shown, say so instead of guessing. Do not repeat personal or customer details from the image beyond what is needed to answer.\n`:''}Employee: ${question}
 Lotti:`;
 }

@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.54';
+const PORTAL_VERSION = '2.3.55';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -4062,8 +4062,7 @@ const server = http.createServer(async (req, res) => {
       // the changelog, just scoped per employee instead of per portal version - counts every
       // assistant answer across all of this employee's own scoped threads that landed after they
       // last opened the LoftIQ tab. No new notification system, just one more field here.
-      const [loftIqConversations, loftIqLastViewedMap] = await Promise.all([loadLoftIqConversations(), cloudStore.kvGetJson(LOFTIQ_LAST_VIEWED_KEY, {})]);
-      const myLoftIqThreads = loftIqConversations[identity] || {};
+      const [myLoftIqThreads, loftIqLastViewedMap] = await Promise.all([loadMyLoftIqThreads(identity), cloudStore.kvGetJson(LOFTIQ_LAST_VIEWED_KEY, {})]);
       const loftIqLastViewed = loftIqLastViewedMap[identity] || '';
       const loftIqUnread = Object.values(myLoftIqThreads).reduce((sum, thread) => sum + (thread.messages || []).filter(m => m.role === 'assistant' && m.at > loftIqLastViewed).length, 0);
 
@@ -4076,7 +4075,21 @@ const server = http.createServer(async (req, res) => {
     // (1) assembling a real-data context to ground the answer, strictly scoped to the REAL
     // identity (never effectiveViewAsRole - "View As" must never change what LoftIQ can see), and
     // (2) persisting the resulting exchange so a record-scoped conversation survives a reload.
-    async function loadLoftIqConversations() { return cloudStore.kvGetJson(LOFTIQ_CONVERSATIONS_KEY, {}); }
+    // Each employee's conversations live under their own key, so opening Lotti reads one small record instead of everyone's history.
+    // The first time someone is seen, whatever they had in the old shared record is copied across (the old record is left untouched).
+    const loftIqUserKey = id => `mtdkpi:loftiq-conv:${id}`;
+    async function loadMyLoftIqThreads(id) {
+      const mine = await cloudStore.kvGetJson(loftIqUserKey(id), null);
+      if (mine) return mine;
+      const legacy = await cloudStore.kvGetJson(LOFTIQ_CONVERSATIONS_KEY, {});
+      const threads = { ...(legacy[id] || {}) };
+      // The old single general chat becomes a named conversation so an empty id can always mean "open my latest".
+      if (threads['general:']) { const t = threads['general:']; delete threads['general:']; t.scopeId = 'legacy'; threads['general:legacy'] = t; }
+      await cloudStore.kvSetJson(loftIqUserKey(id), threads);
+      return threads;
+    }
+    const saveMyLoftIqThreads = (id, threads) => cloudStore.kvSetJson(loftIqUserKey(id), threads);
+    const LOFTIQ_MAX_CONVERSATIONS = 30;
     function loftIqScopeKey(scopeType, scopeId) { return `${scopeType || 'general'}:${scopeId || ''}`; }
 
     if (parsed.pathname === '/api/my/loftiq/context' && req.method === 'GET') {
@@ -4251,10 +4264,26 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/loftiq/thread' && req.method === 'GET') {
       const scopeType = String(parsed.searchParams.get('scopeType') || 'general');
       const scopeId = String(parsed.searchParams.get('scopeId') || '');
-      const all = await loadLoftIqConversations();
-      const mine = all[identity] || {};
+      const mine = await loadMyLoftIqThreads(identity);
+      // scopeId "latest" (general chat only) means "reopen whichever conversation I used last".
+      if (scopeType === 'general' && scopeId === 'latest') {
+        const recent = Object.values(mine).filter(t => t.scopeType === 'general' && (t.messages || []).length).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
+        return json(res, 200, { ok: true, thread: recent || { scopeType: 'general', scopeId: '', messages: [] } });
+      }
       const thread = mine[loftIqScopeKey(scopeType, scopeId)] || { scopeType, scopeId, messages: [] };
       return json(res, 200, { ok: true, thread });
+    }
+
+    // The conversation history list (newest first): general chats only; record-scoped threads (DSAT review etc.) stay with their records.
+    if (parsed.pathname === '/api/my/loftiq/conversations' && req.method === 'GET') {
+      const mine = await loadMyLoftIqThreads(identity);
+      const conversations = Object.values(mine).filter(t => t.scopeType === 'general' && (t.messages || []).length).map(t => ({
+        scopeId: t.scopeId || '',
+        title: String(t.title || (t.messages.find(m => m.role === 'user') || {}).content || 'Conversation').replace(/\s+/g, ' ').slice(0, 80),
+        updatedAt: t.updatedAt || (t.messages[t.messages.length - 1] || {}).at || '',
+        count: Math.floor(t.messages.length / 2)
+      })).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      return json(res, 200, { ok: true, conversations });
     }
 
     if (parsed.pathname === '/api/my/loftiq/save-exchange' && req.method === 'POST') {
@@ -4264,30 +4293,33 @@ const server = http.createServer(async (req, res) => {
       const question = String(body.question || '').trim().slice(0, 2000);
       const answer = String(body.answer || '').trim().slice(0, 6000);
       if (!question || !answer) return json(res, 400, { ok: false, error: 'question and answer are required.' });
-      const all = await loadLoftIqConversations();
-      if (!all[identity]) all[identity] = {};
+      const mine = await loadMyLoftIqThreads(identity);
       const key = loftIqScopeKey(scopeType, scopeId);
-      if (!all[identity][key]) all[identity][key] = { scopeType, scopeId, messages: [] };
+      if (!mine[key]) mine[key] = { scopeType, scopeId, messages: [] };
       const now = new Date().toISOString();
-      all[identity][key].messages.push({ role: 'user', content: question, at: now });
-      all[identity][key].messages.push({ role: 'assistant', content: answer, at: now });
-      all[identity][key].updatedAt = now;
+      if (!mine[key].title) mine[key].title = question.replace(/\s+/g, ' ').slice(0, 80);
+      mine[key].messages.push({ role: 'user', content: question, at: now });
+      mine[key].messages.push({ role: 'assistant', content: answer, at: now });
+      mine[key].updatedAt = now;
+      // History is capped per person: past the limit the oldest general conversations are dropped.
+      const generalKeys = Object.keys(mine).filter(k => mine[k].scopeType === 'general').sort((a, b) => String(mine[b].updatedAt || '').localeCompare(String(mine[a].updatedAt || '')));
+      generalKeys.slice(LOFTIQ_MAX_CONVERSATIONS).forEach(k => { if (k !== key) delete mine[k]; });
       // Keep each scoped thread bounded rather than growing forever - the most recent exchanges
       // are what both the AI context-stuffing and the UI actually need.
-      if (all[identity][key].messages.length > 40) all[identity][key].messages = all[identity][key].messages.slice(-40);
-      await cloudStore.kvSetJson(LOFTIQ_CONVERSATIONS_KEY, all);
-      return json(res, 200, { ok: true, thread: all[identity][key] });
+      if (mine[key].messages.length > 40) mine[key].messages = mine[key].messages.slice(-40);
+      await saveMyLoftIqThreads(identity, mine);
+      return json(res, 200, { ok: true, thread: mine[key] });
     }
 
     if (parsed.pathname === '/api/my/loftiq/clear-thread' && req.method === 'POST') {
       const body = await readJsonBody(req);
       const scopeType = String(body.scopeType || 'general').slice(0, 40);
       const scopeId = String(body.scopeId || '').slice(0, 80);
-      const all = await loadLoftIqConversations();
+      const mine = await loadMyLoftIqThreads(identity);
       const key = loftIqScopeKey(scopeType, scopeId);
-      if (all[identity]?.[key]) {
-        delete all[identity][key];
-        await cloudStore.kvSetJson(LOFTIQ_CONVERSATIONS_KEY, all);
+      if (mine[key]) {
+        delete mine[key];
+        await saveMyLoftIqThreads(identity, mine);
       }
       return json(res, 200, { ok: true });
     }

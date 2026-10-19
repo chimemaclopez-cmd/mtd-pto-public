@@ -79,7 +79,8 @@ export function copilotResponseText(data){
   if(data?.data?.content)return Array.isArray(data.data.content)?data.data.content.map(x=>x.content||x.text||'').join('\n'):String(data.data.content);
   return data?.content||data?.answer||data?.message||JSON.stringify(data);
 }
-export const copilotChat=(token,question)=>copilotDirectFetch('/chat/messages',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({question,streaming_mode:false})});
+// files (optional): [{url,file_name,type,size}] - the Copilot reads images given as data: URLs, so screenshots need no upload step.
+export const copilotChat=(token,question,files)=>copilotDirectFetch('/chat/messages',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({question,streaming_mode:false,...(Array.isArray(files)&&files.length?{files}:{})})});
 
 // The real PapagoAI Copilot Chrome extension's own ticket-research agent (reverse-engineered
 // from its bundled popup.js, not documented anywhere) - a dedicated pipeline that checks a
@@ -106,11 +107,11 @@ export function isCopilotAuthError(error){
 // token, not another attempt with the same expired one, so they're thrown immediately for the
 // caller's existing reconnect-prompt handling. Bounded to maxRetries extra attempts so a
 // stubbornly bad answer still returns (or throws) rather than looping.
-export async function copilotChatWithRetry(token,question,{isBadAnswer,maxRetries=1}={}){
+export async function copilotChatWithRetry(token,question,{isBadAnswer,maxRetries=1,files}={}){
   let lastError=null,lastResult=null;
   for(let attempt=0;attempt<=maxRetries;attempt++){
     try{
-      const result=await copilotChat(token,question);
+      const result=await copilotChat(token,question,files);
       if(!isBadAnswer||!isBadAnswer(copilotResponseText(result)))return result;
       lastResult=result;lastError=null;
     }catch(error){
