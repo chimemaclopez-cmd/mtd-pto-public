@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.60';
+const PORTAL_VERSION = '2.3.61';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -4193,7 +4193,8 @@ const server = http.createServer(async (req, res) => {
     // (2) persisting the resulting exchange so a record-scoped conversation survives a reload.
     // Each employee's conversations live under their own key, so opening Lotti reads one small record instead of everyone's history.
     // The first time someone is seen, whatever they had in the old shared record is copied across (the old record is left untouched).
-    const loftIqUserKey = id => `mtdkpi:loftiq-conv:${id}`;
+    // (function declarations, not consts: the notifications route above calls these before this point in the handler runs)
+    function loftIqUserKey(id) { return `mtdkpi:loftiq-conv:${id}`; }
     async function loadMyLoftIqThreads(id) {
       const mine = await cloudStore.kvGetJson(loftIqUserKey(id), null);
       if (mine) return mine;
@@ -4204,7 +4205,7 @@ const server = http.createServer(async (req, res) => {
       await cloudStore.kvSetJson(loftIqUserKey(id), threads);
       return threads;
     }
-    const saveMyLoftIqThreads = (id, threads) => cloudStore.kvSetJson(loftIqUserKey(id), threads);
+    function saveMyLoftIqThreads(id, threads) { return cloudStore.kvSetJson(loftIqUserKey(id), threads); }
     const LOFTIQ_MAX_CONVERSATIONS = 30;
     function loftIqScopeKey(scopeType, scopeId) { return `${scopeType || 'general'}:${scopeId || ''}`; }
 
