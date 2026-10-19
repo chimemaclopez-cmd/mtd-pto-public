@@ -4512,14 +4512,14 @@ const server = http.createServer(async (req, res) => {
       try {
         const url = `https://help.lofty.com/api/v2/help_center/articles/search.json?locale=en-us&per_page=3&query=${encodeURIComponent(query)}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!r.ok) return json(res, 200, { ok: true, articles: [] });
+        if (!r.ok) return json(res, 200, { ok: true, articles: [], unavailableSources: ['Help Center'] });
         const data = await r.json();
         const articles = (data.results || []).slice(0, 3).map(a => ({ title: a.title, url: a.html_url, snippet: stripArticleHtml(a.body).slice(0, 900) }));
         return json(res, 200, { ok: true, articles });
       } catch {
         // Help center being slow/unreachable should never break the rest of Lotti's answer -
         // same "degrade gracefully" approach as every other optional context source here.
-        return json(res, 200, { ok: true, articles: [] });
+        return json(res, 200, { ok: true, articles: [], unavailableSources: ['Help Center'] });
       }
     }
 
@@ -4844,7 +4844,9 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === '/api/my/loftiq/knowledge-search' && req.method === 'GET') {
       const query = String(parsed.searchParams.get('q') || '').trim();
       if (!query) return json(res, 200, { ok: true, items: [] });
-      const [list, sopList, annList] = await Promise.all([loadLottiKnowledge(), loadLottiSopRecords().catch(() => []), loadLottiAnnouncements().catch(() => [])]);
+      const unavailableSources = [];
+      const readSource = async (name, read) => { try { return await read(); } catch { unavailableSources.push(name); return []; } };
+      const [list, sopList, annList] = await Promise.all([readSource('Lotti Knowledge', loadLottiKnowledge), readSource('TSR Playbook SOPs', loadLottiSopRecords), readSource('Official Teams announcements', loadLottiAnnouncements)]);
       const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
@@ -4854,16 +4856,16 @@ const server = http.createServer(async (req, res) => {
       const annMatched = searchSopRecords(query, annList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 2)
         .sort((a, b) => String(b.source?.posted || '').localeCompare(String(a.source?.posted || '')));
       const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000), url: x.source?.link || '' }));
-      const confPages = await searchConfluence(query, 3).catch(() => []);
+      const confPages = await readSource('Confluence', () => searchConfluence(query, 3));
       const confItems = confPages.map(pg => ({ title: pg.title, category: `Confluence wiki - ${pg.spaceLabel} (page last edited ${pg.updated}; internal reference, SOPs and announcements win on conflict)`, body: String(pg.text || '').slice(0, 2500), url: pg.link ? `https://loftyinc.atlassian.net${pg.link}` : '' }));
-      const hbSections = await searchHandbook(query, 3).catch(() => []);
+      const hbSections = await readSource('Employee Handbook', () => searchHandbook(query, 3));
       const hbItems = hbSections.map(sx => ({ title: `${sx.label}: ${sx.title}`, category: `Moatable Employee Handbook - official HR and company policy (page ${sx.page}, ${sx.edition}; newer announcements and SOPs win on conflict)`, body: String(sx.text || '').slice(0, 2500), url: `https://loftysupportportal.com/api/my/handbook.pdf#page=${sx.page + 1}` }));
-      const hrChunks = await searchHrDocs(query, 3).catch(() => []);
+      const hrChunks = await readSource('HR documents', () => searchHrDocs(query, 3));
       const hrItems = hrChunks.map(c => ({ title: c.title, category: `Moatable HR document - ${c.site} (dated ${c.modified}; HR memo or company policy, newer than the 2020 handbook)`, body: String(c.text || '').slice(0, 2500), url: c.link || '' }));
-      const jiraTickets = await searchJiraAm(query, 3).catch(() => []);
+      const jiraTickets = await readSource('Resolved AM Jira examples', () => searchJiraAm(query, 3));
       const jiraItems = jiraTickets.map(t => ({ title: `${t.k}: ${t.s}`, category: `Jira AM ticket - ${t.ty.replace(/^AM-/, '')} (${t.st}${t.rs ? ', ' + t.rs : ''}, resolved ${t.d}; a past example of how a similar request was handled, not policy - SOPs and announcements win)`, body: String(t.x || '').slice(0, 2000), url: `https://loftyinc.atlassian.net/browse/${t.k}` }));
       const regular = (annItems.length || sopItems.length || confItems.length || hbItems.length || hrItems.length || jiraItems.length) ? 2 : 3;
-      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...hrItems, ...hbItems, ...confItems, ...jiraItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+      return json(res, 200, { ok: true, unavailableSources, items: [...annItems, ...sopItems, ...hrItems, ...hbItems, ...confItems, ...jiraItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
     }
 
     // The handbook for the Company > Employee Handbook tab: contents (for jump links) and the PDF itself, signed-in users only.
