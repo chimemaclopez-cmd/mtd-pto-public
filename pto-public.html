@@ -121,6 +121,9 @@ body{min-height:100vh;background-repeat:no-repeat;background:radial-gradient(120
 .loftiqInputRow input{flex:1;padding:12px 16px;border-radius:12px;font-size:14px}
 .loftiqInputRow button{border-radius:12px;padding:0 22px;background:var(--gradient);border:none;box-shadow:0 6px 16px -4px rgba(59,92,222,.55)}
 .loftiqInputRow button:hover{filter:brightness(1.06)}
+.loftiqInputRow .loftiqAttachBtn{background:var(--card,#fff);border:1px solid var(--line);box-shadow:none;padding:0;width:44px;color:inherit;filter:none}.loftiqInputRow .loftiqAttachBtn:hover{background:rgba(120,120,160,.15);filter:none}
+.lottiFloatForm .loftiqAttachBtn{height:auto;min-height:36px}
+body.onLottiPage #lottiFloat,body.onLottiPage #lottiBrief{display:none!important}
 .loftiqInputRow button:disabled{opacity:.6;cursor:default;filter:none}
 .loftiqCapabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:12px}
 .loftiqCapCard{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;transition:transform .12s,box-shadow .12s}
@@ -2089,7 +2092,7 @@ const CHANGELOG=[
   {version:'2.3.25',items:['Fixed a bug where a Team Attendance save could silently be ignored: attendance is saved in date-range batches, and a batch\'s "most authoritative" pick used to be whichever batch happened to cover a later end date - not whichever was actually saved most recently. A correction saved under a smaller date range could get shadowed by an older, less-detailed save that just happened to reach further into the month. Saves are now timestamped and the newest one always wins.']},
   {version:'2.3.26',items:['Fixed a Weekly Performance Report bug: a Late entry\'s optional note (e.g. "Traffic - reminded and coached") was being silently dropped whenever minutes-late was also logged - only one of the two ever showed, never both. Both now show together.']},
   {version:'2.3.27',items:['Weekly Performance Report: when the report week runs into a new month, the KPI section now shows each rep\'s end-of-month KPI for the earlier month (titled "End-of-Month KPI Scores") with a note that the new month is still too early to display, instead of a column of "Not Rated".']},
-  {version:'2.3.59',items:['Lotti finds the right wiki page more reliably: it now reads the best candidates and ranks them by what they say, weights rare words higher, ignores Tagalog filler words, and includes selected training docs such as the Homeowner Agent quota training.']},
+  {version:'2.3.59',items:['Polish: the attach button on the Lotti page now looks like a normal button, and the floating Lotti robot no longer covers the Ask button on the Lotti page.','Lotti finds the right wiki page more reliably: it now reads the best candidates and ranks them by what they say, weights rare words higher, ignores Tagalog filler words, and includes selected training docs such as the Homeowner Agent quota training.']},
   {version:'2.3.58',items:['Lotti can now answer "how was this handled before" from recent resolved Jira AM tickets (last 90 days) and links the ticket. Customer names, emails, phone numbers and addresses are removed first. Mention a ticket id like AM-629857 and she looks it up.']},
   {version:'2.3.57',items:['Reminder to always sign in to the Workbench with your @lofty.com email: Lotti\'s daily briefing and the Workbench tile in Tools & Resources now show your own email and copy it for you when you open the Workbench.','Lotti now also reads HR memos, the office security policy, acceptable-use policies and benefits advisories from the Moatable Philippines and PH Announcement SharePoint sites, refreshed about every hour. Confidential items (incident reports, surveys, hiring costs) and the leadership repository are not read.']},
   {version:'2.3.56',items:['New Company > Employee Handbook tab: read the Moatable Employee Handbook in the portal, jump to any section from the contents list, open it in a new tab or download it.','Lotti now searches the Moatable Employee Handbook for HR and policy questions (attendance, leaves, discipline, benefits, payroll) and links the page. Lotti also no longer answers with a bare "ready when you are" - she retries instead.']},
@@ -2214,6 +2217,7 @@ renderToolsResources();
 // ---- Navigation helpers: mobile menu, current-tab marking, remembered groups, count badges, Ctrl+K quick jump ----
 function navLabelFor(tab){const b=document.querySelector(`#tabs button[data-tab="${tab}"]`);if(!b)return'Menu';return[...b.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim()||'Menu'}
 function afterTabChange(){
+  document.body.classList.toggle('onLottiPage',activeTab==='loftiq'); // the page is Lotti already; the floating robot would sit on top of its Ask button
   const t=$('tabs');t.classList.add('navCollapsed');$('navToggle').setAttribute('aria-expanded','false');$('navToggleLabel').textContent=`Menu · ${navLabelFor(activeTab)}`;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b=>{if(b.dataset.tab===activeTab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   const cur=document.querySelector(`#tabs button[data-tab="${activeTab}"]`),grp=cur?.closest('details');if(grp&&!grp.open)grp.open=true;
