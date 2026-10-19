@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.58';
+const PORTAL_VERSION = '2.3.59';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1826,7 +1826,7 @@ const LOTTI_SOP_KEY = 'mtdkpi:lotti-sop-records';
 const LOTTI_SOP_STATE_KEY = 'mtdkpi:lotti-sop-sync-state';
 const LOTTI_SOP_REQUEST_KEY = 'mtdkpi:lotti-sop-sync-request';
 async function loadLottiSopRecords() { return cloudStore.kvGetJson(LOTTI_SOP_KEY, []); }
-const LOTTI_CONF_SPACES = ['TS', 'CPKB', 'CIKB'];
+const LOTTI_CONF_SPACES = ['TS', 'CPKB', 'CIKB', 'EXTRA'];
 const LOTTI_CONF_STATE_KEY = 'mtdkpi:lotti-conf-state';
 let confIndexCache = { at: 0, entries: [] };
 // Confluence pages (kept in step by the local proxy): a small search index per space, then the text of only the few best-matching pages.
@@ -1840,17 +1840,43 @@ async function searchConfluence(query, limit = 3) {
   if (!words.length || !confIndexCache.entries.length) return [];
   const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
   const phrase = words.length > 1 ? words.join(' ') : '';
-  const ranked = confIndexCache.entries.map(e => {
+  // Rare words say more than common ones ("homeowner" vs "team"), so each word is weighted by how few pages mention it.
+  const N = confIndexCache.entries.length;
+  const idf = Object.fromEntries(words.map(w => {
+    const fs = forms(w), df = confIndexCache.entries.reduce((c, e) => c + (fs.some(v => e.t.toLowerCase().includes(v) || ` ${e.k} `.includes(v)) ? 1 : 0), 0);
+    return [w, Math.min(2, Math.max(0.3, Math.log2(N / (df + 1)) / 3))];
+  }));
+  const scored = confIndexCache.entries.map(e => {
     const title = e.t.toLowerCase(), kw = ` ${e.k} `;
-    let score = 0;
-    for (const w of words) { if (forms(w).some(v => title.includes(v))) score += 5; if (forms(w).some(v => kw.includes(v))) score += 2; }
+    let score = 0, kwHits = 0;
+    for (const w of words) { if (forms(w).some(v => title.includes(v))) score += 5 * idf[w]; if (forms(w).some(v => kw.includes(v))) { score += 2 * idf[w]; kwHits += idf[w]; } }
     if (phrase && title.includes(phrase)) score += 6;
     if (score >= 4) { const year = Number(String(e.u).slice(0, 4)) || 2020; score += Math.max(0, year - 2022) * 0.6; } // newer pages first
-    return { e, score };
-  }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
-  const pages = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:lotti-conf:p:${x.e.i}`, null)));
-  return pages.filter(Boolean);
+    return { e, score, kwHits };
+  });
+  // Candidates: the best by title/keyword score plus the best by how many of the question's words appear in the page's keywords (a page whose title is
+  // generic but whose content is about exactly this should still get read).
+  const byScore = scored.filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, Math.max(limit * 3, 9));
+  const byCoverage = scored.filter(x => x.kwHits >= 2.5).sort((a, b) => b.kwHits - a.kwHits || b.score - a.score).slice(0, 9);
+  const ranked = [...new Map([...byScore, ...byCoverage].map(x => [x.e.i, x])).values()];
+  // Second pass: the index only knows titles and a few keywords, so read the best candidates and rank them by what the page actually says.
+  const pages = await Promise.all(ranked.map(async x => {
+    const hit = confPageCache.get(x.e.i);
+    if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.page;
+    const page = await cloudStore.kvGetJson(`mtdkpi:lotti-conf:p:${x.e.i}`, null);
+    if (page) { confPageCache.set(x.e.i, { at: Date.now(), page }); if (confPageCache.size > 80) confPageCache.delete(confPageCache.keys().next().value); }
+    return page;
+  }));
+  return ranked.map((x, n) => {
+    const pg = pages[n];
+    if (!pg) return null;
+    const body = String(pg.text || '').toLowerCase();
+    let bodyScore = 0;
+    for (const w of words) { const hits = forms(w).reduce((c, v) => c + (body.split(v).length - 1), 0); if (hits) bodyScore += Math.min(4, 1 + Math.log2(hits)); }
+    return { pg, final: x.score * 0.4 + bodyScore * 3 };
+  }).filter(Boolean).sort((a, b) => b.final - a.final).slice(0, limit).map(x => x.pg);
 }
+const confPageCache = new Map();
 // Moatable Employee Handbook (loaded with scripts/ingest-handbook.js; the PDF lives only in the cloud store because the repo is public).
 let handbookIndexCache = { at: 0, entries: [] };
 let handbookPdfCache = { at: 0, buffer: null };
@@ -1893,13 +1919,21 @@ async function searchHrDocs(query, limit = 3) {
 }
 // Jira AM tickets (redacted index kept by the local proxy: lotti-jira-sync.js). Search the index, then read only the few matching pages.
 let jiraIndexCache = { at: 0, entries: [] };
-async function searchJiraAm(query, limit = 3) {
-  const now = Date.now();
-  if (now - jiraIndexCache.at > 10 * 60 * 1000) {
+let jiraIndexLoading = null;
+// The index is a few MB, so it is loaded in the background and refreshed while the old copy keeps serving: a question never waits on it
+// (right after a restart the first question or two simply go without Jira examples).
+function refreshJiraIndex() {
+  if (jiraIndexLoading) return jiraIndexLoading;
+  jiraIndexLoading = (async () => {
     const shards = [];
     for (let n = 0; n < 12; n += 1) { const sh = await cloudStore.kvGetJson(`mtdkpi:lotti-jira:idx:${n}`, null); if (!sh) break; shards.push(...sh); }
-    jiraIndexCache = { at: now, entries: shards };
-  }
+    jiraIndexCache = { at: Date.now(), entries: shards };
+  })().catch(() => {}).finally(() => { jiraIndexLoading = null; });
+  return jiraIndexLoading;
+}
+setTimeout(() => refreshJiraIndex(), 8000); // warm it shortly after the server starts
+async function searchJiraAm(query, limit = 3) {
+  if (Date.now() - jiraIndexCache.at > 10 * 60 * 1000) refreshJiraIndex();
   if (!jiraIndexCache.entries.length) return [];
   const picked = [];
   // A ticket id in the question (AM-123456) is looked up directly.
@@ -1935,6 +1969,7 @@ async function loadHandbookPdf() {
 const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
 async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
 const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
+['ang', 'ung', 'yung', 'mga', 'nang', 'kung', 'pwede', 'paano', 'ano', 'ito', 'iyon', 'para', 'may', 'wala', 'lang', 'din', 'rin', 'ako', 'siya', 'namin', 'natin', 'nila', 'ang', 'sana', 'kasi', 'naman', 'ba', 'po', 'opo', 'ngayon', 'doon', 'dito', 'tapos', 'pero', 'kahit', 'kapag', 'pag'].forEach(w => SOP_STOPWORDS.add(w));
 // Ranks SOP sections for a question: matches in the SOP's name/heading count most, then the section text; common
 // filler words are ignored so "how do I handle a cancellation" finds cancellation SOPs, not every long document.
 function searchSopRecords(query, records, limit = 4) {
