@@ -1636,7 +1636,8 @@ function renderNotifModal(){
   $('notifKpiAlerts').innerHTML=notifKpiAlerts.length?notifKpiAlerts.map(k=>{
     const pillText=k.dropped?`${k.previousPerformanceStatus} → ${k.performanceStatus}`:k.performanceStatus;
     const pillClass=k.performanceStatus==='Intervention'?'status-failed':'status-pending';
-    return notifRow(k.employeeName,`${k.period} · ${k.finalKpi}`,pillText,pillClass,{tab:'kpi'});
+    const pm=String(k.period||'').match(/^(\d{4})-(\d{2})/),periodLabel=pm?new Date(Number(pm[1]),Number(pm[2])-1,1).toLocaleDateString([],{month:'short',year:'numeric'}):String(k.period||'');
+    return notifRow(k.employeeName,`${periodLabel} · KPI ${k.finalKpi}`,pillText,pillClass,{tab:'kpi'});
   }).join(''):'<div class="sub">No performance alerts.</div>';
   $('notifAttendanceFlags').innerHTML=notifAttendanceFlags.length?notifAttendanceFlags.map(a=>{
     const parts=[];if(a.lateCount>=3)parts.push(`${a.lateCount} lates`);if(a.missingCount>=1)parts.push(`${a.missingCount} missing`);
