@@ -4338,6 +4338,16 @@ const server = http.createServer(async (req, res) => {
       await cloudStore.kvSetJson('mtdkpi:lotti-feedback', list.slice(0, 500));
       return json(res, 200, { ok: true });
     }
+    // Lotti found two or more sources giving different answers to the same question: keep a log so an admin can get the sources corrected.
+    if (parsed.pathname === '/api/my/loftiq/conflict' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const topic = String(body.topic || '').trim().slice(0, 160);
+      if (!topic) return json(res, 200, { ok: true });
+      const list = await cloudStore.kvGetJson('mtdkpi:lotti-conflicts', []);
+      list.unshift({ at: new Date().toISOString(), email: identity, topic, question: String(body.question || '').slice(0, 300), answer: String(body.answer || '').slice(0, 1500), sources: (Array.isArray(body.sources) ? body.sources : []).map(x => String(x).slice(0, 120)).slice(0, 8) });
+      await cloudStore.kvSetJson('mtdkpi:lotti-conflicts', list.slice(0, 200));
+      return json(res, 200, { ok: true });
+    }
     if (parsed.pathname === '/api/my/loftiq/gap' && req.method === 'POST') {
       const body = await readJsonBody(req);
       const question = String(body.question || '').trim().slice(0, 400);
@@ -4445,8 +4455,8 @@ const server = http.createServer(async (req, res) => {
       const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
         .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
       const confState = await cloudStore.kvGetJson(LOTTI_CONF_STATE_KEY, null).catch(() => null);
-      const [feedbackList, gapList, versionRec] = await Promise.all([cloudStore.kvGetJson('mtdkpi:lotti-feedback', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-gaps', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:copilot-client-version', null).catch(() => null)]);
-      return json(res, 200, { ok: true, ai: { clientVersion: versionRec?.version || '2.6.0', versionUpdatedAt: versionRec?.updatedAt || '', feedbackUp: feedbackList.filter(f => f.rating === 'up').length, feedbackDown: feedbackList.filter(f => f.rating === 'down').length, recentDown: feedbackList.filter(f => f.rating === 'down').slice(0, 5).map(f => f.question), gaps: gapList.slice(0, 8).map(g => ({ at: g.at, question: g.question })), gapCount: gapList.length }, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+      const [conflictList, feedbackList, gapList, versionRec] = await Promise.all([cloudStore.kvGetJson('mtdkpi:lotti-conflicts', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-feedback', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-gaps', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:copilot-client-version', null).catch(() => null)]);
+      return json(res, 200, { ok: true, ai: { conflictCount: conflictList.length, conflicts: conflictList.slice(0, 10).map(c => ({ at: c.at, topic: c.topic, question: c.question, sources: c.sources })), clientVersion: versionRec?.version || '2.6.0', versionUpdatedAt: versionRec?.updatedAt || '', feedbackUp: feedbackList.filter(f => f.rating === 'up').length, feedbackDown: feedbackList.filter(f => f.rating === 'down').length, recentDown: feedbackList.filter(f => f.rating === 'down').slice(0, 5).map(f => f.question), gaps: gapList.slice(0, 8).map(g => ({ at: g.at, question: g.question })), gapCount: gapList.length }, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
     }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
