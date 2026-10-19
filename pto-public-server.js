@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.56';
+const PORTAL_VERSION = '2.3.57';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1870,6 +1870,26 @@ async function searchHandbook(query, limit = 3) {
   }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
   const sections = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:handbook:s:${x.e.i}`, null)));
   return sections.filter(Boolean);
+}
+// HR memos / policies from the Moatable Philippines and PH Announcement SharePoint sites (kept in step by the local proxy: lotti-hrdocs-sync.js).
+let hrDocsIndexCache = { at: 0, entries: [] };
+async function searchHrDocs(query, limit = 3) {
+  const now = Date.now();
+  if (now - hrDocsIndexCache.at > 5 * 60 * 1000) hrDocsIndexCache = { at: now, entries: await cloudStore.kvGetJson('mtdkpi:lotti-hrdocs:index', []) };
+  const words = [...new Set(String(query).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !SOP_STOPWORDS.has(w)))];
+  if (!words.length || !hrDocsIndexCache.entries.length) return [];
+  const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
+  const phrase = words.length > 1 ? words.join(' ') : '';
+  const ranked = hrDocsIndexCache.entries.map(e => {
+    const title = e.t.toLowerCase(), kw = ` ${e.k} `;
+    let score = 0;
+    for (const w of words) { if (forms(w).some(v => title.includes(v))) score += 5; if (forms(w).some(v => kw.includes(v))) score += 2; }
+    if (phrase && title.includes(phrase)) score += 6;
+    if (score >= 4) score += Math.max(0, (Number(String(e.u).slice(0, 4)) || 2020) - 2023) * 0.8; // newer memos first
+    return { e, score };
+  }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
+  const chunks = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:lotti-hrdocs:c:${x.e.i}`, null)));
+  return chunks.filter(Boolean);
 }
 async function loadHandbookPdf() {
   if (handbookPdfCache.buffer && Date.now() - handbookPdfCache.at < 30 * 60 * 1000) return handbookPdfCache.buffer;
@@ -4516,8 +4536,9 @@ const server = http.createServer(async (req, res) => {
       const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
         .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
       const confState = await cloudStore.kvGetJson(LOTTI_CONF_STATE_KEY, null).catch(() => null);
+      const hrState = await cloudStore.kvGetJson('mtdkpi:lotti-hrdocs-state', null).catch(() => null);
       const [conflictList, feedbackList, gapList, versionRec] = await Promise.all([cloudStore.kvGetJson('mtdkpi:lotti-conflicts', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-feedback', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-gaps', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:copilot-client-version', null).catch(() => null)]);
-      return json(res, 200, { ok: true, ai: { conflictCount: conflictList.length, conflicts: conflictList.slice(0, 10).map(c => ({ at: c.at, topic: c.topic, question: c.question, sources: c.sources })), clientVersion: versionRec?.version || '2.6.0', versionUpdatedAt: versionRec?.updatedAt || '', feedbackUp: feedbackList.filter(f => f.rating === 'up').length, feedbackDown: feedbackList.filter(f => f.rating === 'down').length, recentDown: feedbackList.filter(f => f.rating === 'down').slice(0, 5).map(f => f.question), gaps: gapList.slice(0, 8).map(g => ({ at: g.at, question: g.question })), gapCount: gapList.length }, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+      return json(res, 200, { ok: true, ai: { conflictCount: conflictList.length, conflicts: conflictList.slice(0, 10).map(c => ({ at: c.at, topic: c.topic, question: c.question, sources: c.sources })), clientVersion: versionRec?.version || '2.6.0', versionUpdatedAt: versionRec?.updatedAt || '', feedbackUp: feedbackList.filter(f => f.rating === 'up').length, feedbackDown: feedbackList.filter(f => f.rating === 'down').length, recentDown: feedbackList.filter(f => f.rating === 'down').slice(0, 5).map(f => f.question), gaps: gapList.slice(0, 8).map(g => ({ at: g.at, question: g.question })), gapCount: gapList.length }, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {}, translation: confState.translation || null } : null, hrdocs: hrState ? { lastRun: hrState.lastRun || null, lastSuccessAt: hrState.lastSuccessAt || null, docs: Object.values(hrState.docs || {}).map(d => ({ name: d.name, site: d.site, modified: String(d.modified || '').slice(0, 10), url: d.webUrl })), unreadable: hrState.unreadable || [] } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
     }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
@@ -4768,8 +4789,10 @@ const server = http.createServer(async (req, res) => {
       const confItems = confPages.map(pg => ({ title: pg.title, category: `Confluence wiki - ${pg.spaceLabel} (page last edited ${pg.updated}; internal reference, SOPs and announcements win on conflict)`, body: String(pg.text || '').slice(0, 2500), url: pg.link ? `https://loftyinc.atlassian.net${pg.link}` : '' }));
       const hbSections = await searchHandbook(query, 3).catch(() => []);
       const hbItems = hbSections.map(sx => ({ title: `${sx.label}: ${sx.title}`, category: `Moatable Employee Handbook - official HR and company policy (page ${sx.page}, ${sx.edition}; newer announcements and SOPs win on conflict)`, body: String(sx.text || '').slice(0, 2500), url: `https://loftysupportportal.com/api/my/handbook.pdf#page=${sx.page + 1}` }));
-      const regular = (annItems.length || sopItems.length || confItems.length || hbItems.length) ? 2 : 3;
-      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...hbItems, ...confItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+      const hrChunks = await searchHrDocs(query, 3).catch(() => []);
+      const hrItems = hrChunks.map(c => ({ title: c.title, category: `Moatable HR document - ${c.site} (dated ${c.modified}; HR memo or company policy, newer than the 2020 handbook)`, body: String(c.text || '').slice(0, 2500), url: c.link || '' }));
+      const regular = (annItems.length || sopItems.length || confItems.length || hbItems.length || hrItems.length) ? 2 : 3;
+      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...hrItems, ...hbItems, ...confItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
     }
 
     // The handbook for the Company > Employee Handbook tab: contents (for jump links) and the PDF itself, signed-in users only.
