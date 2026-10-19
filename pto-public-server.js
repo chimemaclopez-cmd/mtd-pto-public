@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.55';
+const PORTAL_VERSION = '2.3.56';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1850,6 +1850,35 @@ async function searchConfluence(query, limit = 3) {
   }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
   const pages = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:lotti-conf:p:${x.e.i}`, null)));
   return pages.filter(Boolean);
+}
+// Moatable Employee Handbook (loaded with scripts/ingest-handbook.js; the PDF lives only in the cloud store because the repo is public).
+let handbookIndexCache = { at: 0, entries: [] };
+let handbookPdfCache = { at: 0, buffer: null };
+async function searchHandbook(query, limit = 3) {
+  const now = Date.now();
+  if (now - handbookIndexCache.at > 10 * 60 * 1000) handbookIndexCache = { at: now, entries: await cloudStore.kvGetJson('mtdkpi:handbook:index', []) };
+  const words = [...new Set(String(query).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !SOP_STOPWORDS.has(w)))];
+  if (!words.length || !handbookIndexCache.entries.length) return [];
+  const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
+  const phrase = words.length > 1 ? words.join(' ') : '';
+  const ranked = handbookIndexCache.entries.map(e => {
+    const title = e.t.toLowerCase(), kw = ` ${e.k} `;
+    let score = 0;
+    for (const w of words) { if (forms(w).some(v => title.includes(v))) score += 5; if (forms(w).some(v => kw.includes(v))) score += 2; }
+    if (phrase && title.includes(phrase)) score += 6;
+    return { e, score };
+  }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
+  const sections = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:handbook:s:${x.e.i}`, null)));
+  return sections.filter(Boolean);
+}
+async function loadHandbookPdf() {
+  if (handbookPdfCache.buffer && Date.now() - handbookPdfCache.at < 30 * 60 * 1000) return handbookPdfCache.buffer;
+  const meta = await cloudStore.kvGetJson('mtdkpi:handbook:meta', null);
+  if (!meta) return null;
+  const parts = await Promise.all(Array.from({ length: meta.chunks }, (_, c) => cloudStore.kvGetJson(`mtdkpi:handbook:pdf:${c}`, null)));
+  if (parts.some(p => !p)) return null;
+  handbookPdfCache = { at: Date.now(), buffer: Buffer.from(parts.map(p => p.data).join(''), 'base64') };
+  return handbookPdfCache.buffer;
 }
 const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
 async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
@@ -4737,8 +4766,22 @@ const server = http.createServer(async (req, res) => {
       const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000), url: x.source?.link || '' }));
       const confPages = await searchConfluence(query, 3).catch(() => []);
       const confItems = confPages.map(pg => ({ title: pg.title, category: `Confluence wiki - ${pg.spaceLabel} (page last edited ${pg.updated}; internal reference, SOPs and announcements win on conflict)`, body: String(pg.text || '').slice(0, 2500), url: pg.link ? `https://loftyinc.atlassian.net${pg.link}` : '' }));
-      const regular = (annItems.length || sopItems.length || confItems.length) ? 2 : 3;
-      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...confItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+      const hbSections = await searchHandbook(query, 3).catch(() => []);
+      const hbItems = hbSections.map(sx => ({ title: `${sx.label}: ${sx.title}`, category: `Moatable Employee Handbook - official HR and company policy (page ${sx.page}, ${sx.edition}; newer announcements and SOPs win on conflict)`, body: String(sx.text || '').slice(0, 2500), url: `https://loftysupportportal.com/api/my/handbook.pdf#page=${sx.page + 1}` }));
+      const regular = (annItems.length || sopItems.length || confItems.length || hbItems.length) ? 2 : 3;
+      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...hbItems, ...confItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+    }
+
+    // The handbook for the Company > Employee Handbook tab: contents (for jump links) and the PDF itself, signed-in users only.
+    if (parsed.pathname === '/api/my/handbook/meta' && req.method === 'GET') {
+      const meta = await cloudStore.kvGetJson('mtdkpi:handbook:meta', null);
+      return json(res, 200, { ok: true, handbook: meta ? { title: meta.title, edition: meta.edition, pages: meta.pages, bytes: meta.bytes, toc: meta.toc, uploadedAt: meta.uploadedAt } : null });
+    }
+    if (parsed.pathname === '/api/my/handbook.pdf' && req.method === 'GET') {
+      const pdf = await loadHandbookPdf();
+      if (!pdf) return json(res, 404, { ok: false, error: 'The handbook has not been uploaded yet.' });
+      res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length, 'Content-Disposition': 'inline; filename="Moatable Employee Handbook.pdf"', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(pdf);
     }
 
     // Lofty Academy training videos, as a fourth general-knowledge source for Lotti - previously
