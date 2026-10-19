@@ -1826,6 +1826,31 @@ const LOTTI_SOP_KEY = 'mtdkpi:lotti-sop-records';
 const LOTTI_SOP_STATE_KEY = 'mtdkpi:lotti-sop-sync-state';
 const LOTTI_SOP_REQUEST_KEY = 'mtdkpi:lotti-sop-sync-request';
 async function loadLottiSopRecords() { return cloudStore.kvGetJson(LOTTI_SOP_KEY, []); }
+const LOTTI_CONF_SPACES = ['TS', 'CPKB', 'CIKB'];
+const LOTTI_CONF_STATE_KEY = 'mtdkpi:lotti-conf-state';
+let confIndexCache = { at: 0, entries: [] };
+// Confluence pages (kept in step by the local proxy): a small search index per space, then the text of only the few best-matching pages.
+async function searchConfluence(query, limit = 3) {
+  const now = Date.now();
+  if (now - confIndexCache.at > 5 * 60 * 1000) {
+    const parts = await Promise.all(LOTTI_CONF_SPACES.map(sp => cloudStore.kvGetJson(`mtdkpi:lotti-conf:index:${sp}`, []).then(list => list.map(e => ({ ...e, sp })))));
+    confIndexCache = { at: now, entries: parts.flat() };
+  }
+  const words = [...new Set(String(query).toLowerCase().split(/\W+/).filter(w => w.length > 2 && !SOP_STOPWORDS.has(w)))];
+  if (!words.length || !confIndexCache.entries.length) return [];
+  const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
+  const phrase = words.length > 1 ? words.join(' ') : '';
+  const ranked = confIndexCache.entries.map(e => {
+    const title = e.t.toLowerCase(), kw = ` ${e.k} `;
+    let score = 0;
+    for (const w of words) { if (forms(w).some(v => title.includes(v))) score += 5; if (forms(w).some(v => kw.includes(v))) score += 2; }
+    if (phrase && title.includes(phrase)) score += 6;
+    if (score >= 4) { const year = Number(String(e.u).slice(0, 4)) || 2020; score += Math.max(0, year - 2022) * 0.6; } // newer pages first
+    return { e, score };
+  }).filter(x => x.score >= 5).sort((a, b) => b.score - a.score).slice(0, limit);
+  const pages = await Promise.all(ranked.map(x => cloudStore.kvGetJson(`mtdkpi:lotti-conf:p:${x.e.i}`, null)));
+  return pages.filter(Boolean);
+}
 const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
 async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
 const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
@@ -4382,7 +4407,8 @@ const server = http.createServer(async (req, res) => {
       const [state, request] = await Promise.all([cloudStore.kvGetJson(LOTTI_SOP_STATE_KEY, null), cloudStore.kvGetJson(LOTTI_SOP_REQUEST_KEY, null)]);
       const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
         .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
-      return json(res, 200, { ok: true, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+      const confState = await cloudStore.kvGetJson(LOTTI_CONF_STATE_KEY, null).catch(() => null);
+      return json(res, 200, { ok: true, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
     }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
@@ -4624,13 +4650,15 @@ const server = http.createServer(async (req, res) => {
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
       const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 4);
-      const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000) }));
+      const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000), url: x.source?.url || '' }));
       // Official Teams announcements can be newer than the SOP they change, so they are searched too and listed first, newest first.
       const annMatched = searchSopRecords(query, annList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 2)
         .sort((a, b) => String(b.source?.posted || '').localeCompare(String(a.source?.posted || '')));
-      const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000) }));
-      const regular = (annItems.length || sopItems.length) ? 2 : 3;
-      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
+      const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000), url: x.source?.link || '' }));
+      const confPages = await searchConfluence(query, 3).catch(() => []);
+      const confItems = confPages.map(pg => ({ title: pg.title, category: `Confluence wiki - ${pg.spaceLabel} (page last edited ${pg.updated}; internal reference, SOPs and announcements win on conflict)`, body: String(pg.text || '').slice(0, 2500), url: pg.link ? `https://loftyinc.atlassian.net${pg.link}` : '' }));
+      const regular = (annItems.length || sopItems.length || confItems.length) ? 2 : 3;
+      return json(res, 200, { ok: true, items: [...annItems, ...sopItems, ...confItems, ...matched.slice(0, regular).map(x => ({ title: x.title, category: x.category, body: x.bodyText.slice(0, 1200) }))] });
     }
 
     // Lofty Academy training videos, as a fourth general-knowledge source for Lotti - previously

@@ -243,6 +243,13 @@ kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width
 .qjItemTag{font-size:12px;color:var(--muted);flex:none}
 .qjEmpty{padding:18px;text-align:center;color:var(--muted);font-size:14px}
 .toolMark.logo{background:#fff;border:1px solid var(--line)}.toolMark.logo img{width:60%;height:60%;object-fit:contain;display:block}
+.loftiqText a{color:var(--blue);text-decoration:underline;word-break:break-word}
+.loftiqRow.mine .loftiqText a{color:#fff}
+.loftiqSources{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.loftiqSources b{display:block;font-size:12px;letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px}
+.loftiqSources>div{display:flex;flex-direction:column;gap:3px}
+.loftiqSrc{display:block;text-decoration:none!important;font-weight:600;line-height:1.35;word-break:break-word}
+.loftiqSrc.plain{color:var(--muted);font-weight:500}
 </style></head><body><a class="skipLink" href="#mainContent">Skip to content</a><div class="wrap">
 <header class="header"><div><img class="lobLogo" src="shared/img/lofty-logo.png" alt="Lofty"><div class="title">Lofty Support Portal</div><div class="sub">Your personal Lofty workspace — schedule, performance, coaching, QA, and support tools in one place.</div></div><div class="headerRight" id="headerRight"><div class="actions noPrint" id="signedInActions" hidden><div class="field" style="min-width:150px"><label>Status</label><select id="statusSelect" disabled></select></div><button class="btn primary" id="timeInBtn">Time In</button><button class="btn danger" id="timeOutBtn" hidden>Time Out</button><button class="btn" id="notifBtn" hidden>🔔<span id="notifBadge" class="tabBadge" hidden></span></button><button class="btn" data-tab="loftiq" id="loftiqTabBtn">🤖 Lotti<span id="loftiqBadge" class="tabBadge" hidden></span></button><div class="headerMenu" id="headerMenu"><button class="btn" type="button" id="headerMenuBtn" aria-haspopup="true" aria-expanded="false">☰ Menu</button><div class="headerMenuPanel" id="headerMenuPanel" hidden><div class="headerMenuWhoami sub" id="whoami"></div><div class="field" id="viewAsField" hidden><label>View As (Preview)</label><select id="viewAsSelect"><option value="">My real access</option><option value="REP">Rep (no team-lead extras)</option><option value="SENIOR TSR">Senior TSR</option><option value="BQA">BQA</option><option value="TRAINING">Training Manager</option><option value="SOM">SOM</option><option value="HR">HR</option></select></div><button class="headerMenuItem" type="button" id="refreshBtn">🔄 Refresh</button><button class="headerMenuItem" type="button" id="changePasswordBtn">🔑 Change Password</button><button class="headerMenuItem headerMenuDanger" type="button" id="logoutBtn">🚪 Log Out</button></div></div></div></div></header>
 <div id="message" class="message" role="status" aria-live="polite" hidden></div>
@@ -3519,8 +3526,8 @@ async function loadSopSyncStatus(){
     $('sopSyncBtn').disabled=Boolean(busy);$('sopSyncBtn').textContent=busy?'Syncing…':'Sync now';
     $('sopSyncStatus').textContent=lr?`Last sync ${sopAgo(r.lastSuccessAt||lr.at)}${lr.ok===false?' (failed: '+(lr.error||'unknown')+')':''}: ${r.docs.length} documents, ${lr.itemCount??'—'} searchable sections${lr.updated?.length?`, ${lr.updated.length} updated`:''}. It re-checks SharePoint about every hour and picks up new, changed and removed documents on its own.`:'No sync has run yet. It starts shortly after the local server (proxy) is running, then repeats about every hour.';
     const problems=[...(lr?.failed||[]).map(f=>`<div class="message error" style="margin:4px 0;font-size:13px"><b>${esc(f.title)}</b> could not be read: ${esc(f.reason)}. Re-share the document with the sync account; Lotti keeps its last good copy if it had one.</div>`)];
-    const ann=r.announcements;const annLine=ann?.error?`<div class="message error" style="margin:4px 0;font-size:13px">Teams announcements could not be read: ${esc(ann.error)}</div>`:(ann?`<div class="sub" style="font-size:13px;margin:6px 0"><b>Latest Teams announcements Lotti knows (${ann.count}):</b><br>${(ann.latest||[]).slice(0,5).map(a=>`${esc(String(a.at).slice(0,10))} - ${esc(a.title)}`).join('<br>')}</div>`:'');
-    $('sopSyncProblems').innerHTML=annLine+problems.join('')+((lr?.skipped||[]).length?`<div class="sub" style="font-size:12px;margin:4px 0">Not imported (spreadsheets): ${esc(lr.skipped.join('; '))}</div>`:'');
+    const conf=r.confluence,confLine=conf?(conf.lastRun?.ok===false&&!(conf.lastSuccessAt)?`<div class="message error" style="margin:4px 0;font-size:13px">Confluence could not be read: ${esc((conf.lastRun.failed||[]).map(f=>f.space+': '+f.reason).join('; ')||conf.lastRun.error||'unknown')}</div>`:`<div class="sub" style="font-size:13px;margin:6px 0"><b>Confluence wiki Lotti reads:</b> ${Object.values(conf.spaces||{}).reduce((n,x)=>n+(x.pages||0),0)} pages from ${Object.keys(conf.spaces||{}).length} spaces (${Object.values(conf.spaces||{}).map(x=>esc(x.label)+' '+x.pages).join(', ')}). Last synced ${sopAgo(conf.lastSuccessAt)}. Pages that look like they hold passwords or keys, and Chinese-language or meeting-note pages, are skipped.</div>`):'';const ann=r.announcements;const annLine=ann?.error?`<div class="message error" style="margin:4px 0;font-size:13px">Teams announcements could not be read: ${esc(ann.error)}</div>`:(ann?`<div class="sub" style="font-size:13px;margin:6px 0"><b>Latest Teams announcements Lotti knows (${ann.count}):</b><br>${(ann.latest||[]).slice(0,5).map(a=>`${esc(String(a.at).slice(0,10))} - ${esc(a.title)}`).join('<br>')}</div>`:'');
+    $('sopSyncProblems').innerHTML=confLine+annLine+problems.join('')+((lr?.skipped||[]).length?`<div class="sub" style="font-size:12px;margin:4px 0">Not imported (spreadsheets): ${esc(lr.skipped.join('; '))}</div>`:'');
     $('sopSyncDocsBody').innerHTML=r.docs.map(d=>`<tr><td><a href="${esc(d.url||'#')}" target="_blank" rel="noopener noreferrer">${esc((d.titles||[]).join(' / '))}</a>${d.images?` <span class="muted" style="font-size:12px">(${d.images} picture${d.images===1?'':'s'} not readable)</span>`:''}</td><td>${esc(d.section||'')}</td><td>${esc(String(d.lastModified||'').slice(0,10))}</td><td>${d.itemCount??''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Nothing synced yet.</td></tr>';
     clearTimeout(sopSyncPollTimer);if(busy)sopSyncPollTimer=setTimeout(loadSopSyncStatus,8000);
   }catch(error){$('sopSyncStatus').textContent=`Could not load sync status. ${error.response?.error||error.message}`}
@@ -5162,6 +5169,30 @@ function renderLoftIqQuickActions(){
 // duplicated once, statically, in the loftiqTitleIcon header span below (kept identical on
 // purpose - update both together if this ever changes).
 const LOTTI_AVATAR_SVG=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20 50 Q20 20 50 20 Q80 20 80 50 L80 66 Q72 54 50 54 Q28 54 20 66 Z" fill="#3a2a1c"/><ellipse cx="50" cy="58" rx="25" ry="27" fill="#f4c9a0"/><path d="M24 50 Q29 32 50 32 Q71 32 76 50 Q69 39 50 39 Q31 39 24 50 Z" fill="#3a2a1c"/><path d="M66 34 l7 -5 l0 5 l7 -5 l0 10 l-7 -5 l0 5 z" fill="#2ecc8f"/><circle cx="70" cy="34" r="2.6" fill="#0f7a49"/><path d="M35 54 q4 -4 9 -1" stroke="#3a2a1c" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="40" cy="60" r="3.2" fill="#2b2b2b"/><path d="M56 61 q5 4 10 0" stroke="#2b2b2b" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M39 72 q11 9 23 2" stroke="#8a4a3a" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="34" cy="68" r="3.5" fill="#f2a8a0" opacity=".55"/><circle cx="62" cy="68" r="3.5" fill="#f2a8a0" opacity=".55"/></svg>`;
+// ---- Lotti answers show where they came from: links to help articles, SOPs, Confluence pages and announcements, and Jira / Zendesk ids become links.
+const LOFTIQ_SOURCES_MARK='\n\nSources: ';
+function safeHttpUrl(u){try{const x=new URL(String(u||''));return /^https?:$/.test(x.protocol)?x.href:''}catch{return''}}
+function attachLoftIqSources(answer,refs){
+  const m=String(answer||'').match(/\n?\s*Sources?:\s*((?:S\d+\s*,?\s*)+)\s*$/i);
+  if(!m)return answer;
+  const used=[...new Set([...m[1].matchAll(/S(\d+)/gi)].map(x=>Number(x[1])-1))].filter(i=>refs[i]);
+  const body=answer.slice(0,m.index).trimEnd();
+  if(!used.length)return body;
+  return body+LOFTIQ_SOURCES_MARK+used.map(i=>`${String(refs[i].title||'Source').replace(/[;\u27e8\u27e9]/g,' ').trim()}${safeHttpUrl(refs[i].url)?` \u27e8${safeHttpUrl(refs[i].url)}\u27e9`:''}`).join(' ; ');
+}
+function linkifyLoftIqText(raw){
+  let h=esc(raw);
+  h=h.replace(/https?:\/\/[^\s<)\]]*[^\s<)\].,;:!?]/g,u=>`<a href="${u}" target="_blank" rel="noopener noreferrer">${u.length>60?u.slice(0,57)+'…':u}</a>`);
+  h=h.replace(/(^|[^\w/>-])((?:AM|AMW|FIN|BILL)-\d{4,7})\b/g,(_,pre,k)=>`${pre}<a href="https://loftyinc.atlassian.net/browse/${k}" target="_blank" rel="noopener noreferrer">${k}</a>`);
+  h=h.replace(/\b((?:ticket|ZD)\s*#?)(\d{6,8})\b/gi,(_,pre,n)=>`<a href="https://chimecrm.zendesk.com/agent/tickets/${n}" target="_blank" rel="noopener noreferrer">${pre}${n}</a>`);
+  return h;
+}
+function formatLoftIqBotText(content){
+  const text=String(content||''),i=text.lastIndexOf(LOFTIQ_SOURCES_MARK);
+  if(i<0)return linkifyLoftIqText(text);
+  const chips=text.slice(i+LOFTIQ_SOURCES_MARK.length).split(' ; ').map(x=>{const m=x.match(/^(.*?)(?: \u27e8(https?:[^\u27e9]+)\u27e9)?$/);const title=esc((m?.[1]||x).trim()),url=safeHttpUrl(m?.[2]);return url?`<a class="loftiqSrc" href="${esc(url)}" target="_blank" rel="noopener noreferrer">\u{1F517} ${title}</a>`:`<span class="loftiqSrc plain">${title}</span>`}).join('');
+  return linkifyLoftIqText(text.slice(0,i))+`<div class="loftiqSources"><b>Sources</b><div>${chips}</div></div>`;
+}
 function loftIqTimeLabel(iso){return iso?new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}
 function loftIqBotBubble(text,when=''){return `<div class="loftiqRow"><div class="loftiqAvatar">${LOTTI_AVATAR_SVG}</div><div class="loftiqBubble"><div class="loftiqWho">Lotti</div><div class="loftiqText">${text}</div>${when?`<div class="loftiqTime">${esc(when)}</div>`:''}</div></div>`}
 function loftIqMineBubble(text,when=''){return `<div class="loftiqRow mine"><div class="loftiqBubble"><div class="loftiqText">${text}</div>${when?`<div class="loftiqTime">${esc(when)}</div>`:''}</div></div>`}
@@ -5171,7 +5202,7 @@ function renderLoftIqMessages(){
   const greeting=loftIqBotBubble(`Hi ${esc(name)} 👋 I'm Lotti. Ask me about your KPI, schedule, PTO, or coaching history.`);
   const rendered=loftIqThreadMessages.map(m=>{
     const when=loftIqTimeLabel(m.at);
-    return m.role==='user'?loftIqMineBubble(esc(m.content),when):loftIqBotBubble(esc(m.content),when);
+    return m.role==='user'?loftIqMineBubble(esc(m.content),when):loftIqBotBubble(formatLoftIqBotText(m.content),when);
   }).join('');
   const pending=loftIqAsking?loftIqMineBubble(esc(loftIqPendingQuestion))+loftIqBotBubble(`<div class="loftiqTyping"><span></span><span></span><span></span></div><div class="muted" style="margin-top:5px;font-size:11px">You can switch tabs - we'll keep this here.</div>`):'';
   const html=greeting+rendered+pending;
@@ -5219,7 +5250,8 @@ async function askLoftIq(question){
     // falsely claims data "wasn't provided" when it was (both observed live during calibration) -
     // one silent retry with the identical prompt cleared both cases every time seen, so this never
     // surfaces a non-answer to the user without at least trying again first.
-    const answer=copilotResponseText(await copilotChatWithRetry(copilotToken,prompt,{isBadAnswer:isLoftIqBadAnswer})).trim();
+    const answerRefs=[...(helpResult.articles||[]),...[...alignmentResult.alignments,...knowledgeResult.items]].map(a=>({title:a.title,url:a.url||''}));
+    const answer=attachLoftIqSources(copilotResponseText(await copilotChatWithRetry(copilotToken,prompt,{isBadAnswer:isLoftIqBadAnswer})).trim(),answerRefs);
     const saved=await saveLoftIqExchange(loftIqScopeType,loftIqScopeId,question,answer);
     loftIqThreadMessages=saved.thread.messages||[];
   }catch(error){
