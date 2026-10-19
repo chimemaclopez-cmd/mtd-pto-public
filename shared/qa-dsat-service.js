@@ -18,13 +18,40 @@ const COPILOT_BASE='https://tsr-bot.d.chime.me/api/v1';
 // rejects requests reporting an older client version than it currently expects (confirmed via
 // the real 2.6.0 extension build: same base URL/auth/header shape, just this string changed).
 const COPILOT_CLIENT_VERSION='2.6.0';
+// tsr-bot answers code 30001 ("Your Copilot version is outdated") when it raises the minimum version it accepts. Instead of needing a code
+// change each time, the portal remembers the version it last found working (shared with everyone through the server) and, on a 30001,
+// probes upward with the same harmless check-token call the extension makes until the gateway accepts one, then keeps using it.
+let copilotClientVersion=COPILOT_CLIENT_VERSION,copilotVersionLoaded=false;
+const COPILOT_OUTDATED_CODE=30001;
+function versionNumbers(v){return String(v||'0').split('.').map(n=>parseInt(n,10)||0)}
+function versionIsNewer(a,b){const x=versionNumbers(a),y=versionNumbers(b);for(let i=0;i<3;i++){const d=(x[i]||0)-(y[i]||0);if(d)return d>0}return false}
+async function loadCopilotClientVersion(){
+  if(copilotVersionLoaded)return;copilotVersionLoaded=true;
+  try{const r=await api('/api/my/copilot-client-version');if(r.version&&versionIsNewer(r.version,copilotClientVersion))copilotClientVersion=r.version}catch{}
+}
+async function recoverCopilotClientVersion(token){
+  const b=versionNumbers(copilotClientVersion),candidates=[];
+  for(let p=1;p<=5;p++)candidates.push(`${b[0]}.${b[1]}.${b[2]+p}`);
+  for(let m=1;m<=8;m++)candidates.push(`${b[0]}.${b[1]+m}.0`);
+  for(let M=1;M<=4;M++)candidates.push(`${b[0]+M}.0.0`);
+  for(const v of candidates){
+    try{
+      const r=await fetch(`${COPILOT_BASE}/auth/check-token`,{headers:{Accept:'application/json','X-Client-Version':v,Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
+      const j=await r.json().catch(()=>({}));
+      if(j?.status?.code===0){copilotClientVersion=v;api('/api/my/copilot-client-version',{method:'POST',body:JSON.stringify({version:v})}).catch(()=>{});return true}
+      if(j?.status?.code!==COPILOT_OUTDATED_CODE)return false; // a different problem (for example an invalid token) - not a version issue
+    }catch{return false}
+  }
+  return false;
+}
 // No timeout used to mean a hung tsr-bot request left the UI (a triage loop, LoftIQ's
 // "thinking" state, Suggest Reply) stuck indefinitely with no way out but a page reload -
 // 30s is generous for a single chat/messages call but still bounds the wait.
 const COPILOT_TIMEOUT_MS=30000;
-async function copilotDirectFetch(path,opts={}){
+async function copilotDirectFetch(path,opts={},versionRetried=false){
+  await loadCopilotClientVersion();
   let r;
-  try{r=await fetch(`${COPILOT_BASE}${path}`,{...opts,signal:AbortSignal.timeout(COPILOT_TIMEOUT_MS),headers:{Accept:'application/json','X-Client-Version':COPILOT_CLIENT_VERSION,...(opts.headers||{})}})}
+  try{r=await fetch(`${COPILOT_BASE}${path}`,{...opts,signal:AbortSignal.timeout(COPILOT_TIMEOUT_MS),headers:{Accept:'application/json','X-Client-Version':copilotClientVersion,...(opts.headers||{})}})}
   catch(error){throw new Error(error.name==='TimeoutError'?`Copilot did not respond within ${COPILOT_TIMEOUT_MS/1000}s.`:'Could not reach Copilot from this browser/network.')}
   const raw=await r.text();
   let parsed;
@@ -37,6 +64,8 @@ async function copilotDirectFetch(path,opts={}){
   // prompt (confirmed live: /auth/check-token with a bad token returns HTTP 200 with
   // {status:{code:1007,msg:"The token is invalid."}}).
   if(parsed.status && typeof parsed.status.code==='number' && parsed.status.code!==0){
+    const bearer=String((opts.headers||{}).Authorization||'').replace(/^Bearer\s+/i,'');
+    if(parsed.status.code===COPILOT_OUTDATED_CODE&&bearer&&!versionRetried&&await recoverCopilotClientVersion(bearer))return copilotDirectFetch(path,opts,true);
     const err=new Error(parsed.status.msg||`Copilot error ${parsed.status.code}.`);
     err.copilotCode=parsed.status.code;
     throw err;

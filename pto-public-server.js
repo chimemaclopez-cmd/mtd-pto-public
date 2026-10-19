@@ -116,7 +116,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.53';
+const PORTAL_VERSION = '2.3.54';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -3342,7 +3342,9 @@ const server = http.createServer(async (req, res) => {
       // Only the actual connect/disconnect actions below stay admin-only.
       const auth = await loadCopilotAuth();
       if (!auth) return json(res, 200, { ok: true, connected: false, isAdmin: ADMIN_EMAILS.has(identity) });
-      return json(res, 200, { ok: true, connected: true, email: auth.email, connectedAt: auth.connectedAt, token: auth.token, isAdmin: ADMIN_EMAILS.has(identity) });
+      let expiresAt = '';
+      try { const exp = JSON.parse(Buffer.from(String(auth.token).split('.')[1], 'base64url').toString()).exp; if (exp) expiresAt = new Date(exp * 1000).toISOString(); } catch (_) { /* opaque token: no expiry shown */ }
+      return json(res, 200, { ok: true, connected: true, email: auth.email, connectedAt: auth.connectedAt, expiresAt, token: auth.token, isAdmin: ADMIN_EMAILS.has(identity) });
     }
     // The admin's own browser completes tsr-bot's send-code/verify-code flow directly (client-
     // side - see pto-public.html's copilotSendCodeBtn/copilotVerifyBtn handlers) and only hands
@@ -4310,6 +4312,41 @@ const server = http.createServer(async (req, res) => {
         .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
         .replace(/\s+/g, ' ').trim();
     }
+    // The newest client version the Copilot gateway has accepted. The browser that first hits "your version is outdated" finds the new
+    // minimum itself and reports it here, so every other browser starts with it and nobody has to edit code (see shared/qa-dsat-service.js).
+    if (parsed.pathname === '/api/my/copilot-client-version' && req.method === 'GET') {
+      const rec = await cloudStore.kvGetJson('mtdkpi:copilot-client-version', null);
+      return json(res, 200, { ok: true, version: rec?.version || '' });
+    }
+    if (parsed.pathname === '/api/my/copilot-client-version' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const version = String(body.version || '').trim();
+      if (!/^\d{1,2}\.\d{1,3}\.\d{1,3}$/.test(version)) return json(res, 400, { ok: false, error: 'Invalid version.' });
+      const parts = v => v.split('.').map(Number), newer = (a, b) => { const x = parts(a), y = parts(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+      const rec = await cloudStore.kvGetJson('mtdkpi:copilot-client-version', null);
+      if (!newer(version, '2.6.0') && version !== '2.6.0') return json(res, 400, { ok: false, error: 'Version is below the known minimum.' });
+      if (!rec || newer(version, rec.version)) await cloudStore.kvSetJson('mtdkpi:copilot-client-version', { version, updatedAt: new Date().toISOString(), by: identity });
+      return json(res, 200, { ok: true });
+    }
+    // Lotti answer ratings and "no source found" questions: the raw material for improving her answers and the knowledge behind them.
+    if (parsed.pathname === '/api/my/loftiq/feedback' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const rating = body.rating === 'down' ? 'down' : body.rating === 'up' ? 'up' : '';
+      if (!rating) return json(res, 400, { ok: false, error: 'A rating is required.' });
+      const list = await cloudStore.kvGetJson('mtdkpi:lotti-feedback', []);
+      list.unshift({ at: new Date().toISOString(), email: identity, rating, question: String(body.question || '').slice(0, 500), answer: String(body.answer || '').slice(0, 1500) });
+      await cloudStore.kvSetJson('mtdkpi:lotti-feedback', list.slice(0, 500));
+      return json(res, 200, { ok: true });
+    }
+    if (parsed.pathname === '/api/my/loftiq/gap' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const question = String(body.question || '').trim().slice(0, 400);
+      if (!question) return json(res, 200, { ok: true });
+      const list = await cloudStore.kvGetJson('mtdkpi:lotti-gaps', []);
+      list.unshift({ at: new Date().toISOString(), email: identity, question });
+      await cloudStore.kvSetJson('mtdkpi:lotti-gaps', list.slice(0, 300));
+      return json(res, 200, { ok: true });
+    }
     if (parsed.pathname === '/api/my/loftiq/help-search' && req.method === 'GET') {
       const query = String(parsed.searchParams.get('q') || '').trim().slice(0, 200);
       if (!query) return json(res, 200, { ok: true, articles: [] });
@@ -4408,7 +4445,8 @@ const server = http.createServer(async (req, res) => {
       const docs = Object.values(state?.docs || {}).map(d => ({ titles: d.titles, section: d.section, url: d.url, lastModified: d.lastModified, syncedAt: d.syncedAt, itemCount: d.itemCount, images: d.images || 0 }))
         .sort((a, b) => (a.section || '').localeCompare(b.section || '') || String(a.titles?.[0] || '').localeCompare(String(b.titles?.[0] || '')));
       const confState = await cloudStore.kvGetJson(LOTTI_CONF_STATE_KEY, null).catch(() => null);
-      return json(res, 200, { ok: true, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
+      const [feedbackList, gapList, versionRec] = await Promise.all([cloudStore.kvGetJson('mtdkpi:lotti-feedback', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:lotti-gaps', []).catch(() => []), cloudStore.kvGetJson('mtdkpi:copilot-client-version', null).catch(() => null)]);
+      return json(res, 200, { ok: true, ai: { clientVersion: versionRec?.version || '2.6.0', versionUpdatedAt: versionRec?.updatedAt || '', feedbackUp: feedbackList.filter(f => f.rating === 'up').length, feedbackDown: feedbackList.filter(f => f.rating === 'down').length, recentDown: feedbackList.filter(f => f.rating === 'down').slice(0, 5).map(f => f.question), gaps: gapList.slice(0, 8).map(g => ({ at: g.at, question: g.question })), gapCount: gapList.length }, confluence: confState ? { lastRun: confState.lastRun || null, lastSuccessAt: confState.lastSuccessAt || null, spaces: confState.spaces || {} } : null, announcements: state?.lastRun?.announcements || null, lastRun: state?.lastRun || null, lastSuccessAt: state?.lastSuccessAt || null, docs, request: request ? { status: request.status, requestedAt: request.requestedAt, finishedAt: request.finishedAt || null } : null });
     }
     if (parsed.pathname === '/api/admin/lotti-knowledge/sop-sync' && req.method === 'POST') {
       if (!ADMIN_EMAILS.has(identity)) return json(res, 403, { ok: false, error: 'Not authorized.' });
