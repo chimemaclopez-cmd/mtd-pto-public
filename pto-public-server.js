@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.61';
+const PORTAL_VERSION = '2.3.62';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -4093,7 +4093,7 @@ const server = http.createServer(async (req, res) => {
       const periodsSorted = Object.keys(kpiResults.periods || {}).sort((a, b) => b.localeCompare(a));
       const kpiAlerts = assignedMembers.map(m => {
         const email = ptoLogic.cleanEmail(m.employeeEmail);
-        const rated = periodsSorted.map(p => (kpiResults.periods[p] || []).find(r => ptoLogic.cleanEmail(r.employeeEmail) === email && r.finalKpi != null)).filter(Boolean);
+        const rated = periodsSorted.map(p => { const row = (kpiResults.periods[p] || []).find(r => ptoLogic.cleanEmail(r.employeeEmail) === email && r.finalKpi != null); return row ? { ...row, period: row.period || p } : null; }).filter(Boolean);
         if (!rated.length) return null;
         const [latest, previous] = rated;
         const latestTier = PERFORMANCE_TIER[latest.performanceStatus] ?? null;
