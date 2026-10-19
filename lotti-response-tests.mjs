@@ -43,3 +43,13 @@ assert.equal(result.status,200);assert.deepEqual(result.items,[]);assert.deepEqu
 const healthy=await run({pathname:'/api/my/loftiq/knowledge-search',searchParams:new URLSearchParams({q:'domain transfer'})},{method:'GET'},{},(_res,status,body)=>({status,...body}),empty,empty,empty,x=>x,()=>[],()=>[],empty,empty,empty,empty);
 assert.deepEqual(healthy.unavailableSources,[]);
 console.log('Lotti response and source-failure checks passed.');
+
+// Official Help Center provenance and passage retrieval.
+const {articleText,buildHelpArticleSources}=await import('./server/help-center.js');
+assert.equal(articleText('<p>Step 1 &amp; Step 2</p><script>ignore this</script><p>&#39;Save&#39;</p>'),"Step 1 & Step 2\n'Save'");
+const article={title:'Smart Plan setup',html_url:'https://help.lofty.com/hc/en-us/articles/123-Smart-Plan',updated_at:'2026-10-01T12:00:00Z',body:'<p>Official introduction.</p>'+('<p>General background text. </p>'.repeat(500))+'<p>Smart Plan enrollment requires the account admin.</p>'};
+const help=buildHelpArticleSources([article,{...article,html_url:'https://example.com/article'},{...article,draft:true}],'Smart Plan enrollment');
+assert.equal(help.length,1);assert.equal(help[0].updatedAt,article.updated_at);assert.equal(help[0].excerpted,true);assert.ok(help[0].snippet.length<=6000);assert.match(help[0].snippet,/Smart Plan enrollment requires the account admin/);assert.match(help[0].category,/official product source of truth/);
+const helpPrompt=buildLoftIqPrompt({question:'How do I enroll?',helpArticles:help});
+assert.match(helpPrompt,/LOFTY HELP CENTER — OFFICIAL PRODUCT SOURCE OF TRUTH/);assert.match(helpPrompt,/Distinguish Lofty AOS from Lofty Classic/);assert.match(helpPrompt,/Company-specific approvals/);
+console.log('Official Help Center provenance and retrieval checks passed.');

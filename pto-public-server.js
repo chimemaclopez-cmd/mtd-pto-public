@@ -35,6 +35,7 @@
 */
 
 const http = require('http');
+const { buildHelpArticleSources } = require('./server/help-center.js');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
@@ -4514,7 +4515,7 @@ const server = http.createServer(async (req, res) => {
         const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!r.ok) return json(res, 200, { ok: true, articles: [], unavailableSources: ['Help Center'] });
         const data = await r.json();
-        const articles = (data.results || []).slice(0, 3).map(a => ({ title: a.title, url: a.html_url, snippet: stripArticleHtml(a.body).slice(0, 900) }));
+        const articles = buildHelpArticleSources(data.results, query);
         return json(res, 200, { ok: true, articles });
       } catch {
         // Help center being slow/unreachable should never break the rest of Lotti's answer -
