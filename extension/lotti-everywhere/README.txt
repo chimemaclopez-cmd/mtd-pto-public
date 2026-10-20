@@ -1,4 +1,4 @@
-LOTTI EVERYWHERE - Lotti on your other tabs (Chrome or Edge)
+LOTTI EVERYWHERE v1.4.0 - Lotti on your other tabs (Chrome or Edge)
 
 Install (about a minute):
 1. Unzip this folder somewhere you will keep it (for example Documents).

@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.73';
+const PORTAL_VERSION = '2.3.74';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -4872,11 +4872,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // The handbook for the Company > Employee Handbook tab: contents (for jump links) and the PDF itself, signed-in users only.
-    // The Lotti browser extension (built by scripts/build-lotti-extension.py), for signed-in users.
+    // The Lotti browser extension (built by scripts/build-lotti-extension.py; the file name carries its version, e.g. Lotti-Everywhere-1.4.0.zip), for signed-in users.
     if (parsed.pathname === '/api/my/lotti-extension.zip' && req.method === 'GET') {
       try {
-        const zip = fs.readFileSync(path.join(__dirname, 'shared', 'downloads', 'Lotti-Everywhere.zip'));
-        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Length': zip.length, 'Content-Disposition': 'attachment; filename="Lotti-Everywhere.zip"', 'Cache-Control': 'private, no-store' });
+        const dir = path.join(__dirname, 'shared', 'downloads');
+        const latest = JSON.parse(fs.readFileSync(path.join(dir, 'latest.json'), 'utf8'));
+        if (!/^Lotti-Everywhere-[\d.]+\.zip$/.test(String(latest.file))) throw new Error('bad file name');
+        const zip = fs.readFileSync(path.join(dir, latest.file));
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Length': zip.length, 'Content-Disposition': `attachment; filename="${latest.file}"`, 'Cache-Control': 'private, no-store', 'X-Extension-Version': String(latest.version) });
         return res.end(zip);
       } catch (_) { return json(res, 404, { ok: false, error: 'The extension package is not available yet.' }); }
     }

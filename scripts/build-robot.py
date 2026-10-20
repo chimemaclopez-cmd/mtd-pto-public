@@ -39,7 +39,7 @@ open(os.path.join(root, 'extension', 'lotti-everywhere', 'content.js'), 'w').wri
 # 2. the file the extensions download
 svg = open(os.path.join(root, 'extension', 'lotti-everywhere', 'robot-full.svg')).read().strip()
 css = ra.css('.wrap')
-body = {'svg': svg, 'css': css, 'tips': TIPS, 'acts': ACTS, 'wanderEveryMs': 40000, 'actGapMs': [4000, 8500], 'minExtensionVersion': MIN_EXTENSION_VERSION}
+body = {'svg': svg, 'css': css, 'tips': TIPS, 'acts': ACTS, 'wanderEveryMs': 40000, 'idleBeforeWalkMs': 10000, 'actGapMs': [4000, 8500], 'minExtensionVersion': MIN_EXTENSION_VERSION}
 version = hashlib.sha1(json.dumps(body, sort_keys=True).encode()).hexdigest()[:10]
 out = os.path.join(root, 'shared', 'lotti-robot.json')
 json.dump({'version': version, **body}, open(out, 'w'), separators=(',', ':'))

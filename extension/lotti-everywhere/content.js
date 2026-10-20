@@ -174,34 +174,48 @@
 
   // Personality: every so often she waves, dances, claps, nods, spins, stretches or hops; her eyes follow the pointer while it is near; she dozes off if the page is left alone.
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    let lastMove = Date.now(), trackTimer = 0, walkTimer = 0, wandering = false, lastWander = Date.now() - 30000;
+    let lastMove = Date.now(), trackTimer = 0, walkTimer = 0, wandering = false, lastWander = Date.now() - 30000, watchTimer = 0, walkHome = 0;
+    // She only strolls while you are idle (no mouse, keys, scrolling or touch for a while); the moment you are active again she heads straight home.
+    let lastActive = Date.now();
+    const idleMs = () => cfg.idleBeforeWalkMs || 10000, isIdle = () => Date.now() - lastActive >= idleMs();
+    ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart', 'input'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true, capture: true }));
+    addEventListener('scroll', () => { lastActive = Date.now(); }, { passive: true, capture: true });
     const busy = () => document.hidden || wandering || ['held', 'cheer', 'sleepy', 'dropping'].some(c => wrapEl.classList.contains(c)) || bubble.classList.contains('show');
     // She sometimes strolls (a sideways shuffle, still facing you) to another spot along her row, then walks back home. A click or drag stops it.
-    function walkTo(left, done) {
+    function walkTo(left, done, speed) {
       const r = host.getBoundingClientRect();
       host.style.left = r.left + 'px'; host.style.top = r.top + 'px'; host.style.right = 'auto'; host.style.bottom = 'auto'; void host.offsetWidth;
-      const secs = Math.max(1.2, Math.abs(left - r.left) / 70);
+      const secs = Math.max(speed ? 0.5 : 1.2, Math.abs(left - r.left) / (speed || 70));
       wrapEl.style.setProperty('--lean', (left > r.left ? 6 : -6) + 'deg'); wrapEl.classList.add('walking');
       host.style.transition = `left ${secs}s linear`; host.style.left = left + 'px';
       walkTimer = setTimeout(() => { wrapEl.classList.remove('walking'); host.style.transition = ''; done && done(); }, secs * 1000 + 80);
     }
     function stopWalking() {
-      clearTimeout(walkTimer); if (!wandering) return;
+      clearTimeout(walkTimer); clearInterval(watchTimer); if (!wandering) return;
       const r = host.getBoundingClientRect(); host.style.transition = ''; host.style.left = r.left + 'px'; wrapEl.classList.remove('walking'); wandering = false; schedule();
     }
     function wander() {
       const home = host.getBoundingClientRect().left, minX = 24, maxX = innerWidth - 88;
       let target = minX + Math.random() * Math.max(0, maxX - minX);
       if (Math.abs(target - home) < 220) target = home > innerWidth / 2 ? minX + Math.random() * Math.max(0, home - 300 - minX) : Math.min(maxX, home + 300 + Math.random() * 200);
-      target = Math.min(Math.max(target, minX), maxX); wandering = true;
-      walkTo(target, () => { walkTimer = setTimeout(() => { if (wandering) walkTo(Math.min(Math.max(home, minX), maxX), () => { wandering = false; schedule(); }); }, 4000 + Math.random() * 5000); });
+      target = Math.min(Math.max(target, minX), maxX); wandering = true; walkHome = Math.min(Math.max(home, minX), maxX);
+      // If you start doing something again while she is out, she hurries back instead of carrying on.
+      let returning = false;
+      const finish = () => { clearInterval(watchTimer); wandering = false; schedule(); };
+      const hurryHome = () => {
+        if (returning || !wandering) return; returning = true; clearTimeout(walkTimer);
+        const r = host.getBoundingClientRect(); host.style.transition = ''; host.style.left = r.left + 'px'; wrapEl.classList.remove('walking');
+        walkTo(walkHome, finish, 170);
+      };
+      clearInterval(watchTimer); watchTimer = setInterval(() => { if (wandering && !returning && Date.now() - lastActive < 1200) hurryHome(); }, 400);
+      walkTo(target, () => { walkTimer = setTimeout(() => { if (wandering && !returning) { returning = true; walkTo(walkHome, finish); } }, 4000 + Math.random() * 5000); });
     }
     bot.addEventListener('pointerdown', stopWalking);
     wrapEl.addEventListener('lotti-wander', () => { if (!busy()) wander(); });
     const schedule = () => setTimeout(() => {
       if (busy()) { schedule(); return; }
       const ACTS = cfg.acts || DEFAULT_ACTS, others = Object.keys(ACTS).filter(k => k !== 'wander'), every = cfg.wanderEveryMs || 40000;
-      const n = ('wander' in ACTS && Date.now() - lastWander > every) ? 'wander' : others[Math.floor(Math.random() * others.length)];
+      const n = ('wander' in ACTS && Date.now() - lastWander > every && isIdle()) ? 'wander' : others[Math.floor(Math.random() * others.length)];
       if (n === 'wander') { lastWander = Date.now(); wander(); return; }
       wrapEl.classList.add('act-' + n);
       setTimeout(() => { wrapEl.classList.remove('act-' + n); schedule(); }, (ACTS[n] || 2000) + 100);
