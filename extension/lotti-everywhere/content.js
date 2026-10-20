@@ -236,32 +236,27 @@
   // Position: remembered across sites and visits.
   function place(left, top) {
     const w = 64, h = 90;
-    left = Math.min(Math.max(left, 4), innerWidth - w - 4);
-    top = Math.min(Math.max(top, 4), innerHeight - h - 4);
+    left = Math.min(Math.max(left, 4), vw() - w - 4);
+    top = Math.min(Math.max(top, 4), vh() - h - 4);
     host.style.left = left + 'px'; host.style.top = top + 'px'; host.style.right = 'auto'; host.style.bottom = 'auto';
     return { left, top };
   }
+  // The spot is saved as a distance from the nearest corner (not as raw pixels), so she lands in the same place relative to the screen edges on every
+  // tab, whatever size or scrollbar that page has. Older saves (left/top in pixels) are still understood.
+  const vw = () => document.documentElement.clientWidth || innerWidth, vh = () => document.documentElement.clientHeight || innerHeight;
+  let savedPos = null;
+  function posToSave() {
+    const r = host.getBoundingClientRect(), W = vw(), H = vh();
+    const h = r.left + 32 < W / 2 ? 'left' : 'right', v = r.top + 45 < H / 2 ? 'top' : 'bottom';
+    return { h, x: Math.round(h === 'left' ? r.left : W - r.right), v, y: Math.round(v === 'top' ? r.top : H - r.bottom) };
+  }
   function placeSaved(pos) {
     if (!pos) return;
-    place(pos.left * (innerWidth / (pos.vw || innerWidth)), pos.top * (innerHeight / (pos.vh || innerHeight)));
+    savedPos = pos;
+    const w = 64, h = 90;
+    if (pos.h) place(pos.h === 'left' ? pos.x : vw() - w - pos.x, pos.v === 'top' ? pos.y : vh() - h - pos.y);
+    else place(pos.left * (vw() / (pos.vw || vw())), pos.top * (vh() / (pos.vh || vh())));
   }
-  // Where a chat window should open so it sits beside the robot, like the portal's own floating chat: above her when she is in the lower half of
-  // the screen (below otherwise), extending to the right when she is in the left half (to the left otherwise). Screen coordinates, clamped to the display.
-  const PANEL_W = 392, PANEL_H = 580;
-  function anchor() {
-    const r = host.getBoundingClientRect();
-    const chromeTop = Math.max(0, outerHeight - innerHeight - Math.max(0, (outerWidth - innerWidth) / 2)); // toolbar and tabs above the page
-    const rx = screenX + (outerWidth - innerWidth) / 2 + r.left, ry = screenY + chromeTop + r.top;
-    const minX = screen.availLeft || 0, minY = screen.availTop || 0, maxX = minX + screen.availWidth, maxY = minY + screen.availHeight;
-    const openRight = r.left < innerWidth / 2, openUp = r.top > innerHeight / 2;
-    let left = openRight ? rx : rx + r.width - PANEL_W;
-    let top = openUp ? ry - PANEL_H - 8 : ry + r.height + 8;
-    left = Math.min(Math.max(left, minX), Math.max(minX, maxX - PANEL_W));
-    top = Math.min(Math.max(top, minY), Math.max(minY, maxY - PANEL_H));
-    return { left, top };
-  }
-  function openChat() { cheer(); try { chrome.runtime.sendMessage({ type: 'open-lotti', anchor: anchor() }); } catch (_) { /* extension reloaded */ } }
-  try { chrome.runtime.onMessage.addListener((message, sender, reply) => { if (message && message.type === 'lotti-anchor') reply(anchor()); }); } catch (_) {}
   let drag = null, moved = false;
   bot.addEventListener('pointerdown', e => {
     drag = { x: e.clientX, y: e.clientY, left: host.getBoundingClientRect().left, top: host.getBoundingClientRect().top };
@@ -277,7 +272,7 @@
   bot.addEventListener('pointerup', e => {
     if (!drag) return;
     bot.releasePointerCapture(e.pointerId); wrapEl.classList.remove('held');
-    if (moved) { const r = host.getBoundingClientRect(); store.set({ lottiPos: { left: r.left, top: r.top, vw: innerWidth, vh: innerHeight } }); }
+    if (moved) { const r = host.getBoundingClientRect(); savedPos = posToSave(); store.set({ lottiPos: savedPos }); }
     else openChat();
     drag = null;
   });
@@ -289,7 +284,7 @@
     host.remove();
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !drag && !wrapEl.classList.contains('walking')) store.get('lottiPos').then(({ lottiPos }) => placeSaved(lottiPos)).catch(() => {}); });
-  addEventListener('resize', () => { const r = host.getBoundingClientRect(); if (host.style.left) place(r.left, r.top); });
+  addEventListener('resize', () => { if (wrapEl.classList.contains('walking') || drag) return; if (savedPos) placeSaved(savedPos); else { const r = host.getBoundingClientRect(); if (host.style.left) place(r.left, r.top); } });
 
   // First appearance on a page: she drops in from above the top of the screen, lands with a squash, bounces and waves hello.
   let dropped = false;
