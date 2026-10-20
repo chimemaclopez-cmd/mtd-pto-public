@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.67';
+const PORTAL_VERSION = '2.3.68';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1971,6 +1971,7 @@ const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
 async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
 const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
 ['ang', 'ung', 'yung', 'mga', 'nang', 'kung', 'pwede', 'paano', 'ano', 'ito', 'iyon', 'para', 'may', 'wala', 'lang', 'din', 'rin', 'ako', 'siya', 'namin', 'natin', 'nila', 'ang', 'sana', 'kasi', 'naman', 'ba', 'po', 'opo', 'ngayon', 'doon', 'dito', 'tapos', 'pero', 'kahit', 'kapag', 'pag'].forEach(w => SOP_STOPWORDS.add(w));
+['process', 'processing', 'request', 'requests', 'handle', 'handling', 'procedure', 'steps', 'client', 'clients', 'customer', 'customers'].forEach(w => SOP_STOPWORDS.add(w)); // so the topic words (cancellation, domain, card...) decide which documents match, not generic ones
 // Ranks SOP sections for a question: matches in the SOP's name/heading count most, then the section text; common
 // filler words are ignored so "how do I handle a cancellation" finds cancellation SOPs, not every long document.
 function searchSopRecords(query, records, limit = 4) {
@@ -4851,12 +4852,13 @@ const server = http.createServer(async (req, res) => {
       const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
-      const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 4);
+      const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 6);
       const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000), url: x.source?.url || '' }));
       // Official Teams announcements can be newer than the SOP they change, so they are searched too and listed first, newest first.
-      const annMatched = searchSopRecords(query, annList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 2)
+      // Up to eight matches, so a newer announcement that replaces an older one on the same topic is not crowded out; newest first.
+      const annMatched = searchSopRecords(query, annList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 8)
         .sort((a, b) => String(b.source?.posted || '').localeCompare(String(a.source?.posted || '')));
-      const annItems = annMatched.map(x => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)} - newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 3000), url: x.source?.link || '' }));
+      const annItems = annMatched.map((x, n) => ({ title: x.title, category: `Official Teams announcement (posted ${String(x.source?.posted || '').slice(0, 10)}${n === 0 ? ' - the newest matching announcement' : ' - OLDER: a later announcement listed above may replace parts of it; follow the later one wherever they differ and flag the conflict'}; newer than SOPs last updated before that date)`, body: x.bodyText.slice(0, 2400), url: x.source?.link || '' }));
       const confPages = await readSource('Confluence', () => searchConfluence(query, 3));
       const confItems = confPages.map(pg => ({ title: pg.title, category: `Confluence wiki - ${pg.spaceLabel} (page last edited ${pg.updated}; internal reference, SOPs and announcements win on conflict)`, body: String(pg.text || '').slice(0, 2500), url: pg.link ? `https://loftyinc.atlassian.net${pg.link}` : '' }));
       const hbSections = await readSource('Employee Handbook', () => searchHandbook(query, 3));

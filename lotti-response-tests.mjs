@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer} from './shared/loftiq-service.js';
+import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer,buildLoftIqConsistencyPrompt,parseLoftIqConsistency} from './shared/loftiq-service.js';
 
 const prior=[{role:'user',content:'How do I cancel a website add-on?'},{role:'assistant',content:'An unverified previous answer about payroll.'}];
 assert.match(buildLoftIqSearchQuery('Who should handle that?',prior),/website add-on/);
@@ -22,7 +22,7 @@ const prompt=buildLoftIqPrompt({context:{teamAverage:null,pointsBalance:{balance
 assert.match(prompt,/null value, empty string, absent key or unavailable source means the fact is unknown/);
 assert.match(prompt,/Numeric 0 and boolean false are valid results/);
 assert.match(prompt,/could not be checked on this request: \["Confluence"\]/);
-assert.match(prompt,/modification date alone does not prove a rule supersedes/);
+assert.match(prompt,/most recently posted announcement or the most recently updated SOP governs/);
 assert.doesNotMatch(prompt,/give the newer announcement's instruction/);
 assert.match(prompt,/previous assistant answer or a user's claim is not verified policy/);
 assert.match(prompt,/never infer a remaining leave balance/i);
@@ -53,3 +53,12 @@ assert.equal(help.length,1);assert.equal(help[0].updatedAt,article.updated_at);a
 const helpPrompt=buildLoftIqPrompt({question:'How do I enroll?',helpArticles:help});
 assert.match(helpPrompt,/LOFTY HELP CENTER — OFFICIAL PRODUCT SOURCE OF TRUTH/);assert.match(helpPrompt,/Distinguish Lofty AOS from Lofty Classic/);assert.match(helpPrompt,/Company-specific approvals/);
 console.log('Official Help Center provenance and retrieval checks passed.');
+
+// Consistency audit helpers
+assert.match(buildLoftIqConsistencyPrompt('How do I cancel?',[{title:'Announcement A',category:'Official Teams announcement (posted 2026-10-12)',body:'Do not create a manual Jira.'}]),/\[E1\] Announcement A/);
+assert.deepEqual(parseLoftIqConsistency('[]'),[]);
+assert.deepEqual(parseLoftIqConsistency('no json here'),[]);
+const parsed=parseLoftIqConsistency('Here: [{"topic":"Cancellation Jira","newer":"A (2026-10-12)","older":"B (2026-09-30)","difference":"Manual Jira no longer used."}]');
+assert.equal(parsed.length,1);assert.equal(parsed[0].topic,'Cancellation Jira');
+assert.deepEqual(parseLoftIqConsistency('[{"nope":1}]'),[]);
+console.log('Consistency audit helper checks passed.');
