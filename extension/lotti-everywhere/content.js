@@ -241,6 +241,10 @@
     host.style.left = left + 'px'; host.style.top = top + 'px'; host.style.right = 'auto'; host.style.bottom = 'auto';
     return { left, top };
   }
+  function placeSaved(pos) {
+    if (!pos) return;
+    place(pos.left * (innerWidth / (pos.vw || innerWidth)), pos.top * (innerHeight / (pos.vh || innerHeight)));
+  }
   let drag = null, moved = false;
   bot.addEventListener('pointerdown', e => {
     drag = { x: e.clientX, y: e.clientY, left: host.getBoundingClientRect().left, top: host.getBoundingClientRect().top };
@@ -267,6 +271,7 @@
     await store.set({ lottiHiddenHosts });
     host.remove();
   });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !drag && !wrapEl.classList.contains('walking')) store.get('lottiPos').then(({ lottiPos }) => placeSaved(lottiPos)).catch(() => {}); });
   addEventListener('resize', () => { const r = host.getBoundingClientRect(); if (host.style.left) place(r.left, r.top); });
 
   // First appearance on a page: she drops in from above the top of the screen, lands with a squash, bounces and waves hello.
@@ -290,12 +295,17 @@
   root.querySelector('#anim').textContent = cfg.css;
   store.get('lottiRobot').then(({ lottiRobot }) => applyConfig(lottiRobot)).catch(() => {});
   try { chrome.runtime.sendMessage({ type: 'robot-check' }); } catch (_) { /* extension was reloaded; the next page load will check */ }
-  chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.lottiRobot && changes.lottiRobot.newValue) applyConfig(changes.lottiRobot.newValue); });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.lottiRobot && changes.lottiRobot.newValue) applyConfig(changes.lottiRobot.newValue);
+    // She follows you: drag her on one tab and she is in the same spot on every other tab.
+    if (changes.lottiPos && changes.lottiPos.newValue && !drag && !wrapEl.classList.contains('walking')) placeSaved(changes.lottiPos.newValue);
+  });
 
   store.get(['lottiHiddenHosts', 'lottiPos']).then(({ lottiHiddenHosts = [], lottiPos }) => {
     if (lottiHiddenHosts.includes(HOST)) return;
     document.documentElement.appendChild(host);
     entrance();
-    if (lottiPos) place(lottiPos.left * (innerWidth / (lottiPos.vw || innerWidth)), lottiPos.top * (innerHeight / (lottiPos.vh || innerHeight)));
+    if (lottiPos) placeSaved(lottiPos);
   }).catch(() => { document.documentElement.appendChild(host); entrance(); });
 })();

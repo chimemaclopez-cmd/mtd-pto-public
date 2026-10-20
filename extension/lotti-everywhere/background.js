@@ -1,4 +1,4 @@
-// Opens Lotti (the portal's compact "mini" page) in a small popup window next to whatever tab you are on, and re-uses that window on later clicks.
+// Opens Lotti (the portal's compact "mini" page) in the browser side panel so it stays with you across tabs (popup window as a fallback).
 // The page is the normal Lofty Support Portal, so you sign in there once (like any website) and everything Lotti knows works the same.
 const PORTAL_MINI_URL = 'https://loftysupportportal.com/?lotti=mini';
 // The robot (art, animation CSS, tips, move timings) lives on the portal as a small public JSON file. This worker keeps a copy in chrome.storage and the content
@@ -25,7 +25,9 @@ chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'lotti-robot') r
 
 const WIDTH = 440, HEIGHT = 740;
 
-async function openLotti() {
+// Lotti opens in Chrome's side panel, which stays open as you switch tabs (so the chat follows you). If the side panel is not available (older browser) or
+// cannot open, she falls back to a small popup window that is re-used on later clicks.
+async function openPopup() {
   try {
     const { lottiWindowId } = await chrome.storage.session.get('lottiWindowId');
     if (lottiWindowId != null) {
@@ -43,13 +45,22 @@ async function openLotti() {
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+// sidePanel.open must run straight from the click / key press, so it is called before anything is awaited.
+function openLotti(windowId) {
+  if (!chrome.sidePanel || !chrome.sidePanel.open) return openPopup();
+  const go = id => chrome.sidePanel.open({ windowId: id }).catch(() => openPopup());
+  if (windowId != null) return go(windowId);
+  return chrome.windows.getCurrent().then(w => go(w.id), () => openPopup());
+}
+try { chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }); } catch (_) { /* no side panel: the toolbar click falls through to openLotti below */ }
+
+chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message) return;
-  if (message.type === 'open-lotti') openLotti();
+  if (message.type === 'open-lotti') openLotti(sender && sender.tab ? sender.tab.windowId : undefined);
   if (message.type === 'robot-check') refreshRobot(false);
 });
-chrome.action.onClicked.addListener(openLotti);
-chrome.commands.onCommand.addListener(command => { if (command === 'open-lotti') openLotti(); });
+chrome.action.onClicked.addListener(tab => openLotti(tab && tab.windowId));
+chrome.commands.onCommand.addListener((command, tab) => { if (command === 'open-lotti') openLotti(tab && tab.windowId); });
 chrome.windows.onRemoved.addListener(async id => {
   const { lottiWindowId } = await chrome.storage.session.get('lottiWindowId');
   if (lottiWindowId === id) await chrome.storage.session.remove('lottiWindowId');
