@@ -15,5 +15,5 @@ Use:
 Notes:
 - Lotti's answers only work on the Lofty network or VPN.
 - The robot only appears on work sites (Zendesk, Atlassian, lofty.com, HubSpot, SharePoint, Teams, Outlook). It never reads or changes the page you are on.
-- To update, replace the folder contents with the new version and click the reload icon on chrome://extensions.
+- The robot (looks, moves, tips) updates itself in the background - you do not need to reinstall for that. Only if the robot says a newer extension is available, download the zip again, replace the folder contents and click the reload icon on chrome://extensions.
 - To remove it: chrome://extensions -> Remove.
