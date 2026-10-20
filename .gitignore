@@ -3,3 +3,7 @@ data/
 .DS_Store
 .env
 *.log
+
+# local-only helper scripts
+scripts/read-attendance-fallback.py
+scripts/.auto-recalculate.lock
