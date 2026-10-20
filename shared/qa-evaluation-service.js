@@ -134,15 +134,39 @@ Respond with ONLY a single JSON object, no prose, no markdown code fences, in ex
 {"ratings":{"<criterionKey>":"YES|PARTLY|NO|NA", ...one entry per criterion key above...},"reasons":{"<criterionKey>":"for YES/NA: one short sentence citing the specific transcript evidence behind that rating (for NA, say why it doesn't apply). For NO or PARTLY: that same evidence sentence PLUS a second sentence starting with 'Could have' giving one concrete, specific thing the agent should have said or done instead - not generic advice, something they could have literally said in this transcript.", ...one entry per criterion key above, required for every criterion...},"criticalErrors":{"<errorKey>":true|false, ...one entry per critical error key above...},"feedback":"2-4 sentence summary of strengths and gaps, citing specific transcript evidence","actionPlan":"1-2 concrete, specific coaching actions"}`;
 }
 
+// The AI's JSON is not always strictly valid (code fences, trailing commas, line breaks or unescaped quotes inside a text value, smart quotes
+// around keys). Try strict JSON first, then a repaired copy, so one stray character does not throw away the whole answer.
+export function parseLooseJson(raw){
+  const text=String(raw||'').replace(/```(?:json)?/gi,'');
+  const start=text.indexOf('{'),end=text.lastIndexOf('}');
+  if(start<0||end<start)return null;
+  const body=text.slice(start,end+1);
+  try{return JSON.parse(body)}catch{}
+  let out='',inStr=false;
+  const src=body.replace(/[\u201C\u201D]/g,'"');
+  for(let i=0;i<src.length;i++){
+    const ch=src[i];
+    if(!inStr){out+=ch;if(ch==='"')inStr=true;continue}
+    if(ch==='\\'){out+=ch+(src[i+1]??'');i++;continue}
+    if(ch==='\n'||ch==='\r'||ch==='\t'){out+=ch==='\n'?'\\n':ch==='\r'?'':'\\t';continue}
+    if(ch==='"'){
+      const next=src.slice(i+1).match(/^\s*(.)/);
+      if(!next||/[,}\]:]/.test(next[1])){out+=ch;inStr=false}else out+='\\"';
+      continue;
+    }
+    out+=ch;
+  }
+  out=out.replace(/,\s*([}\]])/g,'$1');
+  try{return JSON.parse(out)}catch{return null}
+}
+
 export function isQaPreQaBadAnswer(raw){
-  return !/\{[\s\S]*\}/.test(String(raw||''));
+  return !parseLooseJson(raw);
 }
 
 export function parseQaPreQaResponse(raw,categories,criticalErrors){
-  const match=String(raw||'').match(/\{[\s\S]*\}/);
-  if(!match)throw new Error('AI response did not contain a JSON object.');
-  let parsed;
-  try{parsed=JSON.parse(match[0])}catch{throw new Error('AI response JSON could not be parsed.')}
+  const parsed=parseLooseJson(raw);
+  if(!parsed)throw new Error(/\{[\s\S]*\}/.test(String(raw||''))?'AI response JSON could not be parsed.':'AI response did not contain a JSON object.');
   const validRatings=new Set(['YES','PARTLY','NO','NA']);
   const ratings={},reasons={};
   for(const category of categories)for(const c of category.criteria){
@@ -189,13 +213,11 @@ Respond with ONLY a single JSON object, no prose, no markdown code fences, in ex
 }
 
 export function isQaFeedbackBadAnswer(raw){
-  return !/\{[\s\S]*\}/.test(String(raw||''));
+  return !parseLooseJson(raw);
 }
 
 export function parseQaFeedbackResponse(raw){
-  const match=String(raw||'').match(/\{[\s\S]*\}/);
-  if(!match)throw new Error('AI response did not contain a JSON object.');
-  let parsed;
-  try{parsed=JSON.parse(match[0])}catch{throw new Error('AI response JSON could not be parsed.')}
+  const parsed=parseLooseJson(raw);
+  if(!parsed)throw new Error(/\{[\s\S]*\}/.test(String(raw||''))?'AI response JSON could not be parsed.':'AI response did not contain a JSON object.');
   return {feedback:String(parsed.feedback||'').trim(),actionPlan:String(parsed.actionPlan||'').trim()};
 }
