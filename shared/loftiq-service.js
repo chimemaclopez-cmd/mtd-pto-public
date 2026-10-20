@@ -103,7 +103,7 @@ export function isLoftIqFalseNoDataClaim(text){
 export function isLoftIqDeflection(text){
   const t=(text||'').trim();
   if(!t||t.length>220)return false;
-  return /^i'?m here\b/i.test(t)||/what would you like (to (check|know|see)|me to (check|help))/i.test(t)||/\bready when you are\b/i.test(t)||/^(got it|understood|sure|okay|ok)\b[^.!?]{0,30}[.!]\s*i'?m (ready|here)\b/i.test(t);
+  return /what would you like me to answer|send (?:me )?the employee'?s question|(?:please )?(?:send|share|provide) (?:me )?(?:the|your) (?:employee'?s )?question/i.test(t)||/^i'?m here\b/i.test(t)||/what would you like (to (check|know|see)|me to (check|help))/i.test(t)||/\bready when you are\b/i.test(t)||/^(got it|understood|sure|okay|ok)\b[^.!?]{0,30}[.!]\s*i'?m (ready|here)\b/i.test(t);
 }
 
 export function isLoftIqBadAnswer(text){
@@ -114,7 +114,8 @@ export function isLoftIqBadAnswer(text){
 // Previous assistant answers are never treated as verified search evidence.
 export function buildLoftIqSearchQuery(question,priorMessages=[]){
   const current=String(question||'').trim();
-  const followUp=current.length<=160&&/^(?:what about|how about|and\b|also\b|then\b|why(?: not)?\??$|how so\??$|what if|(?:who|what|which|where|when|how|can|does|is|are|will|would|should)\b[^?]{0,100}\b(?:it|that|this|those|them|they|these)\b)/i.test(current);
+  const expands=/^(?:longer|shorter|more|tell me more|elaborate|explain|details?|examples?|example please|summari[sz]e|continue|go on|again|what else|yes|yeah|ok(?:ay)?|thanks|can you (?:expand|elaborate|explain|add)|give me more|expand)\b/i.test(current)||(current.split(/\s+/).length<=3&&!/\b(?:kpi|pto|schedule|coaching|dsat)\b/i.test(current));
+  const followUp=current.length<=160&&(expands||/^(?:what about|how about|and\b|also\b|then\b|why(?: not)?\??$|how so\??$|what if|(?:who|what|which|where|when|how|can|does|is|are|will|would|should)\b[^?]{0,100}\b(?:it|that|this|those|them|they|these)\b)/i.test(current));
   const previous=[...priorMessages].reverse().find(m=>m.role==='user'&&String(m.content||'').trim());
   return followUp&&previous?`${current.slice(0,160)} ${String(previous.content).replace(/\n📷[\s\S]*$/,'').slice(0,160)}`.slice(0,320):current;
 }
@@ -157,7 +158,9 @@ NO GUESSING: state only what the data or a numbered source directly says. Never 
 
 HOW LOTTI AND THIS PORTAL KEEP THEIR KNOWLEDGE UP TO DATE (these facts are true, use them when asked): the TSR Playbook SOPs and guides on SharePoint, the official Microsoft Teams announcements, and the Confluence wiki (Technical Support, Product Team Knowledge Base, Lofty Internal Reference) are re-checked automatically about once an hour, so new, edited and deleted documents are picked up on the next check; an admin can also press Sync now in Lotti Knowledge to refresh immediately. Confluence pages written in Chinese are translated to English automatically and marked as machine-translated. Help Center articles and the Alignment and Lotti Knowledge items are searched each time a question is asked. Lotti keeps a searchable copy of recent Account Management (AM) Jira tickets that reached a Done status in the last 90 days, with customer details removed; she does not read any other Jira project and cannot open a ticket live. If someone asks about an AM ticket and it is not among the entries above, do not say you have no access to Jira: say it is not in the recent resolved set she keeps (it may be still open, older than 90 days, or in another project) and point to its Jira link. For anything else about how the portal works internally, say you do not know.
 
-Be conversational but not wordy, plain text only (no markdown symbols like ** or #). When your answer lists more than two items, put each on its own line rather than one run-on sentence.
+FOLLOW-UPS: a short message such as "longer answer", "tell me more", "explain", "why", "an example?" or "and the other one?" is a follow-up to the PRIOR CONVERSATION, not a new question: answer it about the topic just discussed, using the sources given, and apply what it asks (more detail, shorter, an example, the other option). Never ask the employee to resend or restate their question, and never answer a follow-up by describing what you would need.
+
+LENGTH AND SHAPE - match the answer to the question. A quick lookup of the employee's own data (a score, a balance, a date) is one to three warm sentences. But when the question asks how something works, what it is, how two things differ, how to handle a request, or what the policy is, and GENERAL_KNOWLEDGE has material on it, give a complete, well-organised answer (usually 8 to 16 short lines), not a two-line summary: open with a one-line summary, then cover what applies from this list - what each thing is and what it does, how it works or is set up, the steps in order, where to find it in the product, a side-by-side difference when comparing (who it goes to, what triggers it, what it contains, when to use which), limits and exceptions, who to contact or which ticket to open, and common mistakes. Pull the concrete details out of the sources (setting names, numbers, deadlines, thresholds, names of teams) instead of paraphrasing them away, and combine every relevant source you were given rather than only the first. Still use only what the sources actually say: never pad with filler and never fill a gap by guessing - if a part of the question is not covered, say which part. Plain text only (no markdown symbols like ** or #): use short labelled lines such as "Property Alerts:" and numbered steps (1. 2. 3.), with each item on its own line rather than one run-on sentence.
 
 EMPLOYEE'S OWN DATA (this is everything you're allowed to reference about them personally):
 ${JSON.stringify(context)}
