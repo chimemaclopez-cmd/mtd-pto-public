@@ -1,4 +1,4 @@
-// Opens Lotti (the portal's compact "mini" page) in the browser side panel so it stays with you across tabs (popup window as a fallback).
+// Opens Lotti (the portal's compact "mini" page, which shows the same chat panel as the floating Lotti) in a small window beside the robot, and re-uses that window on later clicks.
 // The page is the normal Lofty Support Portal, so you sign in there once (like any website) and everything Lotti knows works the same.
 const PORTAL_MINI_URL = 'https://loftysupportportal.com/?lotti=mini';
 // The robot (art, animation CSS, tips, move timings) lives on the portal as a small public JSON file. This worker keeps a copy in chrome.storage and the content
@@ -23,21 +23,25 @@ chrome.runtime.onInstalled.addListener(() => { refreshRobot(true); chrome.alarms
 chrome.runtime.onStartup.addListener(() => { refreshRobot(false); chrome.alarms.create('lotti-robot', { periodInMinutes: 360 }); });
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'lotti-robot') refreshRobot(true); });
 
-const WIDTH = 440, HEIGHT = 740;
+// Outer size of the window: the portal's floating chat panel (370 x 520) plus the window's own title bar and border.
+const WIDTH = 392, HEIGHT = 580;
 
-// Lotti opens in Chrome's side panel, which stays open as you switch tabs (so the chat follows you). If the side panel is not available (older browser) or
-// cannot open, she falls back to a small popup window that is re-used on later clicks.
-async function openPopup() {
+// Lotti opens in a small window shaped like the portal's floating chat, placed right next to the robot (above her, or below if she is near the top,
+// on the side of the robot that has room). The content script works out the spot from the robot's position on screen and sends it as "anchor".
+// Later clicks re-use the same window and move it back beside the robot.
+async function openLotti(anchor) {
   try {
     const { lottiWindowId } = await chrome.storage.session.get('lottiWindowId');
+    const spot = anchor && Number.isFinite(anchor.left) ? { left: Math.round(anchor.left), top: Math.round(anchor.top) } : {};
     if (lottiWindowId != null) {
-      try { await chrome.windows.update(lottiWindowId, { focused: true, drawAttention: true }); return; }
+      try { await chrome.windows.update(lottiWindowId, { focused: true, drawAttention: true, ...spot }); return; }
       catch (_) { /* the window was closed - open a new one */ }
     }
-    const current = await chrome.windows.getCurrent().catch(() => null);
-    const left = current && current.left != null ? Math.max(0, current.left + current.width - WIDTH - 24) : undefined;
-    const top = current && current.top != null ? current.top + 60 : undefined;
-    const win = await chrome.windows.create({ url: PORTAL_MINI_URL, type: 'popup', width: WIDTH, height: HEIGHT, left, top, focused: true });
+    if (spot.left == null) {
+      const current = await chrome.windows.getCurrent().catch(() => null);
+      if (current && current.left != null) { spot.left = Math.max(0, current.left + current.width - WIDTH - 24); spot.top = current.top + 60; }
+    }
+    const win = await chrome.windows.create({ url: PORTAL_MINI_URL, type: 'popup', width: WIDTH, height: HEIGHT, ...spot, focused: true });
     await chrome.storage.session.set({ lottiWindowId: win.id });
   } catch (error) {
     // Last resort: a normal tab.
@@ -45,22 +49,20 @@ async function openPopup() {
   }
 }
 
-// sidePanel.open must run straight from the click / key press, so it is called before anything is awaited.
-function openLotti(windowId) {
-  if (!chrome.sidePanel || !chrome.sidePanel.open) return openPopup();
-  const go = id => chrome.sidePanel.open({ windowId: id }).catch(() => openPopup());
-  if (windowId != null) return go(windowId);
-  return chrome.windows.getCurrent().then(w => go(w.id), () => openPopup());
+// Toolbar button and Alt+L carry no robot position, so ask the tab's robot where she is.
+async function openFromTab(tab) {
+  let anchor = null;
+  try { if (tab && tab.id != null) anchor = await chrome.tabs.sendMessage(tab.id, { type: 'lotti-anchor' }); } catch (_) { /* no robot on this page */ }
+  openLotti(anchor);
 }
-try { chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }); } catch (_) { /* no side panel: the toolbar click falls through to openLotti below */ }
 
-chrome.runtime.onMessage.addListener((message, sender) => {
+chrome.runtime.onMessage.addListener((message) => {
   if (!message) return;
-  if (message.type === 'open-lotti') openLotti(sender && sender.tab ? sender.tab.windowId : undefined);
+  if (message.type === 'open-lotti') openLotti(message.anchor);
   if (message.type === 'robot-check') refreshRobot(false);
 });
-chrome.action.onClicked.addListener(tab => openLotti(tab && tab.windowId));
-chrome.commands.onCommand.addListener((command, tab) => { if (command === 'open-lotti') openLotti(tab && tab.windowId); });
+chrome.action.onClicked.addListener(tab => openFromTab(tab));
+chrome.commands.onCommand.addListener((command, tab) => { if (command === 'open-lotti') openFromTab(tab); });
 chrome.windows.onRemoved.addListener(async id => {
   const { lottiWindowId } = await chrome.storage.session.get('lottiWindowId');
   if (lottiWindowId === id) await chrome.storage.session.remove('lottiWindowId');

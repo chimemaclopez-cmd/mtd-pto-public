@@ -1,4 +1,4 @@
-LOTTI EVERYWHERE v1.4.1 - Lotti on your other tabs (Chrome or Edge)
+LOTTI EVERYWHERE v1.4.2 - Lotti on your other tabs (Chrome or Edge)
 
 Install (about a minute):
 1. Unzip this folder somewhere you will keep it (for example Documents).
@@ -7,8 +7,8 @@ Install (about a minute):
 4. Open Zendesk, Jira, the CRM or the Help Center: a green Lotti robot appears in the bottom-right corner.
 
 Use:
-- Click the robot, press Alt+L, or click the toolbar icon: Lotti opens in Chrome's side panel, which stays open as you switch tabs (older browsers get a small window instead).
-- The first time, sign in to the Lofty Support Portal in the panel (like any website). After that it remembers you.
+- Click the robot, press Alt+L, or click the toolbar icon: Lotti opens in a small chat window that looks like the floating Lotti on the portal and appears right beside the robot (above her, or below if she is near the top).
+- The first time, sign in to the Lofty Support Portal in that window (like any website). After that it remembers you.
 - Drag the robot anywhere - she waits in the same spot on every tab. Click the x on it to hide it on a site you do not want it on.
 - Paste or attach a screenshot in Lotti and she reads it.
 
