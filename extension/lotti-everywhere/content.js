@@ -137,7 +137,7 @@
 
   // Personality: every so often she waves, dances, claps, nods, spins, stretches or hops; her eyes follow the pointer while it is near; she dozes off if the page is left alone.
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    let lastMove = Date.now(), trackTimer = 0, walkTimer = 0, wandering = false;
+    let lastMove = Date.now(), trackTimer = 0, walkTimer = 0, wandering = false, lastWander = Date.now() - 30000;
     const busy = () => document.hidden || wandering || ['held', 'cheer', 'sleepy'].some(c => wrapEl.classList.contains(c)) || bubble.classList.contains('show');
     // She sometimes strolls (a sideways shuffle, still facing you) to another spot along her row, then walks back home. A click or drag stops it.
     function walkTo(left, done) {
@@ -163,11 +163,12 @@
     wrapEl.addEventListener('lotti-wander', () => { if (!busy()) wander(); });
     const schedule = () => setTimeout(() => {
       if (busy()) { schedule(); return; }
-      const ACTS = cfg.acts || DEFAULT_ACTS, names = Object.keys(ACTS), n = names[Math.floor(Math.random() * names.length)];
-      if (n === 'wander') { wander(); return; }
+      const ACTS = cfg.acts || DEFAULT_ACTS, others = Object.keys(ACTS).filter(k => k !== 'wander'), every = cfg.wanderEveryMs || 40000;
+      const n = ('wander' in ACTS && Date.now() - lastWander > every) ? 'wander' : others[Math.floor(Math.random() * others.length)];
+      if (n === 'wander') { lastWander = Date.now(); wander(); return; }
       wrapEl.classList.add('act-' + n);
       setTimeout(() => { wrapEl.classList.remove('act-' + n); schedule(); }, (ACTS[n] || 2000) + 100);
-    }, 6000 + Math.random() * 6500);
+    }, (cfg.actGapMs ? cfg.actGapMs[0] : 4000) + Math.random() * (cfg.actGapMs ? cfg.actGapMs[1] - cfg.actGapMs[0] : 4500));
     schedule();
     document.addEventListener('pointermove', e => {
       lastMove = Date.now(); wrapEl.classList.remove('sleepy');
