@@ -25,6 +25,17 @@ MIN_EXTENSION_VERSION = '1.2.0'   # raise this only when the extension's own cod
 ra.patch(os.path.join(root, 'pto-public.html'), '.lottiFloatBtn', ra.strip_portal)
 ra.patch(os.path.join(root, 'extension', 'lotti-everywhere', 'content.js'), '.wrap', lambda s: s)
 
+# 1b. the artwork into the portal's floating robot and the extension's built-in fallback copy
+svg_src = open(os.path.join(root, 'extension', 'lotti-everywhere', 'robot-full.svg')).read().strip()
+page = open(os.path.join(root, 'pto-public.html')).read()
+i = page.index('id="lottiFloatBtn"'); a = page.index('<svg', i); b2 = page.index('</svg>', a) + 6
+page = page[:a] + svg_src.replace('<svg ', '<svg aria-hidden="true" ', 1) + page[b2:]
+open(os.path.join(root, 'pto-public.html'), 'w').write(page)
+cj = open(os.path.join(root, 'extension', 'lotti-everywhere', 'content.js')).read()
+a = cj.index('const ROBOT = `') + len('const ROBOT = `'); b3 = cj.index('`;', a)
+cj = cj[:a] + svg_src.replace('`', '\\`').replace('${', '\\${') + cj[b3:]
+open(os.path.join(root, 'extension', 'lotti-everywhere', 'content.js'), 'w').write(cj)
+
 # 2. the file the extensions download
 svg = open(os.path.join(root, 'extension', 'lotti-everywhere', 'robot-full.svg')).read().strip()
 css = ra.css('.wrap')

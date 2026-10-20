@@ -41,6 +41,9 @@ def css(P):
 {P}.dropping svg{{animation:rbLand 1.9s linear 1}}
 {P}.dropping .lbArm{{animation:rbFlailL .28s ease-in-out 3}}{P}.dropping .lbWave{{animation:rbFlailR .28s ease-in-out 3}}
 {P}.dropping .lbLeg{{animation:rbKick .24s ease-in-out 4}}
+{P} .lbPuff{{opacity:0;transform-box:fill-box;transform-origin:center}}
+{P}.dropping .lbPuff{{animation:rbPuffDrop 1.9s ease-out 1}}{P}.act-hop .lbPuff{{animation:rbPuffHop 1.1s ease-out 1}}
+{P}.act-tumble .lbPuff{{animation:rbPuffTumble 1.5s ease-out 1}}{P}.cheer .lbPuff{{animation:rbPuffCheer .9s ease-out 1}}
 {P}.dropping .lbEyes{{animation:rbWide 1.9s linear 1;transform-box:fill-box;transform-origin:center}}
 {P}.walking svg{{animation:rbWalkBob .36s ease-in-out infinite}}
 {P}.walking .lbLeg{{animation:rbWalkL .36s ease-in-out infinite}}{P}.walking .lbLegR{{animation-delay:-.18s}}
@@ -92,6 +95,10 @@ def css(P):
 @keyframes rbTumble{{0%{{transform:translateY(0) rotate(0) scale(1,1)}}12%{{transform:translateY(2px) rotate(0) scale(1.1,.9)}}38%{{transform:translateY(-24px) rotate(140deg) scale(1,1)}}64%{{transform:translateY(-26px) rotate(270deg)}}86%{{transform:translateY(0) rotate(360deg) scale(1.1,.88)}}100%{{transform:translateY(0) rotate(360deg) scale(1,1)}}}}
 @keyframes rbTuck{{0%,100%{{transform:rotate(2deg)}}50%{{transform:rotate(-70deg)}}}}
 @keyframes rbTuckR{{0%,100%{{transform:rotate(-2deg)}}50%{{transform:rotate(70deg)}}}}
+@keyframes rbPuffDrop{{0%,43%{{opacity:0;transform:translate(0,0) scale(.3)}}46%{{opacity:1}}60%{{opacity:.9}}74%{{opacity:0;transform:translate(var(--dx),-14px) scale(1.9)}}77%{{opacity:0;transform:translate(0,0) scale(.3)}}79%{{opacity:.7}}93%{{opacity:0;transform:translate(calc(var(--dx) * .6),-6px) scale(1.1)}}100%{{opacity:0}}}}
+@keyframes rbPuffHop{{0%,68%{{opacity:0;transform:translate(0,0) scale(.3)}}71%{{opacity:.8}}100%{{opacity:0;transform:translate(calc(var(--dx) * .7),-8px) scale(1.3)}}}}
+@keyframes rbPuffTumble{{0%,84%{{opacity:0;transform:translate(0,0) scale(.3)}}87%{{opacity:.9}}100%{{opacity:0;transform:translate(var(--dx),-10px) scale(1.5)}}}}
+@keyframes rbPuffCheer{{0%,57%{{opacity:0;transform:translate(0,0) scale(.3)}}61%{{opacity:.8}}100%{{opacity:0;transform:translate(calc(var(--dx) * .8),-8px) scale(1.4)}}}}
 @keyframes rbWalkBob{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-2.5px)}}}}
 @keyframes rbWalkL{{0%,100%{{transform:rotate(22deg)}}50%{{transform:rotate(-22deg)}}}}
 @keyframes rbArmSwing{{0%,100%{{transform:rotate(28deg)}}50%{{transform:rotate(-28deg)}}}}
