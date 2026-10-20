@@ -160,25 +160,32 @@ export function parseQaPreQaResponse(raw,categories,criticalErrors){
 // so the write-up reflects what the reviewer actually decided, even where they overrode the AI's
 // suggestion. Built purely from the confirmed ratings/labels, no ticket transcript needed.
 export function buildQaFeedbackPrompt({categories,criticalErrors,ratings,reasons,criticalErrorFlags,agentName}){
-  const lines=categories.flatMap(cat=>cat.criteria.map(c=>{
+  const met=[],gaps=[],notApplicable=[];
+  for(const cat of categories)for(const c of cat.criteria){
     const v=ratings?.[c.key];
-    if(!v)return null;
+    if(!v)continue;
+    const label=`${c.label} (${cat.label})`;
+    if(v==='YES'){met.push(label);continue}
+    if(v==='NA'){notApplicable.push(label);continue}
+    // Only No/Partly ratings carry a reviewer-written reason. The reasons map can still hold text for a criterion the reviewer
+    // has since switched to Yes (the AI Pre-QA fills it in, and the field is hidden once the rating is no longer No/Partly),
+    // so a reason is only ever attached to a criterion that is still rated No or Partly.
     const reason=String(reasons?.[c.key]||'').trim();
-    // Only No/Partly ratings get a reviewer-written reason in the form - attaching it here is
-    // what lets the write-up cite the actual, specific cause instead of a generic restatement
-    // of the criterion label (e.g. "the custom domain already points to the Lofty website"
-    // instead of just "issue understanding was lacking").
-    return `- ${c.label} (${cat.label}): ${QA_SCORECARD_RATING_LABELS[v]||v}${reason?` — reviewer's reason: ${reason}`:''}`;
-  })).filter(Boolean).join('\n');
+    gaps.push(`- ${label}: ${QA_SCORECARD_RATING_LABELS[v]||v}${reason?` - reviewer's reason: ${reason}`:''}`);
+  }
   const flagged=criticalErrors.filter(e=>criticalErrorFlags?.[e.key]).map(e=>e.label);
-  return `You are a QA analyst writing the final coaching write-up for a completed ticket-handling evaluation${agentName?` of ${agentName}`:''}. These are the reviewer's own FINAL confirmed ratings for this ticket, not a draft - write feedback strictly consistent with these ratings, don't introduce claims they don't support. Where a criterion has a reviewer's reason attached, ground your write-up in that specific reason rather than a generic restatement of the criterion.
+  return `You are a QA analyst writing the final coaching write-up for a completed ticket-handling evaluation${agentName?` of ${agentName}`:''}. These are the reviewer's own FINAL confirmed ratings for this ticket, not a draft and not an AI suggestion - the reviewer's rating always wins. Write feedback strictly consistent with these ratings and don't introduce claims they don't support. A criterion rated Yes was done well: praise it or leave it out, and never describe it as a gap, miss or something the agent did not do. Only the criteria listed under "Needs improvement" may be called gaps. Where a criterion has a reviewer's reason attached, ground your write-up in that specific reason rather than a generic restatement of the criterion.
 
-Ratings:
-${lines||'(no criteria rated yet)'}
+Done well (rated Yes):
+${met.length?met.map(x=>`- ${x}`).join('\n'):'(none)'}
+
+Needs improvement (rated No or Partly):
+${gaps.length?gaps.join('\n'):'(none - every rated criterion was met)'}
+${notApplicable.length?`\nNot applicable (ignore): ${notApplicable.join('; ')}`:''}
 ${flagged.length?`\nCritical errors confirmed: ${flagged.join(', ')}`:''}
 
 Respond with ONLY a single JSON object, no prose, no markdown code fences, in exactly this shape:
-{"feedback":"2-4 sentence summary of strengths and gaps consistent with the ratings above, citing the reviewer's specific reasons where given","actionPlan":"1-2 concrete, specific coaching actions addressing the No/Partly-rated criteria using their specific reasons (or acknowledging strong performance if there are none)"}`;
+{"feedback":"2-4 sentence summary of strengths and gaps consistent with the ratings above, citing the reviewer's specific reasons where given","actionPlan":"1-2 concrete, specific coaching actions addressing only the No/Partly-rated criteria using their specific reasons (or acknowledging strong performance if there are none)"}`;
 }
 
 export function isQaFeedbackBadAnswer(raw){
