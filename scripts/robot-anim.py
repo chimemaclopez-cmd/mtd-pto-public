@@ -28,9 +28,20 @@ def css(P):
 {P}.act-stretch .lbArm{{animation:rbStretchL 3.2s ease-in-out 1}}{P}.act-stretch .lbWave{{animation:rbStretchR 3.2s ease-in-out 1}}
 {P}.act-stretch .lbEyes{{animation:rbSquint 3.2s ease-in-out 1;transform-box:fill-box;transform-origin:center}}
 {P}.act-hop svg{{animation:rbHop 1.1s ease-in-out 1}}
+{P}.act-lie svg{{animation:rbLie 4.4s ease-in-out 1}}{P}.act-lie .lbEyes{{animation:rbNapEyes 4.4s ease-in-out 1;transform-box:fill-box;transform-origin:center}}
+{P}.act-lie .lbArm{{animation:rbLieArm 4.4s ease-in-out 1}}{P}.act-lie .lbWave{{animation:rbLieArmR 4.4s ease-in-out 1}}{P}.act-lie .lbHead{{animation:rbNapHead 4.4s ease-in-out 1}}
+{P}.act-jack svg{{animation:rbJackHop .5s ease-in-out 6}}
+{P}.act-jack .lbArm{{animation:rbJackArmL .5s ease-in-out 6}}{P}.act-jack .lbWave{{animation:rbJackArmR .5s ease-in-out 6}}
+{P}.act-jack .lbLeg{{animation:rbJackLegL .5s ease-in-out 6}}{P}.act-jack .lbLegR{{animation:rbJackLegR .5s ease-in-out 6}}
+{P}.act-tumble svg{{animation:rbTumble 1.5s ease-in-out 1}}{P}.act-tumble .lbArm{{animation:rbTuck .75s ease-in-out 2}}{P}.act-tumble .lbWave{{animation:rbTuckR .75s ease-in-out 2}}
 {P}.cheer svg{{animation:rbCheer .9s ease-out 1}}{P}.cheer .lbWave{{animation:rbWave .7s linear 2}}
 {P}.thinking .lbEyes{{animation:rbThink 1.8s ease-in-out infinite}}{P}.thinking .lbHead{{animation:rbTilt 2.2s ease-in-out infinite}}{P}.thinking .lbAnt{{animation:rbAnt .5s ease-in-out infinite}}
 {P}.sleepy .lbEyes{{animation:none;transform:scaleY(.15);transform-box:fill-box;transform-origin:center}}{P}.sleepy .lbHead{{animation:rbDroop 4s ease-in-out infinite}}
+{P}.dropping{{animation:rbDrop 1.9s linear 1 both}}
+{P}.dropping svg{{animation:rbLand 1.9s linear 1}}
+{P}.dropping .lbArm{{animation:rbFlailL .28s ease-in-out 3}}{P}.dropping .lbWave{{animation:rbFlailR .28s ease-in-out 3}}
+{P}.dropping .lbLeg{{animation:rbKick .24s ease-in-out 4}}
+{P}.dropping .lbEyes{{animation:rbWide 1.9s linear 1;transform-box:fill-box;transform-origin:center}}
 {P}.walking svg{{animation:rbWalkBob .36s ease-in-out infinite}}
 {P}.walking .lbLeg{{animation:rbWalkL .36s ease-in-out infinite}}{P}.walking .lbLegR{{animation-delay:-.18s}}
 {P}.walking .lbArm{{animation:rbArmSwing .36s ease-in-out infinite}}{P}.walking .lbWave{{animation:rbArmSwingR .36s ease-in-out infinite;animation-delay:0s}}
@@ -62,6 +73,25 @@ def css(P):
 @keyframes rbCheer{{0%{{transform:translateY(0) scale(1)}}30%{{transform:translateY(-22px) scale(.95,1.08)}}60%{{transform:translateY(0) scale(1.08,.9)}}100%{{transform:translateY(0) scale(1)}}}}
 @keyframes rbThink{{0%,100%{{transform:translate(0,-2px)}}50%{{transform:translate(3px,-2px)}}}}
 @keyframes rbDroop{{0%,100%{{transform:rotate(6deg) translateY(1px)}}50%{{transform:rotate(9deg) translateY(2px)}}}}
+@keyframes rbDrop{{0%{{transform:translateY(var(--dropFrom,-400px));animation-timing-function:cubic-bezier(.55,0,1,.45)}}44%{{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}}62%{{transform:translateY(-26px);animation-timing-function:cubic-bezier(.55,0,1,.45)}}78%{{transform:translateY(0);animation-timing-function:cubic-bezier(0,.55,.45,1)}}88%{{transform:translateY(-9px);animation-timing-function:cubic-bezier(.55,0,1,.45)}}100%{{transform:translateY(0)}}}}
+@keyframes rbLand{{0%,43%{{transform:scale(.92,1.12)}}46%{{transform:scale(1.2,.76)}}54%{{transform:scale(.96,1.07)}}62%{{transform:scale(.97,1.05)}}78%{{transform:scale(1.12,.86)}}84%{{transform:scale(.98,1.03)}}92%,100%{{transform:scale(1,1)}}}}
+@keyframes rbFlailL{{0%,100%{{transform:rotate(130deg)}}50%{{transform:rotate(165deg)}}}}
+@keyframes rbFlailR{{0%,100%{{transform:rotate(-130deg)}}50%{{transform:rotate(-165deg)}}}}
+@keyframes rbKick{{0%,100%{{transform:rotate(-14deg)}}50%{{transform:rotate(14deg)}}}}
+@keyframes rbWide{{0%,44%{{transform:scale(1.25)}}46%,100%{{transform:scale(1)}}}}
+@keyframes rbLie{{0%,100%{{transform:translateY(0) rotate(0)}}14%,86%{{transform:translateY(-34px) rotate(-90deg)}}}}
+@keyframes rbNapEyes{{0%,12%,90%,100%{{transform:scaleY(1)}}18%,84%{{transform:scaleY(.12)}}}}
+@keyframes rbLieArm{{0%,100%{{transform:rotate(2deg)}}14%,86%{{transform:rotate(12deg)}}}}
+@keyframes rbLieArmR{{0%,100%{{transform:rotate(-2deg)}}14%,86%{{transform:rotate(-12deg)}}}}
+@keyframes rbNapHead{{0%,100%{{transform:rotate(0)}}25%,75%{{transform:rotate(-5deg)}}50%{{transform:rotate(-3deg)}}}}
+@keyframes rbJackHop{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-10px)}}}}
+@keyframes rbJackArmL{{0%,100%{{transform:rotate(2deg)}}50%{{transform:rotate(165deg)}}}}
+@keyframes rbJackArmR{{0%,100%{{transform:rotate(-2deg)}}50%{{transform:rotate(-165deg)}}}}
+@keyframes rbJackLegL{{0%,100%{{transform:rotate(1.5deg)}}50%{{transform:rotate(26deg)}}}}
+@keyframes rbJackLegR{{0%,100%{{transform:rotate(-1.5deg)}}50%{{transform:rotate(-26deg)}}}}
+@keyframes rbTumble{{0%{{transform:translateY(0) rotate(0) scale(1,1)}}12%{{transform:translateY(2px) rotate(0) scale(1.1,.9)}}38%{{transform:translateY(-24px) rotate(140deg) scale(1,1)}}64%{{transform:translateY(-26px) rotate(270deg)}}86%{{transform:translateY(0) rotate(360deg) scale(1.1,.88)}}100%{{transform:translateY(0) rotate(360deg) scale(1,1)}}}}
+@keyframes rbTuck{{0%,100%{{transform:rotate(2deg)}}50%{{transform:rotate(-70deg)}}}}
+@keyframes rbTuckR{{0%,100%{{transform:rotate(-2deg)}}50%{{transform:rotate(70deg)}}}}
 @keyframes rbWalkBob{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-2.5px)}}}}
 @keyframes rbWalkL{{0%,100%{{transform:rotate(22deg)}}50%{{transform:rotate(-22deg)}}}}
 @keyframes rbArmSwing{{0%,100%{{transform:rotate(28deg)}}50%{{transform:rotate(-28deg)}}}}

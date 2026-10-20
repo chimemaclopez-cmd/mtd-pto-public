@@ -18,7 +18,7 @@ TIPS = [
     'Ask me about PTO, attendance or other HR policy.',
     'Looking for how a ticket was handled before? I can find it.',
 ]
-ACTS = {'wave': 2900, 'dance': 3000, 'clap': 2100, 'nod': 1700, 'spin': 1300, 'stretch': 3300, 'hop': 1200, 'wander': 0}
+ACTS = {'wave': 2900, 'dance': 3000, 'clap': 2100, 'nod': 1700, 'spin': 1300, 'stretch': 3300, 'hop': 1200, 'lie': 4500, 'jack': 3100, 'tumble': 1600, 'wander': 0}
 MIN_EXTENSION_VERSION = '1.2.0'   # raise this only when the extension's own code changes and people must download it again
 
 # 1. animation CSS into the portal page and the extension's built-in copy
