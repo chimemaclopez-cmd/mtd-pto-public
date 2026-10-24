@@ -2249,10 +2249,9 @@ function portalRoleFor(email) {
   if (TRAINING_MANAGER_EMAILS.has(clean)) return 'TRAINING';
   return 'REP';
 }
-// Portal access is limited to Mac's own team plus leadership while the rest of Support works from the
-// Workbench. Everyone else is sent to the Workbench link instead of the portal. Leadership = anyone who has
-// direct reports on the roster, the Operations Manager's direct reports (Training, QA, etc.), and the role
-// holders named above. Set PORTAL_OPEN_ACCESS=1 on the host to reopen the portal to everyone without a deploy.
+// Portal access: every ACTIVE person on the Support roster (all teams) plus the leadership and role holders named
+// above. It was limited to Mac's own team plus leadership for a while and reopened to all
+// Lofty TSRs on 2026-10-25. Anyone NOT on the roster is still sent to the Workbench link instead of the portal. Set PORTAL_OPEN_ACCESS=1 on the host to reopen the portal to everyone without a deploy.
 const WORKBENCH_URL = 'https://tsr.lofty.com/bench/web/';
 const PORTAL_OPEN_ACCESS = ['1', 'true', 'yes'].includes(String(process.env.PORTAL_OPEN_ACCESS || '').toLowerCase());
 const PORTAL_ACCESS_DENIALS_KEY = 'mtdkpi:portal-access-denials';
@@ -2267,6 +2266,7 @@ function buildPortalAccess(records) {
     if (leaders.has(e)) byEmail.set(e, 'leadership (leads a team)');
     else if (ADMIN_EMAILS.has(lead)) byEmail.set(e, "Mac's team");
     else if (lead === 'charlotte@lofty.com') byEmail.set(e, 'leadership group under the Operations Manager');
+    else byEmail.set(e, 'active member of the Lofty Support roster'); // reopened to every active TSR on the roster (2026-10-25)
   }
   return byEmail;
 }
