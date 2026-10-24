@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.82';
+const PORTAL_VERSION = '2.3.83';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1826,7 +1826,16 @@ async function saveLottiKnowledge(list) { return cloudStore.kvSetJson(LOTTI_KNOW
 const LOTTI_SOP_KEY = 'mtdkpi:lotti-sop-records';
 const LOTTI_SOP_STATE_KEY = 'mtdkpi:lotti-sop-sync-state';
 const LOTTI_SOP_REQUEST_KEY = 'mtdkpi:lotti-sop-sync-request';
-async function loadLottiSopRecords() { return cloudStore.kvGetJson(LOTTI_SOP_KEY, []); }
+// The SOP records are stored in numbered parts (part 1 at the base key, "<key>:2"... after it, "<key>:parts" = how many) because
+// the Playbook outgrew a single stored value. Written by lotti-sop-sync.js in the proxy - keep the layout in step with it.
+async function loadLottiSopRecords() {
+  const first = await cloudStore.kvGetJson(LOTTI_SOP_KEY, []);
+  const meta = await cloudStore.kvGetJson(LOTTI_SOP_KEY + ':parts', null);
+  const parts = Math.max(1, Number(meta && meta.parts) || 1);
+  let all = Array.isArray(first) ? first : [];
+  for (let i = 2; i <= parts; i += 1) { const more = await cloudStore.kvGetJson(`${LOTTI_SOP_KEY}:${i}`, []); if (Array.isArray(more)) all = all.concat(more); }
+  return all;
+}
 const LOTTI_CONF_SPACES = ['TS', 'CPKB', 'CIKB', 'EXTRA'];
 const LOTTI_CONF_STATE_KEY = 'mtdkpi:lotti-conf-state';
 let confIndexCache = { at: 0, entries: [] };
