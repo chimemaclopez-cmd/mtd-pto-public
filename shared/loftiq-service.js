@@ -128,17 +128,26 @@ export function buildLoftIqConsistencyPrompt(question,entries){
 
 Below are dated entries: official Teams announcements (with posted dates) and TSR Playbook SOPs or guides (with updated dates). Find places where the entries give DIFFERENT instructions that matter for answering this question: (1) a recent announcement that differs from a Playbook SOP or guide, and (2) two announcements that give different steps, assignees, tools or buttons, deadlines or thresholds for the same situation. Use only what the entries say, quote the differing detail briefly, ignore differences of scope or situation, and never invent a difference.\n\nA DIFFERENCE means the two entries cannot both be followed for the same step of the same situation: they name a different team or person for the same handoff, different steps or a different order, a different tool or button, or a different deadline, threshold, price or eligibility rule. These are NOT differences, so leave them out: one entry adds a step, check or requirement the other does not mention (for example, one says who to transfer an upgrade to and the other says the client must confirm the change by email afterwards - both apply); the entries cover different stages of the same request (routing versus processing versus follow-up); one is more detailed than the other; or they cover different products, plans or client types. Before listing an item, check that following the newer entry would mean NOT doing what the older one says for that exact step. If you are not sure, leave it out.
 
-Reply with ONLY a JSON array (no prose, no code fence), at most 4 items, each exactly: {"topic":"3 to 8 words","newer":"entry title with its date","older":"entry title with its date","difference":"one short sentence"}. Reply [] if there is no difference.
+Reply with ONLY a JSON array (no prose, no code fence), at most 4 items, each exactly: {"topic":"3 to 8 words","newer":"entry title with its date","older":"entry title with its date","newerSays":"the newer entry's instruction for that step, copied word for word (under 25 words)","olderSays":"the older entry's instruction for that same step, copied word for word (under 25 words)","canDoBoth":true or false,"difference":"one short sentence"}. Set canDoBoth to true when an employee could follow both instructions on the same request (one adds to the other); only items with canDoBoth false are real differences. Reply [] if there is no difference.
 
 ENTRIES:
 ${list}`;
 }
-export function parseLoftIqConsistency(text){
+// Only a real contradiction survives: the auditor must say both instructions cannot be followed together, and when the entries are passed in,
+// both quoted instructions must actually appear in them (an auditor that paraphrases or invents a clash is dropped).
+const consistencyNorm=t=>String(t||'').toLowerCase().replace(/<[^>]+>/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+function consistencyQuoteFound(quote,bodies){
+  const words=consistencyNorm(quote).split(' ').filter(w=>w.length>2);
+  if(words.length<3)return false;
+  return bodies.some(body=>words.filter(w=>body.includes(w)).length/words.length>=0.8);
+}
+export function parseLoftIqConsistency(text,entries){
   const raw=String(text||''),a=raw.indexOf('['),b=raw.lastIndexOf(']');
   if(a<0||b<a)return[];
+  const bodies=Array.isArray(entries)?entries.map(e=>consistencyNorm(`${e.title||''} ${e.body||''}`)):null;
   try{
     const arr=JSON.parse(raw.slice(a,b+1));
-    return(Array.isArray(arr)?arr:[]).filter(x=>x&&typeof x.topic==='string'&&x.topic.trim()&&typeof x.difference==='string').slice(0,4).map(x=>({topic:x.topic.trim().slice(0,90),newer:String(x.newer||'').slice(0,140),older:String(x.older||'').slice(0,140),difference:x.difference.trim().slice(0,220)}));
+    return(Array.isArray(arr)?arr:[]).filter(x=>x&&typeof x.topic==='string'&&x.topic.trim()&&typeof x.difference==='string'&&x.canDoBoth===false&&(!bodies||(consistencyQuoteFound(x.newerSays,bodies)&&consistencyQuoteFound(x.olderSays,bodies)))).slice(0,4).map(x=>({topic:x.topic.trim().slice(0,90),newer:String(x.newer||'').slice(0,140),older:String(x.older||'').slice(0,140),difference:x.difference.trim().slice(0,220)}));
   }catch{return[]}
 }
 

@@ -58,8 +58,15 @@ console.log('Official Help Center provenance and retrieval checks passed.');
 assert.match(buildLoftIqConsistencyPrompt('How do I cancel?',[{title:'Announcement A',category:'Official Teams announcement (posted 2026-10-12)',body:'Do not create a manual Jira.'}]),/\[E1\] Announcement A/);
 assert.deepEqual(parseLoftIqConsistency('[]'),[]);
 assert.deepEqual(parseLoftIqConsistency('no json here'),[]);
-const parsed=parseLoftIqConsistency('Here: [{"topic":"Cancellation Jira","newer":"A (2026-10-12)","older":"B (2026-09-30)","difference":"Manual Jira no longer used."}]');
+const parsed=parseLoftIqConsistency('Here: [{"topic":"Cancellation Jira","newer":"A (2026-10-12)","older":"B (2026-09-30)","canDoBoth":false,"difference":"Manual Jira no longer used."}]');
 assert.equal(parsed.length,1);assert.equal(parsed[0].topic,'Cancellation Jira');
+// No "cannot do both" verdict, or a verdict that both can apply, is not a conflict.
+assert.deepEqual(parseLoftIqConsistency('[{"topic":"T","newer":"A","older":"B","difference":"d"}]'),[]);
+assert.deepEqual(parseLoftIqConsistency('[{"topic":"T","newer":"A","older":"B","canDoBoth":true,"difference":"d"}]'),[]);
+// With entries passed in, both quoted instructions must really appear in them.
+const auditEntries=[{title:'Announcement (2026-10-12)',body:'Do not create a manual Jira for cancellations; the billing form opens it automatically.'},{title:'Cancellation SOP',body:'Create a manual Jira ticket in the AM project for every cancellation request.'}];
+assert.equal(parseLoftIqConsistency('[{"topic":"Cancellation Jira","newer":"A","older":"B","newerSays":"Do not create a manual Jira for cancellations","olderSays":"Create a manual Jira ticket in the AM project","canDoBoth":false,"difference":"d"}]',auditEntries).length,1);
+assert.deepEqual(parseLoftIqConsistency('[{"topic":"Cancellation Jira","newer":"A","older":"B","newerSays":"Transfer every cancellation to the Sales team","olderSays":"Create a manual Jira ticket in the AM project","canDoBoth":false,"difference":"d"}]',auditEntries),[]);
 assert.deepEqual(parseLoftIqConsistency('[{"nope":1}]'),[]);
 // A source that only adds a step (e.g. client confirmation after an upgrade) is not a conflict, and answers must carry that step forward.
 assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',body:'x'}]),/cannot both be followed/);
