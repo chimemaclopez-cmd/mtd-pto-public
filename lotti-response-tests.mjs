@@ -72,4 +72,5 @@ assert.deepEqual(parseLoftIqConsistency('[{"nope":1}]'),[]);
 assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',body:'x'}]),/cannot both be followed/);
 assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',body:'x'}]),/adds a step, check or requirement/);
 assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who handles upgrades?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/so the employee does not act on half the process/);
+assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who do I transfer them to?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/conditions attached to the handoff itself are part of a CONTACT\/ROUTING answer/);
 console.log('Consistency audit helper checks passed.');
