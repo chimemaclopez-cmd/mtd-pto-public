@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer,buildLoftIqConsistencyPrompt,parseLoftIqConsistency,buildLoftIqConflictCheckPrompt,isLoftIqConflictConfirmed} from './shared/loftiq-service.js';
+import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer,buildLoftIqConsistencyPrompt,parseLoftIqConsistency,buildLoftIqConflictCheckPrompt,isLoftIqConflictConfirmed,buildLoftIqAnswerConflictCheckPrompt,isLoftIqAnswerConflictConfirmed} from './shared/loftiq-service.js';
 
 const prior=[{role:'user',content:'How do I cancel a website add-on?'},{role:'assistant',content:'An unverified previous answer about payroll.'}];
 assert.match(buildLoftIqSearchQuery('Who should handle that?',prior),/website add-on/);
@@ -79,4 +79,7 @@ const chk=buildLoftIqConflictCheckPrompt('Who handles upgrades?',{newer:'Announc
 assert.match(chk,/Document A \(Announcement X\)/);assert.match(chk,/Document B \(CVT Guide - Purpose\)/);
 assert.equal(buildLoftIqConflictCheckPrompt('q',{newer:'Missing',older:'Gone',difference:'d'},[{title:'A',body:'x'}]),'');
 assert.equal(isLoftIqConflictConfirmed('NO - they contradict.'),true);assert.equal(isLoftIqConflictConfirmed('YES, both apply.'),false);assert.equal(isLoftIqConflictConfirmed('Nothing conflicts'),false);
+assert.match(buildLoftIqAnswerConflictCheckPrompt('q','routing',[{title:'Upsell SOP',body:'Phone: follow the CVT guide.'},{title:'CVT guide',body:'Transfer to AGT.'}]),/Document 2 \(CVT guide\)/);
+assert.equal(buildLoftIqAnswerConflictCheckPrompt('q','t',[]),'');
+assert.equal(isLoftIqAnswerConflictConfirmed('YES - Doc 1 and Doc 2 differ.'),true);assert.equal(isLoftIqAnswerConflictConfirmed('NO, they can all be followed.'),false);
 console.log('Consistency audit helper checks passed.');

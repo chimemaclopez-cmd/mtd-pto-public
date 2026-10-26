@@ -170,6 +170,19 @@ ${body(b)}
 A reviewer claimed they conflict: "${String(conflict.difference||'').slice(0,220)}"
 Question: on this request, can the TSR do what Document A says AND what Document B says without breaking either one? Different teams handling different stages (for example one team the client is transferred to, and another team that later processes the order), or one document adding a step the other does not mention, is NOT a conflict. Answer with exactly one word first, YES (both can be followed, no real conflict) or NO (they really contradict), then one short sentence why.`;
 }
+// The same check for a conflict the answer itself declared: are the documents it drew on really incompatible on this point?
+export function buildLoftIqAnswerConflictCheckPrompt(question,topic,entries){
+  const docs=(entries||[]).slice(0,8).map((e,i)=>`Document ${i+1} (${e.title}):\n${String(e.body||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,1200)}`).join('\n\n');
+  if(!docs)return '';
+  return `Internal support documents are below. A support rep (TSR) is handling this request: "${String(question||'').slice(0,300)}"
+
+${docs}
+
+A draft answer claimed the documents conflict on: "${String(topic||'').slice(0,200)}"
+Question: is there any pair of these documents whose instructions for this request cannot both be followed? Different channels with different paths (phone versus email or chat), different teams handling different stages, one document pointing to another ("follow the X guide"), or one document adding a step the other does not mention are NOT conflicts, and a newer document only replaces an older one where it says so for the same step. Answer with exactly one word first, NO (no real conflict, the documents can all be followed) or YES (two of them really contradict), then one short sentence naming the two documents if YES.`;
+}
+export function isLoftIqAnswerConflictConfirmed(text){return /^\W*yes\b/i.test(String(text||'').trim())}
+export const LOFTIQ_NO_CONFLICT_NOTE='\n\nREVIEW NOTE FOR THIS ANSWER: a separate check of the documents found that they do NOT contradict each other for this request. Do not say that one replaces or supersedes another and do not add a Conflict line. Combine them: give each path that applies (for example the phone path and the email/chat path), the stage each team handles, and any added step, naming the document each part comes from.';
 export function isLoftIqConflictConfirmed(text){return /^\W*no\b/i.test(String(text||'').trim())}
 
 // Reject invented source IDs without forcing citations onto purely personal-data answers.
