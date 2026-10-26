@@ -155,7 +155,15 @@ export function parseLoftIqConsistency(text,entries){
 // same request between teams at different stages (transfer to one team, another team processes the order) read as a clash to the
 // broad audit far more often than to this question, so a difference is only shown when this check also says NO.
 export function buildLoftIqConflictCheckPrompt(question,conflict,entries){
-  const pick=t=>{const key=String(t||'').split(' | ')[0].replace(/\s*\(?(?:updated|posted)?\s*\d{4}-\d{2}-\d{2}\)?\s*$/,'').trim().toLowerCase().slice(0,40);return key?(entries||[]).find(e=>String(e.title||'').toLowerCase().startsWith(key)):null};
+  // The audit often shortens or reformats titles ("Client Confirmation Required ..." for "Announcement 2026-10-12 - Client Confirmation
+  // Required ..."), so match on normalised words: containment first, then the entry sharing most of the cited title's words.
+  const norm=t=>String(t||'').toLowerCase().replace(/^announcement\s+\d{4}-\d{2}-\d{2}\s*-\s*/,'').replace(/\(?(?:updated|posted)?\s*\d{4}-\d{2}-\d{2}\)?/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+  const pick=t=>{const key=norm(String(t||'').split(' | ')[0]).slice(0,60).trim();if(key.length<6)return null;
+    const list=(entries||[]).map(e=>({e,n:norm(e.title)}));
+    const hit=list.find(x=>x.n.startsWith(key)||key.startsWith(x.n.slice(0,60).trim())||x.n.includes(key));if(hit)return hit.e;
+    const words=key.split(' ').filter(w=>w.length>2);let best=null,score=0;
+    for(const x of list){const s=words.filter(w=>x.n.includes(w)).length/(words.length||1);if(s>score){score=s;best=x.e}}
+    return score>=0.7?best:null};
   const a=pick(conflict?.newer),b=pick(conflict?.older);
   if(!a||!b||a===b)return '';
   const body=e=>String(e.body||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,1800);

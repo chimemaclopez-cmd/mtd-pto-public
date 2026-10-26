@@ -82,4 +82,6 @@ assert.equal(isLoftIqConflictConfirmed('NO - they contradict.'),true);assert.equ
 assert.match(buildLoftIqAnswerConflictCheckPrompt('q','routing',[{title:'Upsell SOP',body:'Phone: follow the CVT guide.'},{title:'CVT guide',body:'Transfer to AGT.'}]),/Document 2 \(CVT guide\)/);
 assert.equal(buildLoftIqAnswerConflictCheckPrompt('q','t',[]),'');
 assert.equal(isLoftIqAnswerConflictConfirmed('YES - Doc 1 and Doc 2 differ.'),true);assert.equal(isLoftIqAnswerConflictConfirmed('NO, they can all be followed.'),false);
+// A shortened title from the audit still finds the full announcement entry.
+assert.match(buildLoftIqConflictCheckPrompt('q',{newer:'Client Confirmation Required for Subscription Changes - effective immediately (2026-10-12)',older:'CVT and Sales Transfer - Purpose (2026-04-24)',difference:'d'},[{title:'Announcement 2026-10-12 - Client Confirmation Required for Subscription Changes - effective immediately,',body:'x'},{title:'CVT and Sales Transfer - Purpose',body:'y'}]),/Document A \(Announcement 2026-10-12/);
 console.log('Consistency audit helper checks passed.');
