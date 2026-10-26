@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer,buildLoftIqConsistencyPrompt,parseLoftIqConsistency} from './shared/loftiq-service.js';
+import {buildLoftIqSearchQuery,buildLoftIqPrompt,hasInvalidLoftIqSourceRefs,isLoftIqBadAnswer,buildLoftIqConsistencyPrompt,parseLoftIqConsistency,buildLoftIqConflictCheckPrompt,isLoftIqConflictConfirmed} from './shared/loftiq-service.js';
 
 const prior=[{role:'user',content:'How do I cancel a website add-on?'},{role:'assistant',content:'An unverified previous answer about payroll.'}];
 assert.match(buildLoftIqSearchQuery('Who should handle that?',prior),/website add-on/);
@@ -74,4 +74,9 @@ assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',bo
 assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who handles upgrades?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/so the employee does not act on half the process/);
 assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who do I transfer them to?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/conditions attached to the handoff itself are part of a CONTACT\/ROUTING answer/);
 assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who do I transfer them to?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/only ADDS a requirement to the SOP's process/);
+// The second check names both documents and is only confirmed by a leading NO.
+const chk=buildLoftIqConflictCheckPrompt('Who handles upgrades?',{newer:'Announcement X (2026-10-12)',older:'CVT Guide - Purpose | Sales (updated 2026-04-24)',difference:'d'},[{title:'Announcement X',body:'Billing processes it.'},{title:'CVT Guide - Purpose',body:'Transfer to AGT.'}]);
+assert.match(chk,/Document A \(Announcement X\)/);assert.match(chk,/Document B \(CVT Guide - Purpose\)/);
+assert.equal(buildLoftIqConflictCheckPrompt('q',{newer:'Missing',older:'Gone',difference:'d'},[{title:'A',body:'x'}]),'');
+assert.equal(isLoftIqConflictConfirmed('NO - they contradict.'),true);assert.equal(isLoftIqConflictConfirmed('YES, both apply.'),false);assert.equal(isLoftIqConflictConfirmed('Nothing conflicts'),false);
 console.log('Consistency audit helper checks passed.');

@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.89';
+const PORTAL_VERSION = '2.3.90';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1978,7 +1978,7 @@ async function loadHandbookPdf() {
 }
 const LOTTI_ANNOUNCEMENT_KEY = 'mtdkpi:lotti-announcement-records';
 async function loadLottiAnnouncements() { return cloudStore.kvGetJson(LOTTI_ANNOUNCEMENT_KEY, []); }
-const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
+const SOP_STOPWORDS = new Set(['the', 'and', 'for', 'how', 'can', 'what', 'when', 'where', 'who', 'why', 'does', 'did', 'was', 'are', 'you', 'your', 'our', 'with', 'this', 'that', 'from', 'have', 'has', 'not', 'but', 'any', 'about', 'should', 'would', 'could', 'please', 'need', 'want', 'wants', 'client', 'customer', 'process', 'steps', 'step', 'handle', 'handling', 'tell', 'does', 'into', 'there', 'their', 'they', 'them', 'then', 'than', 'its', 'also', 'just', 'like', 'get', 'got', 'make', 'know', 'lotti']);
 ['ang', 'ung', 'yung', 'mga', 'nang', 'kung', 'pwede', 'paano', 'ano', 'ito', 'iyon', 'para', 'may', 'wala', 'lang', 'din', 'rin', 'ako', 'siya', 'namin', 'natin', 'nila', 'ang', 'sana', 'kasi', 'naman', 'ba', 'po', 'opo', 'ngayon', 'doon', 'dito', 'tapos', 'pero', 'kahit', 'kapag', 'pag'].forEach(w => SOP_STOPWORDS.add(w));
 ['process', 'processing', 'request', 'requests', 'handle', 'handling', 'procedure', 'steps', 'client', 'clients', 'customer', 'customers'].forEach(w => SOP_STOPWORDS.add(w)); // so the topic words (cancellation, domain, card...) decide which documents match, not generic ones
 // Ranks SOP sections for a question: matches in the SOP's name/heading count most, then the section text; common
@@ -1989,17 +1989,24 @@ function searchSopRecords(query, records, limit = 4) {
   // plural/singular, plus a 5-letter stem for longer words so "verify" also finds "verification"
   const forms = w => { const f = w.endsWith('s') ? [w, w.slice(0, -1)] : [w, `${w}s`]; if (w.length >= 6) f.push(w.slice(0, 5)); return f; };
   const phrase = words.length > 1 ? words.join(' ') : '';
+  // Rarer words say more about what is being asked: "upgrade" in a question should count for more than "transfer" or "user",
+  // which appear across dozens of SOPs. Each word is weighted by how few sections contain it (0.5x common, up to 1.5x rare).
+  const texts = records.map(r => `${r.title || ''} ${r.source?.doc || ''} ${r.bodyText || ''}`.toLowerCase());
+  const weight = Object.fromEntries(words.map(w => { const df = texts.filter(t => forms(w).some(v => t.includes(v))).length; return [w, Math.min(1.5, Math.max(0.5, Math.log((records.length + 1) / (df + 1)) / 2.5))]; }));
   return records.map(r => {
     const title = `${r.title || ''} ${r.source?.doc || ''}`.toLowerCase(), body = String(r.bodyText || '').toLowerCase();
     let score = 0;
     for (const w of words) {
-      if (forms(w).some(v => title.includes(v))) score += 5;
+      if (forms(w).some(v => title.includes(v))) score += 5 * weight[w];
       const hits = forms(w).reduce((n, v) => n + (body.split(v).length - 1), 0);
-      if (hits) score += Math.min(4, 1 + Math.log2(hits));
+      if (hits) score += Math.min(4, 1 + Math.log2(hits)) * weight[w];
     }
     if (phrase && (title.includes(phrase) || body.includes(phrase))) score += 6;
     return { r, score };
-  }).filter(x => x.score >= 3).sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.r);
+  }).filter(x => x.score >= 3).sort((a, b) => b.score - a.score).filter(perDoc()).slice(0, limit).map(x => x.r);
+  // At most two sections from any one SOP, so one document that shares a common word ("transfer", "user") cannot crowd out
+  // another SOP that answers part of the question (for example the email/chat path in a different SOP).
+  function perDoc() { const seen = new Map(); return x => { const k = x.r.source?.docKey || x.r.id; const n = (seen.get(k) || 0) + 1; seen.set(k, n); return n <= 2; }; }
 }
 // Operational Notes: leadership-only log of anything that affected productivity or KPI
 // performance (completion rate, CSAT especially) - outages, policy changes, staffing gaps,
@@ -4862,13 +4869,19 @@ const server = http.createServer(async (req, res) => {
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
       const sopActive = sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
-      const sopMatched = searchSopRecords(query, sopActive, 6);
+      const sopMatched = searchSopRecords(query, sopActive, 8);
       // A matched section rarely carries the SOP's rules (a timing window, a verification step, an exclusion), which sit in their own
       // sections and share few words with the question. Bring those sections of the top matched SOPs along so the answer is complete.
       const sopDocs = [...new Set(sopMatched.map(x => x.source?.docKey).filter(Boolean))].slice(0, 2);
       const sopRuleSections = sopActive.filter(x => sopDocs.includes(x.source?.docKey) && !sopMatched.includes(x)
         && /requirement|timing|important|eligib|verif|exception|restrict|do not|don't|must|before you|policy|rule|note|warning|limit/i.test(String(x.title || '').replace(/^.*? - /, '')));
       sopMatched.push(...sopRuleSections.slice(0, 3));
+      // SOPs that send the reader to a matched SOP by name ("Follow the CVT and Sales Transfer Guide") cover the same request from
+      // another angle (another channel, an earlier step), so the best-matching section of each is brought along too.
+      const sopDocNames = [...new Set(sopMatched.filter(x => sopDocs.includes(x.source?.docKey)).map(x => String(x.source?.doc || '').toLowerCase()).filter(n => n.length >= 8))];
+      const linking = sopActive.filter(x => !sopDocs.includes(x.source?.docKey) && !sopMatched.includes(x) && sopDocNames.some(n => String(x.bodyText || '').toLowerCase().includes(n)));
+      const linkingBest = searchSopRecords(query, linking, 2);
+      sopMatched.push(...(linkingBest.length ? linkingBest : linking.slice(0, 1)));
       const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000), url: x.source?.url || '' }));
       // Official Teams announcements can be newer than the SOP they change, so they are searched too and listed first, newest first.
       // Up to eight matches, so a newer announcement that replaces an older one on the same topic is not crowded out; newest first.

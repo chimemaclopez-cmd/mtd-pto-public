@@ -151,6 +151,27 @@ export function parseLoftIqConsistency(text,entries){
   }catch{return[]}
 }
 
+// Second check on each difference the audit reports: a narrow yes/no question about the two entries it names. Sources that hand the
+// same request between teams at different stages (transfer to one team, another team processes the order) read as a clash to the
+// broad audit far more often than to this question, so a difference is only shown when this check also says NO.
+export function buildLoftIqConflictCheckPrompt(question,conflict,entries){
+  const pick=t=>{const key=String(t||'').split(' | ')[0].replace(/\s*\(?(?:updated|posted)?\s*\d{4}-\d{2}-\d{2}\)?\s*$/,'').trim().toLowerCase().slice(0,40);return key?(entries||[]).find(e=>String(e.title||'').toLowerCase().startsWith(key)):null};
+  const a=pick(conflict?.newer),b=pick(conflict?.older);
+  if(!a||!b||a===b)return '';
+  const body=e=>String(e.body||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,1800);
+  return `Two internal support documents are below. A support rep (TSR) is handling this request: "${String(question||'').slice(0,300)}"
+
+Document A (${a.title}):
+${body(a)}
+
+Document B (${b.title}):
+${body(b)}
+
+A reviewer claimed they conflict: "${String(conflict.difference||'').slice(0,220)}"
+Question: on this request, can the TSR do what Document A says AND what Document B says without breaking either one? Different teams handling different stages (for example one team the client is transferred to, and another team that later processes the order), or one document adding a step the other does not mention, is NOT a conflict. Answer with exactly one word first, YES (both can be followed, no real conflict) or NO (they really contradict), then one short sentence why.`;
+}
+export function isLoftIqConflictConfirmed(text){return /^\W*no\b/i.test(String(text||'').trim())}
+
 // Reject invented source IDs without forcing citations onto purely personal-data answers.
 export function hasInvalidLoftIqSourceRefs(text,sourceCount){
   const lines=[...String(text||'').matchAll(/(?:^|\n)[ \t]*Sources?:[ \t]*([^\n]*)/gi)];
