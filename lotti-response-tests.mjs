@@ -61,4 +61,8 @@ assert.deepEqual(parseLoftIqConsistency('no json here'),[]);
 const parsed=parseLoftIqConsistency('Here: [{"topic":"Cancellation Jira","newer":"A (2026-10-12)","older":"B (2026-09-30)","difference":"Manual Jira no longer used."}]');
 assert.equal(parsed.length,1);assert.equal(parsed[0].topic,'Cancellation Jira');
 assert.deepEqual(parseLoftIqConsistency('[{"nope":1}]'),[]);
+// A source that only adds a step (e.g. client confirmation after an upgrade) is not a conflict, and answers must carry that step forward.
+assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',body:'x'}]),/cannot both be followed/);
+assert.match(buildLoftIqConsistencyPrompt('Who handles upgrades?',[{title:'A',body:'x'}]),/adds a step, check or requirement/);
+assert.match(buildLoftIqPrompt({context:{},priorMessages:[],question:'Who handles upgrades?',helpArticles:[],alignments:[{title:'A',body:'x'}],trainingVideos:[]}),/so the employee does not act on half the process/);
 console.log('Consistency audit helper checks passed.');
