@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.86';
+const PORTAL_VERSION = '2.3.87';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -4861,7 +4861,14 @@ const server = http.createServer(async (req, res) => {
       const active = list.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
       const matched = keywordSearchRecords(query, active, { bodyKey: 'bodyText' });
       // Official TSR Playbook SOPs/guides (kept in sync with SharePoint) come first, with fuller excerpts.
-      const sopMatched = searchSopRecords(query, sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) })), 6);
+      const sopActive = sopList.filter(x => x.active !== false).map(x => ({ ...x, bodyText: stripArticleHtml(x.body) }));
+      const sopMatched = searchSopRecords(query, sopActive, 6);
+      // A matched section rarely carries the SOP's rules (a timing window, a verification step, an exclusion), which sit in their own
+      // sections and share few words with the question. Bring those sections of the top matched SOPs along so the answer is complete.
+      const sopDocs = [...new Set(sopMatched.map(x => x.source?.docKey).filter(Boolean))].slice(0, 2);
+      const sopRuleSections = sopActive.filter(x => sopDocs.includes(x.source?.docKey) && !sopMatched.includes(x)
+        && /requirement|timing|important|eligib|verif|exception|restrict|do not|don't|must|before you|policy|rule|note|warning|limit/i.test(String(x.title || '').replace(/^.*? - /, '')));
+      sopMatched.push(...sopRuleSections.slice(0, 3));
       const sopItems = sopMatched.map(x => ({ title: x.title, category: `${x.category} (official source of truth${x.source?.lastModified ? `, updated ${String(x.source.lastModified).slice(0, 10)}` : ''})`, body: x.bodyText.slice(0, 3000), url: x.source?.url || '' }));
       // Official Teams announcements can be newer than the SOP they change, so they are searched too and listed first, newest first.
       // Up to eight matches, so a newer announcement that replaces an older one on the same topic is not crowded out; newest first.
