@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lotti - Lofty Support Assistant",
   "description": "Lotti, the Lofty Support Portal assistant, on your work tabs: click the robot (or press Alt+L) to ask about SOPs, announcements, HR policy and past tickets without leaving Zendesk, Jira or the CRM.",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -58,5 +58,5 @@
   "host_permissions": [
     "https://loftysupportportal.com/*"
   ],
-  "version_name": "1.4.4"
+  "version_name": "1.4.5"
 }

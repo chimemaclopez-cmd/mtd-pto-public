@@ -268,6 +268,23 @@
     if (pos.h) place(pos.h === 'left' ? pos.x : vw() - w - pos.x, pos.v === 'top' ? pos.y : vh() - h - pos.y);
     else place(pos.left * (vw() / (pos.vw || vw())), pos.top * (vh() / (pos.vh || vh())));
   }
+  // Where a chat window should open so it sits beside the robot, like the portal's own floating chat: above her when she is in the lower half of
+  // the screen (below otherwise), extending to the right when she is in the left half (to the left otherwise). Screen coordinates, clamped to the display.
+  const PANEL_W = 392, PANEL_H = 580;
+  function anchor() {
+    const r = host.getBoundingClientRect();
+    const chromeTop = Math.max(0, outerHeight - innerHeight - Math.max(0, (outerWidth - innerWidth) / 2)); // toolbar and tabs above the page
+    const rx = screenX + (outerWidth - innerWidth) / 2 + r.left, ry = screenY + chromeTop + r.top;
+    const minX = screen.availLeft || 0, minY = screen.availTop || 0, maxX = minX + screen.availWidth, maxY = minY + screen.availHeight;
+    const openRight = r.left < innerWidth / 2, openUp = r.top > innerHeight / 2;
+    let left = openRight ? rx : rx + r.width - PANEL_W;
+    let top = openUp ? ry - PANEL_H - 8 : ry + r.height + 8;
+    left = Math.min(Math.max(left, minX), Math.max(minX, maxX - PANEL_W));
+    top = Math.min(Math.max(top, minY), Math.max(minY, maxY - PANEL_H));
+    return { left, top };
+  }
+  function openChat() { cheer(); try { chrome.runtime.sendMessage({ type: 'open-lotti', anchor: anchor() }); } catch (_) { /* extension reloaded */ } }
+  try { chrome.runtime.onMessage.addListener((message, sender, reply) => { if (message && message.type === 'lotti-anchor') reply(anchor()); }); } catch (_) {}
   let drag = null, moved = false;
   bot.addEventListener('pointerdown', e => {
     drag = { x: e.clientX, y: e.clientY, left: host.getBoundingClientRect().left, top: host.getBoundingClientRect().top };
@@ -282,11 +299,13 @@
   });
   bot.addEventListener('pointerup', e => {
     if (!drag) return;
-    bot.releasePointerCapture(e.pointerId); wrapEl.classList.remove('held');
-    if (moved) { const r = host.getBoundingClientRect(); savedPos = posToSave(); store.set({ lottiPos: savedPos }); }
+    const wasMoved = moved; drag = null;   // always let go of the drag first, so a failure below can never leave her stuck to the pointer
+    try { bot.releasePointerCapture(e.pointerId); } catch (_) {}
+    wrapEl.classList.remove('held');
+    if (wasMoved) { savedPos = posToSave(); store.set({ lottiPos: savedPos }); }
     else openChat();
-    drag = null;
   });
+  bot.addEventListener('pointercancel', () => { drag = null; wrapEl.classList.remove('held'); });
   bot.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(); } });
   hideBtn.addEventListener('click', async () => {
     const { lottiHiddenHosts = [] } = await store.get('lottiHiddenHosts');
