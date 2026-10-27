@@ -137,8 +137,11 @@
       svg{width:100%;height:100%;display:block;pointer-events:none}
       .tip{position:absolute;right:72px;top:14px;background:#fff;color:#20243a;border:1px solid #dfe2ea;border-radius:12px;padding:6px 12px;font-size:12.5px;font-weight:700;
         box-shadow:0 6px 16px rgba(32,36,55,.16);white-space:nowrap;pointer-events:none;opacity:0;transform:translateX(6px);transition:opacity .15s,transform .15s}
+      .wrap.onleft .tip{right:auto;left:72px;transform:translateX(-6px)}
       .wrap:hover .tip{opacity:1;transform:none}
       .bubble{position:absolute;right:74px;bottom:46px;width:210px;background:#fff;color:#20243a;border:1px solid #dfe2ea;border-radius:14px 14px 4px 14px;padding:9px 12px;font-size:12.5px;line-height:1.4;font-weight:600;box-shadow:0 8px 22px rgba(32,36,55,.2);opacity:0;pointer-events:none}
+      .wrap.onleft .bubble{right:auto;left:74px;border-radius:14px 14px 14px 4px}
+      .wrap.ontop .bubble{bottom:auto;top:14px}
       .bubble.show{animation:pop 6s ease-in-out 1 forwards}
       .hide{all:unset;position:absolute;top:-4px;left:-6px;width:18px;height:18px;border-radius:50%;background:#444;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;opacity:0;transition:opacity .15s}
       .wrap:hover .hide{opacity:.85}.hide:hover{opacity:1}
@@ -164,7 +167,15 @@
     const t = cfg.tips && cfg.tips.length ? cfg.tips : DEFAULT_TIPS;
     return t[Math.floor(Math.random() * t.length)];
   }
+  // When she sits near the left edge (or the top) the bubble and hover tip open toward the open side of the screen instead of being cut off.
+  function orient() {
+    const r = host.getBoundingClientRect();
+    wrapEl.classList.toggle('onleft', r.left < 300);
+    wrapEl.classList.toggle('ontop', r.top < 140);
+  }
+  wrapEl.addEventListener('pointerenter', orient);
   function showTip() {
+    orient();
     if (document.hidden || tipCount >= 4 || bubble.classList.contains('show')) return;
     bubble.textContent = pickTip(); tipCount += 1;
     bubble.classList.remove('show'); void bubble.offsetWidth; bubble.classList.add('show');
