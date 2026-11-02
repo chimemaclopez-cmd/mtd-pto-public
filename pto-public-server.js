@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.96';
+const PORTAL_VERSION = '2.3.97';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1193,15 +1193,16 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScor
 // rather than blocking the report.
 function sumDailyTeamActivity(dailySnapshot, email, startDate, endDate) {
   const days = dailySnapshot.byEmail?.[email] || {};
-  let acceptedCalls = 0, anyData = false;
+  let acceptedCalls = 0, newTickets = 0, anyData = false;
   for (const [day, v] of Object.entries(days)) {
     if (day < startDate || day > endDate) continue;
     anyData = true;
     // zendesk-proxy.js stores each day's activity as id SETS (not raw counts) so its own
     // incremental re-fetching can dedupe safely - the count here is just each set's size.
     acceptedCalls += (v.acceptedCallIds || []).length;
+    newTickets += (v.newTicketIds || []).length;
   }
-  return { acceptedCalls, anyData };
+  return { acceptedCalls, newTickets, anyData };
 }
 async function resolveZendeskUserIdForEmail(email) {
   const data = await zendeskApiFetch(`/api/v2/users/search.json?query=${encodeURIComponent(email)}`);
@@ -1218,12 +1219,16 @@ async function countNewTicketsHandled(zendeskUserId, startDate, endDate) {
 }
 async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMonday, prevSunday) {
   const dailySnapshot = await loadDailyTeamActivitySnapshot();
+  const ticketEventsReady = Boolean(dailySnapshot.ticketEventsCaughtUpAt && dailySnapshot.ticketEventsFromDate && dailySnapshot.ticketEventsFromDate <= prevMonday && dailySnapshot.windowStartDate && dailySnapshot.windowStartDate <= prevMonday);
   const rows = await Promise.all(members.map(async member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
     const thisWeek = sumDailyTeamActivity(dailySnapshot, email, weekMonday, weekSunday);
     const lastWeek = sumDailyTeamActivity(dailySnapshot, email, prevMonday, prevSunday);
     let newTicketsThisWeek = null, newTicketsLastWeek = null;
-    try {
+    // Preferred source: the proxy's ticket-events scan - a ticket counts the first time it leaves New (first assignment /
+    // first public reply), credited to the rep who took it, with voice and Non-Lofty tickets left out.
+    if (ticketEventsReady) { newTicketsThisWeek = thisWeek.newTickets; newTicketsLastWeek = lastWeek.newTickets; }
+    else try {
       const zendeskUserId = await resolveZendeskUserIdForEmail(email);
       [newTicketsThisWeek, newTicketsLastWeek] = await Promise.all([
         countNewTicketsHandled(zendeskUserId, weekMonday, weekSunday),
