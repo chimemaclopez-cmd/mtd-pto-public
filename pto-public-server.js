@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.99';
+const PORTAL_VERSION = '2.3.100';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -963,6 +963,8 @@ function huddleTableHead(...labels) {
 // and points at a check-in instead of guessing.
 // Team-lead context for a rep's drop that the numbers can't show (an event, a project, teammates covering their tickets).
 // Stored as { "<weekMonday>|<email>": { note, by, at } } and shown in the "Why tickets dropped" list in place of the check-in suggestion.
+// Trainees still in onboarding are left out of the weekly report's KPI, ticket trend and attendance sections (per Mac, 2026-11-02).
+const HUDDLE_REPORT_EXCLUDED_EMAILS = new Set(['christopher.rodriguez@lofty.com', 'aldrin.lizardo@lofty.com']);
 const KPI_DROP_NOTES_KEY = 'mtdkpi:kpi-drop-notes';
 const HUDDLE_ABSENCE_CODES = new Set(['PTO', 'PARTIAL_PTO', 'SL', 'SL-HD', 'EL', 'EL-HD', 'NCNS', 'A', 'BL', 'SUSPENDED']);
 function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
@@ -1444,7 +1446,7 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
   // Direct reports of this TL - drives the KPI-trend and attendance sections. Falls back to no
   // trend data (rather than throwing) if the roster lookup comes up empty, so a report is still
   // previewable/sendable for the huddle entries alone.
-  const teamMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail);
+  const teamMembers = (roster.records || []).filter(x => x.active !== false && ptoLogic.cleanEmail(x.teamLeadEmail) === tlEmail && !HUDDLE_REPORT_EXCLUDED_EMAILS.has(ptoLogic.cleanEmail(x.employeeEmail)));
   let kpiScores = [], kpiTrend = null, attendanceTrend = [];
   if (teamMembers.length) {
     try {
