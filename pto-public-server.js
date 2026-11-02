@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.100';
+const PORTAL_VERSION = '2.3.101';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -984,26 +984,31 @@ function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
     const absences = (att?.outDays || []).filter(x => HUDDLE_ABSENCE_CODES.has(x.code));
     if (absences.length) {
       const days = absences.reduce((n, x) => n + (/-HD$|PARTIAL/.test(x.code) ? 0.5 : 1), 0);
-      const kinds = [...new Set(absences.map(x => HUDDLE_ATTENDANCE_LABELS[x.code] || x.code))].join(', ');
-      causes.push(`was out ${days} day${days === 1 ? '' : 's'} this week (${esc(kinds)})`);
+      const kinds = [...new Set(absences.map(x => HUDDLE_ATTENDANCE_LABELS[x.code] || x.code))].join(', ').replace(/ \(Half Day\)/g, ', half day');
+      const outFor = days === 0.5 ? 'half a day' : `${days} day${days === 1 ? '' : 's'}`;
+      causes.push(`was out for ${outFor} this week (${esc(kinds)})`);
     }
     const ap = att?.attendancePercent;
     if (ap && ap.thisWeek != null && ap.lastWeek != null && ap.thisWeek < ap.lastWeek - 0.5 && !absences.length) {
-      causes.push(`attendance was ${ap.thisWeek.toFixed(0)}% against ${ap.lastWeek.toFixed(0)}% last week`);
+      causes.push(`had ${ap.thisWeek.toFixed(0)}% attendance this week, against ${ap.lastWeek.toFixed(0)}% last week`);
     }
     const c = m.acceptedCalls;
     if (c.thisWeek != null && c.lastWeek != null) {
       const cd = c.thisWeek - c.lastWeek;
-      if (cd <= -10) causes.push(`took fewer calls too (${c.lastWeek} to ${c.thisWeek}), which points to less time on the queue overall`);
-      else if (cd >= 10) causes.push(`took more calls (${c.lastWeek} to ${c.thisWeek}), so more of the week went to phone work instead of tickets`);
+      if (cd <= -10) causes.push(`took fewer calls (${c.lastWeek} down to ${c.thisWeek}), which points to less time on the queue`);
+      else if (cd >= 10) causes.push(`took more calls (${c.lastWeek} up to ${c.thisWeek}), so more of the week went to phone work instead of tickets`);
     }
     const teamNote = teamDelta != null && teamDelta > 0 ? ' The rest of the team handled more tickets, so this is not a drop in overall volume.' : '';
+    const name = esc(m.employeeName);
+    const lead = `${name} handled ${t.thisWeek} new tickets, down ${Math.abs(d)} from ${t.lastWeek}.`;
+    const joinCauses = list => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
+    const causeText = causes.length ? ` ${name} ${joinCauses(causes)}.` : '';
     const noteText = tlNote ? ` <b>Team lead note:</b> ${esc(tlNote)}` : '';
     const text = tlNote
-      ? `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}):${causes.length ? ` ${causes.join('; ')}.` : ''}${noteText}`
+      ? `${lead}${causeText}${noteText}`
       : causes.length
-      ? `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): ${causes.join('; ')}.${teamNote}`
-      : `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): no absence, attendance dip or call shift explains this in the data.${teamNote} Worth a check-in to find the cause.`;
+      ? `${lead}${causeText}${teamNote}`
+      : `${lead} No absence, attendance dip or change in calls explains this in the data.${teamNote} A check-in would help find the cause.`;
     items.push({ d, text });
   }
   if (!items.length) return '';
