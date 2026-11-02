@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.98';
+const PORTAL_VERSION = '2.3.99';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -961,6 +961,9 @@ function huddleTableHead(...labels) {
 // (attendance), a drop in attendance % versus last week, what their phone calls did, and how the rest of the
 // team moved. Every cause named here is a fact from those numbers - when none of them fits, the line says so
 // and points at a check-in instead of guessing.
+// Team-lead context for a rep's drop that the numbers can't show (an event, a project, teammates covering their tickets).
+// Stored as { "<weekMonday>|<email>": { note, by, at } } and shown in the "Why tickets dropped" list in place of the check-in suggestion.
+const KPI_DROP_NOTES_KEY = 'mtdkpi:kpi-drop-notes';
 const HUDDLE_ABSENCE_CODES = new Set(['PTO', 'PARTIAL_PTO', 'SL', 'SL-HD', 'EL', 'EL-HD', 'NCNS', 'A', 'BL', 'SUSPENDED']);
 function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
   const esc = escapeHtml;
@@ -972,7 +975,8 @@ function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
     const t = m.newTicketsHandled;
     if (t.thisWeek == null || t.lastWeek == null) continue;
     const d = t.thisWeek - t.lastWeek, pct = t.lastWeek ? Math.abs(d) / t.lastWeek * 100 : 0;
-    if (d >= 0 || (Math.abs(d) < 10 && pct < 15)) continue;
+    const tlNote = kpiTrend.dropNotes?.[m.employeeEmail];
+    if (d >= 0 || (Math.abs(d) < 10 && pct < 15 && !tlNote)) continue;
     const causes = [];
     const att = attendanceByEmail.get(m.employeeEmail);
     const absences = (att?.outDays || []).filter(x => HUDDLE_ABSENCE_CODES.has(x.code));
@@ -992,7 +996,10 @@ function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
       else if (cd >= 10) causes.push(`took more calls (${c.lastWeek} to ${c.thisWeek}), so more of the week went to phone work instead of tickets`);
     }
     const teamNote = teamDelta != null && teamDelta > 0 ? ' The rest of the team handled more tickets, so this is not a drop in overall volume.' : '';
-    const text = causes.length
+    const noteText = tlNote ? ` <b>Team lead note:</b> ${esc(tlNote)}` : '';
+    const text = tlNote
+      ? `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}):${causes.length ? ` ${causes.join('; ')}.` : ''}${noteText}`
+      : causes.length
       ? `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): ${causes.join('; ')}.${teamNote}`
       : `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): no absence, attendance dip or call shift explains this in the data.${teamNote} Worth a check-in to find the cause.`;
     items.push({ d, text });
@@ -1447,6 +1454,11 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
         buildTeamWeeklyKpiTrend(teamMembers, weekMonday, weekSunday, prevMonday, prevSunday),
         buildTeamAttendanceTrend(teamMembers, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday)
       ]);
+      if (kpiTrend) {
+        const notes = await cloudStore.kvGetJson(KPI_DROP_NOTES_KEY, {}).catch(() => ({}));
+        kpiTrend.dropNotes = {};
+        for (const m of kpiTrend.members) { const n = notes[`${weekMonday}|${m.employeeEmail}`]; if (n?.note) kpiTrend.dropNotes[m.employeeEmail] = n.note; }
+      }
     } catch (error) {
       console.error(`[huddle-report] KPI/attendance trend build failed for ${tlEmail}:`, error.message);
     }
