@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.95';
+const PORTAL_VERSION = '2.3.96';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1211,8 +1211,10 @@ async function resolveZendeskUserIdForEmail(email) {
 }
 async function countNewTicketsHandled(zendeskUserId, startDate, endDate) {
   if (!zendeskUserId) return null;
-  const tickets = await searchZendeskTickets(`type:ticket assignee_id:${zendeskUserId} created>=${startDate} created<=${endDate}`);
-  return tickets.length;
+  // Zendesk's search `count` is the true total match count; the result list itself is capped at one
+  // page, which silently flattened every busy rep to 100. per_page=1 keeps the request cheap.
+  const data = await zendeskApiFetch(`/api/v2/search.json?query=${encodeURIComponent(`type:ticket assignee_id:${zendeskUserId} created>=${startDate} created<=${endDate}`)}&per_page=1`);
+  return Number.isFinite(data.count) ? data.count : null;
 }
 async function buildTeamWeeklyKpiTrend(members, weekMonday, weekSunday, prevMonday, prevSunday) {
   const dailySnapshot = await loadDailyTeamActivitySnapshot();
