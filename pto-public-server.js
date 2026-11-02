@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.101';
+const PORTAL_VERSION = '2.3.102';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1002,7 +1002,8 @@ function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
     const name = esc(m.employeeName);
     const lead = `${name} handled ${t.thisWeek} new tickets, down ${Math.abs(d)} from ${t.lastWeek}.`;
     const joinCauses = list => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
-    const causeText = causes.length ? ` ${name} ${joinCauses(causes)}.` : '';
+    const firstName = esc(String(m.employeeName || '').trim().split(/\s+/)[0] || m.employeeName);
+    const causeText = causes.length ? ` ${firstName} ${joinCauses(causes)}.` : '';
     const noteText = tlNote ? ` <b>Team lead note:</b> ${esc(tlNote)}` : '';
     const text = tlNote
       ? `${lead}${causeText}${noteText}`
