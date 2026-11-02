@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.97';
+const PORTAL_VERSION = '2.3.98';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -957,6 +957,50 @@ function huddleSectionCard(title, bodyHtml, accentColor) {
 function huddleTableHead(...labels) {
   return `<thead><tr style="background:#eef0f5">${labels.map(l => `<th style="padding:9px 12px;text-align:left;text-transform:uppercase;font-size:10px;color:${HUDDLE_BRAND.muted};letter-spacing:.3px">${l}</th>`).join('')}</tr></thead>`;
 }
+// Why a rep's New Tickets Handled fell week-over-week, from the data already on hand: days out this week
+// (attendance), a drop in attendance % versus last week, what their phone calls did, and how the rest of the
+// team moved. Every cause named here is a fact from those numbers - when none of them fits, the line says so
+// and points at a check-in instead of guessing.
+const HUDDLE_ABSENCE_CODES = new Set(['PTO', 'PARTIAL_PTO', 'SL', 'SL-HD', 'EL', 'EL-HD', 'NCNS', 'A', 'BL', 'SUSPENDED']);
+function huddleDropExplanations(kpiTrend, attendanceTrend = []) {
+  const esc = escapeHtml;
+  const attendanceByEmail = new Map((attendanceTrend || []).map(a => [a.employeeEmail, a]));
+  const team = kpiTrend.team.newTicketsHandled;
+  const teamDelta = (team.thisWeek != null && team.lastWeek != null) ? team.thisWeek - team.lastWeek : null;
+  const items = [];
+  for (const m of kpiTrend.members) {
+    const t = m.newTicketsHandled;
+    if (t.thisWeek == null || t.lastWeek == null) continue;
+    const d = t.thisWeek - t.lastWeek, pct = t.lastWeek ? Math.abs(d) / t.lastWeek * 100 : 0;
+    if (d >= 0 || (Math.abs(d) < 10 && pct < 15)) continue;
+    const causes = [];
+    const att = attendanceByEmail.get(m.employeeEmail);
+    const absences = (att?.outDays || []).filter(x => HUDDLE_ABSENCE_CODES.has(x.code));
+    if (absences.length) {
+      const days = absences.reduce((n, x) => n + (/-HD$|PARTIAL/.test(x.code) ? 0.5 : 1), 0);
+      const kinds = [...new Set(absences.map(x => HUDDLE_ATTENDANCE_LABELS[x.code] || x.code))].join(', ');
+      causes.push(`was out ${days} day${days === 1 ? '' : 's'} this week (${esc(kinds)})`);
+    }
+    const ap = att?.attendancePercent;
+    if (ap && ap.thisWeek != null && ap.lastWeek != null && ap.thisWeek < ap.lastWeek - 0.5 && !absences.length) {
+      causes.push(`attendance was ${ap.thisWeek.toFixed(0)}% against ${ap.lastWeek.toFixed(0)}% last week`);
+    }
+    const c = m.acceptedCalls;
+    if (c.thisWeek != null && c.lastWeek != null) {
+      const cd = c.thisWeek - c.lastWeek;
+      if (cd <= -10) causes.push(`took fewer calls too (${c.lastWeek} to ${c.thisWeek}), which points to less time on the queue overall`);
+      else if (cd >= 10) causes.push(`took more calls (${c.lastWeek} to ${c.thisWeek}), so more of the week went to phone work instead of tickets`);
+    }
+    const teamNote = teamDelta != null && teamDelta > 0 ? ' The rest of the team handled more tickets, so this is not a drop in overall volume.' : '';
+    const text = causes.length
+      ? `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): ${causes.join('; ')}.${teamNote}`
+      : `${esc(m.employeeName)} (${t.lastWeek} to ${t.thisWeek}, ${d}): no absence, attendance dip or call shift explains this in the data.${teamNote} Worth a check-in to find the cause.`;
+    items.push({ d, text });
+  }
+  if (!items.length) return '';
+  items.sort((a, b) => a.d - b.d);
+  return `<div style="font-size:13px;color:${HUDDLE_BRAND.ink};line-height:1.55;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #eef0f5"><div style="font-size:11px;font-weight:800;color:${HUDDLE_BRAND.muted};text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Why tickets dropped</div><ul style="margin:0;padding-left:18px">${items.map(i => `<li style="margin-bottom:5px">${i.text}</li>`).join('')}</ul></div>`;
+}
 // A short, data-driven executive summary for the KPI trend section - composed fresh from the
 // actual team totals + per-member deltas every time (never hardcoded/cached text), so it stays
 // accurate even though it reads like prose. Deliberately template-based rather than an AI call:
@@ -1000,7 +1044,7 @@ function huddleKpiExecutiveSummary(kpiTrend) {
   }
   return `<div style="font-size:13px;color:${HUDDLE_BRAND.ink};line-height:1.55;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #eef0f5">${sentences.join(' ')}</div>`;
 }
-function huddleKpiTrendHtml(kpiTrend) {
+function huddleKpiTrendHtml(kpiTrend, attendanceTrend = []) {
   if (!kpiTrend || !kpiTrend.members?.length) return '';
   const esc = escapeHtml;
   const cell = m => `${m.thisWeek ?? '—'}${huddleTrendArrow(m.thisWeek, m.lastWeek)}`;
@@ -1011,6 +1055,7 @@ function huddleKpiTrendHtml(kpiTrend) {
   const legend = `<div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-top:10px">&#9650; <span style="color:${HUDDLE_BRAND.green};font-weight:700">green</span> = increase vs last week &nbsp;&middot;&nbsp; &#9660; <span style="color:${HUDDLE_BRAND.red};font-weight:700">red</span> = decrease vs last week &nbsp;&middot;&nbsp; (flat) = no change</div>`;
   const body = `
     ${huddleKpiExecutiveSummary(kpiTrend)}
+    ${huddleDropExplanations(kpiTrend, attendanceTrend)}
     <div style="font-size:13px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">This week (${esc(kpiTrend.weekMonday)} to ${esc(kpiTrend.weekSunday)}) vs last week (${esc(kpiTrend.prevMonday)} to ${esc(kpiTrend.prevSunday)})</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${huddleTableHead('Team Member', 'Inbound Calls Received', 'New Tickets Handled')}
@@ -1154,7 +1199,7 @@ function huddleWeeklyReportHtml(tlName, weekMonday, weekSunday, entries, kpiScor
   // Order: current KPI standing first, then the week-over-week trend sections, then huddle notes
   // last (per Mac - the report leads with numbers, huddle notes are the closing context).
   const kpiScoresSection = huddleKpiScoresHtml(kpiScores);
-  const trendSections = `${huddleKpiTrendHtml(kpiTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
+  const trendSections = `${huddleKpiTrendHtml(kpiTrend, attendanceTrend)}${huddleAttendanceTrendHtml(attendanceTrend)}${huddleFollowThroughHtml(followThrough)}${huddleRecurringConcernsHtml(recurringConcerns)}`;
   let huddleSection;
   if (!entries.length) {
     huddleSection = huddleSectionCard('🗒️ Huddle Notes', `<div style="color:${HUDDLE_BRAND.muted}">No huddles were logged for this week.</div>`, HUDDLE_BRAND.muted);
