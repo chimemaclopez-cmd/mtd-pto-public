@@ -8,5 +8,6 @@ export const updateTeamDisciplinary=(violationId,record)=>api(`/api/my/team-disc
 export const withdrawTeamDisciplinary=violationId=>api(`/api/my/team-disciplinary/${encodeURIComponent(violationId)}`,{method:'DELETE'});
 export const preDecideDisciplinary=(violationId,payload)=>api(`/api/my/team-disciplinary/${encodeURIComponent(violationId)}/predecide`,{method:'POST',body:JSON.stringify(payload)});
 export const decideDisciplinary=(violationId,payload)=>api(`/api/my/team-disciplinary/${encodeURIComponent(violationId)}/decide`,{method:'POST',body:JSON.stringify(payload)});
+export const reviseDisciplinary=(violationId,payload)=>api(`/api/my/team-disciplinary/${encodeURIComponent(violationId)}/revise`,{method:'POST',body:JSON.stringify(payload)});
 export const loadMyDisciplinary=()=>api('/api/my/disciplinary');
 export const acknowledgeDisciplinary=(violationId,payload)=>api(`/api/my/disciplinary/${encodeURIComponent(violationId)}/acknowledge`,{method:'POST',body:JSON.stringify(payload)});

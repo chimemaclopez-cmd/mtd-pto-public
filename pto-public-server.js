@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.104';
+const PORTAL_VERSION = '2.3.105';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -5507,6 +5507,31 @@ const server = http.createServer(async (req, res) => {
         await appendCoachingAudit(coachingId, 'SENT', { user: identity, previousValue: current.status, newValue: 'SENT' });
         return json(res, 200, { ok: true, record: next });
       }
+      if (action === 'revise') {
+        // Corrects a final decision the employee has not signed yet. Only the approver who made it, or HR, can do this,
+        // and the original values are kept in the record's revisions list and the audit log.
+        const isDecider = ptoLogic.cleanEmail(current.decidedBy || '') === identity;
+        const isHr = identity === FINAL_DISCIPLINARY_APPROVER_EMAIL;
+        if (!isDecider && !isHr) return json(res, 403, { ok: false, error: 'Only the approver who made the decision, or HR, can revise it.' });
+        if (current.status !== 'DECIDED') return json(res, 409, { ok: false, error: 'Only a decided case the employee has not signed yet can be revised.' });
+        const revisionReason = String(body.revisionReason || '').trim();
+        if (!revisionReason) return json(res, 400, { ok: false, error: 'Please give the reason for revising the decision.' });
+        const finalTier = DISCIPLINE_TIERS.includes(body.finalTier) ? body.finalTier : current.finalTier;
+        const sanctionDate = ptoLogic.validDate(body.sanctionDate) ? body.sanctionDate : current.sanctionDate;
+        const { suggestedSanction: ladderSanction } = disciplinaryInstanceAndSanction(finalTier, current.employeeEmail, current.infractionDate, (data.records || []).filter(x => x.violationId !== violationId));
+        const finalSanction = DISCIPLINE_LADDER[finalTier]?.includes(body.finalSanction) ? body.finalSanction : ladderSanction;
+        const circumstanceNotes = String(body.circumstanceNotes ?? current.circumstanceNotes ?? '').trim();
+        const cleansingExpiryDate = disciplinaryCleansingExpiry(sanctionDate, finalTier);
+        const revision = {
+          revisedBy: identity, revisedByName: session.employeeName, revisedAt: now, reason: revisionReason,
+          previous: { finalTier: current.finalTier, finalSanction: current.finalSanction, sanctionDate: current.sanctionDate, cleansingExpiryDate: current.cleansingExpiryDate, circumstanceNotes: current.circumstanceNotes }
+        };
+        const next = { ...current, finalTier, finalSanction, circumstanceNotes, sanctionDate, cleansingExpiryDate, revisions: [...(current.revisions || []), revision], updatedAt: now };
+        data.records[index] = next;
+        await saveDisciplinary(data);
+        await appendDisciplinaryAudit(violationId, 'DECISION_REVISED', { user: identity, previousValue: current, newValue: next, notes: revisionReason });
+        return json(res, 200, { ok: true, record: next });
+      }
       if (action === 'acknowledge') {
         if (ptoLogic.cleanEmail(current.employeeEmail) !== identity) return json(res, 403, { ok: false, error: 'You can only sign your own coaching record.' });
         if (current.status !== 'SENT') return json(res, 409, { ok: false, error: 'Only a sent coaching record can be acknowledged.' });
@@ -6897,7 +6922,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { ok: true, record });
     }
 
-    const violationMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?disciplinary\/([^/]+)(?:\/(predecide|decide|acknowledge))?$/);
+    const violationMatch = parsed.pathname.match(/^\/api\/my\/(?:team-)?disciplinary\/([^/]+)(?:\/(predecide|decide|revise|acknowledge))?$/);
     if (violationMatch) {
       const violationId = decodeURIComponent(violationMatch[1]), action = violationMatch[2] || '';
       const data = await loadDisciplinary();
