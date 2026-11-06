@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.102';
+const PORTAL_VERSION = '2.3.103';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -2315,6 +2315,8 @@ const DISCIPLINE_CLEANSING_MONTHS = { Misdemeanor: 6, MinorOffense: 9, MajorOffe
 // employee.
 const PRE_DISCIPLINARY_APPROVER_EMAILS = new Set(['charlotte@lofty.com', 'jason@lofty.com', 'feifei.lei@lofty.com', 'jingjing.li@lofty.com']);
 const FINAL_DISCIPLINARY_APPROVER_EMAIL = 'janet.memoracion@moatable.com';
+// The Senior Operations Manager (Cha) can also make the final decision on a disciplinary case, in addition to HR.
+const FINAL_DISCIPLINARY_APPROVER_EMAILS = new Set([FINAL_DISCIPLINARY_APPROVER_EMAIL, 'charlotte@lofty.com']);
 // Reviews every bad CSAT ticket company-wide (not just her own team) for validity, and is the
 // final approver on rep-filed CSAT disputes - a QA function distinct from the disciplinary
 // HR/SOM chain above, so it gets its own role rather than overloading either of those.
@@ -2878,7 +2880,7 @@ async function disciplinaryReviewAccess(identity, employeeName = '', viewAsRole 
   return {
     memberEmails, isTeamLeader: memberEmails.size > 0,
     canPreDecide: PRE_DISCIPLINARY_APPROVER_EMAILS.has(cleanIdentity) || viewAsRole === 'SOM',
-    canDecide: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR',
+    canDecide: FINAL_DISCIPLINARY_APPROVER_EMAILS.has(cleanIdentity) || viewAsRole === 'HR',
     isHrOnly: cleanIdentity === FINAL_DISCIPLINARY_APPROVER_EMAIL || viewAsRole === 'HR'
   };
 }
@@ -6952,7 +6954,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, record: next });
       }
       if (action === 'decide') {
-        if (!access.canDecide) return json(res, 403, { ok: false, error: 'Only HR can make the final decision on a disciplinary case.' });
+        if (!access.canDecide) return json(res, 403, { ok: false, error: 'Only HR or the Senior Operations Manager can make the final decision on a disciplinary case.' });
         if (current.status !== 'PRE_DECIDED') return json(res, 409, { ok: false, error: 'This case must be pre-reviewed by the Senior Operations Manager first.' });
         const baseTier = current.preTier || current.tier;
         const finalTier = DISCIPLINE_TIERS.includes(body.finalTier) ? body.finalTier : baseTier;
