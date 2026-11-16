@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.105';
+const PORTAL_VERSION = '2.3.106';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1114,7 +1114,11 @@ function huddleAttendanceTrendHtml(attendanceTrend) {
           return `<li style="margin-bottom:3px">${esc(d.date)} - <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#fde3cc;color:#8b1f1f">${esc(HUDDLE_ATTENDANCE_LABELS[d.code] || d.code)}</span>${detail}${attachmentNote}</li>`;
         }).join('')}</ul>`
       : `<span style="color:${HUDDLE_BRAND.green};font-weight:600">&#10003; No absences or lates this week</span>`;
-    return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${attendanceCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${reliabilityCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}</td></tr>`;
+    const coachingStatusLabel = { DRAFT: 'Draft', SENT: 'Sent to employee', ACKNOWLEDGED: 'Acknowledged' };
+    const coachingHtml = (m.coachingLogs || []).length
+      ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed ${HUDDLE_BRAND.line}"><div style="font-size:11px;font-weight:800;color:${HUDDLE_BRAND.purple};text-transform:uppercase;letter-spacing:.3px">Coaching logged</div><ul style="margin:4px 0 0;padding-left:18px">${m.coachingLogs.map(c => `<li style="margin-bottom:3px">${esc(c.coachingId)} - ${esc(c.coachingDate)} <span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;background:#e8e1fa;color:${HUDDLE_BRAND.purple}">${esc(coachingStatusLabel[c.status] || c.status || '')}</span>${c.summary ? `<div style="color:${HUDDLE_BRAND.muted};font-size:12px">${esc(c.summary)}</div>` : ''}</li>`).join('')}</ul></div>`
+      : '';
+    return `<tr><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${esc(m.employeeName)}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${attendanceCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5;vertical-align:top">${reliabilityCell}</td><td style="padding:10px 12px;border-top:1px solid #eef0f5">${outDaysHtml}${coachingHtml}</td></tr>`;
   }).join('');
   const body = `
     <div style="font-size:11px;color:${HUDDLE_BRAND.muted};margin-bottom:12px">Attendance % is present-or-not (a Late still counts as present); Reliability % also docks a Late (half credit, like a half-day absence). Minutes late and Sick/Emergency Leave reasons come from the Team Attendance grid - anything marked "not logged" below just needs those fields filled in there.</div>
@@ -1408,8 +1412,15 @@ function withInheritedLeaveAttachments(outDays) {
 async function buildTeamAttendanceTrend(members, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday) {
   const records = roster.records || [];
   const attachmentIndex = await cloudStore.kvGetJson(ATTENDANCE_ATTACHMENT_INDEX_KEY, {}).catch(() => ({}));
+  const coachingData = await loadCoaching().catch(() => ({ records: [] }));
   return members.map(member => {
     const email = ptoLogic.cleanEmail(member.employeeEmail);
+    // Attendance coaching logged for this rep during the report week, so the report shows the
+    // follow-up next to the absences/lates it responds to (any status; the pill shows which).
+    const coachingLogs = (coachingData.records || [])
+      .filter(c => ptoLogic.cleanEmail(c.employeeEmail) === email && /attendance/i.test(c.category || '') && c.coachingDate >= weekMonday && c.coachingDate <= weekSunday)
+      .sort((a, b) => String(a.coachingDate).localeCompare(String(b.coachingDate)))
+      .map(c => ({ coachingId: c.coachingId, coachingDate: c.coachingDate, status: c.status, summary: String(c.observation || '').split('\n')[0].trim().slice(0, 160) }));
     // Two distinct numbers, per Mac: Attendance % is strictly present-or-not (the portal's
     // standard, unmodified definition - a Late still counts as present, same as everywhere
     // else); Reliability % is the one that docks a Late (half credit, like a half-day absence).
@@ -1422,7 +1433,8 @@ async function buildTeamAttendanceTrend(members, roster, schedules, attendance, 
       employeeEmail: email, employeeName: member.employeeName || email,
       attendancePercent: { thisWeek: thisWeekAttendance?.attendancePercentage ?? null, lastWeek: lastWeekAttendance?.attendancePercentage ?? null },
       reliabilityPercent: { thisWeek: thisWeekReliability, lastWeek: lastWeekReliability },
-      outDays: withInheritedLeaveAttachments(outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null, attachments: (attachmentIndex[`${email}|${d.date}`] || []).map(a => a.filename) })))
+      outDays: withInheritedLeaveAttachments(outDays.map(d => ({ date: d.date, code: d.code, reason: d.reason || '', minutesLate: d.minutesLate ?? null, attachments: (attachmentIndex[`${email}|${d.date}`] || []).map(a => a.filename) }))),
+      coachingLogs
     };
   });
 }
