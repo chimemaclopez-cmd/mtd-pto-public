@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.106';
+const PORTAL_VERSION = '2.3.107';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -219,7 +219,7 @@ const STATIC_SHARED = new Set(['lotti-robot.json', 'ui-utils.js', 'date-utils.js
 // moatable-logo.png was missing from this list entirely - every printable PDF (Coaching,
 // Evaluations, Disciplinary, and now QA Scorecard) references it via an <img> tag, so it's been
 // silently 404ing and rendering with only the Lofty logo since whichever PDF first added it.
-const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/moatable-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'img/learning-thumb-zendesk-sop.png', 'img/learning-thumb-team-onboarding.png', 'img/learning-thumb-intro-lofty.png', 'img/learning-thumb-jira-training.png', 'img/learning-thumb-ess-training.png', 'img/learning-thumb-tsr-escalation.png', 'img/learning-thumb-toolkit-remove-listing-photos.png', 'img/learning-thumb-toolkit-remove-sold-listing.png', 'img/learning-thumb-toolkit-image-sync.png', 'img/learning-thumb-toolkit-landing-page.png', 'img/learning-thumb-toolkit-blog-editor.png', 'img/learning-thumb-toolkit-copy-website.png', 'img/learning-thumb-toolkit-domain-transfer.png', 'img/learning-thumb-lofty-front.png', 'img/learning-thumb-fbe-billing-basics.png', 'img/learning-thumb-lofty-aos.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
+const STATIC_SHARED_BINARY = new Set(['img/lofty-logo.png', 'img/moatable-logo.png', 'img/icon-192.png', 'img/icon-512.png', 'img/icon-512-maskable.png', 'img/apple-touch-icon.png', 'img/csat-banner.png', 'img/learning-thumb-zendesk-sop.png', 'img/learning-thumb-team-onboarding.png', 'img/learning-thumb-intro-lofty.png', 'img/learning-thumb-jira-training.png', 'img/learning-thumb-ess-training.png', 'img/learning-thumb-tsr-escalation.png', 'img/learning-thumb-toolkit-remove-listing-photos.png', 'img/learning-thumb-toolkit-remove-sold-listing.png', 'img/learning-thumb-toolkit-image-sync.png', 'img/learning-thumb-toolkit-landing-page.png', 'img/learning-thumb-toolkit-blog-editor.png', 'img/learning-thumb-toolkit-copy-website.png', 'img/learning-thumb-toolkit-domain-transfer.png', 'img/learning-thumb-lofty-front.png', 'img/learning-thumb-fbe-billing-basics.png', 'img/learning-thumb-lofty-aos.png', 'img/learning-thumb-hubspot-owners.png', 'vendor/pptxgen.bundle.js', 'vendor/jspdf.umd.min.js']);
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
