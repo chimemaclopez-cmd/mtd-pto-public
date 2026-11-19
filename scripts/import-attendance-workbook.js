@@ -2,10 +2,12 @@
 'use strict';
 // Imports the OTHER teams' attendance (TSR / Sr TSR rows) from the shared "Lofty TSR Attendance.xlsx" workbook
 // (Von's OneDrive) into the portal, month by month, up to YESTERDAY (ET - today's shift is not over yet).
-// Mac's own team is skipped on purpose: it is entered directly in the portal.
+// Mac's own team is skipped by default: it is entered directly in the portal. Add "mac" to import ONLY Mac's team instead.
 //
-//   node scripts/import-attendance-workbook.js dry     # show what would be imported, change nothing
-//   node scripts/import-attendance-workbook.js apply   # POST to the local proxy, then recalculate KPI
+//   node scripts/import-attendance-workbook.js dry         # show what would be imported, change nothing
+//   node scripts/import-attendance-workbook.js apply       # POST to the local proxy, then recalculate KPI
+//   node scripts/import-attendance-workbook.js dry mac     # the same, for Mac's own team only
+//   node scripts/import-attendance-workbook.js apply mac
 //
 // Needs the local proxy (zendesk-proxy.js) running on :3040 for `apply`.
 const { execFileSync } = require('child_process');
@@ -16,16 +18,27 @@ const http = require('http');
 const ROOT = path.join(__dirname, '..');
 const DRIVE = 'b!EYCLkBXWdUen8G98c-7A1IYhtUc8GeZGjm2194NJs0qwcR6ryvs3RKXMyGjwYjjZ', ITEM = '01RRM2EX6LPKGC62KIDZEKW72ABAVKZRBF';
 const MODE = process.argv[2] === 'apply' ? 'apply' : 'dry';
+const MAC_ONLY = process.argv.includes('mac');
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const etParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
 const todayEt = `${etParts.find(p => p.type === 'year').value}-${etParts.find(p => p.type === 'month').value}-${etParts.find(p => p.type === 'day').value}`;
-const monthKey = todayEt.slice(0, 7);
-const sheetName = `${MONTHS[Number(monthKey.slice(5)) - 1]} ${monthKey.slice(0, 4)}`;
+// ATT_MONTH=YYYY-MM imports a past month instead of the current one (its whole month, ending on the last day).
+const monthKey = process.env.ATT_MONTH || todayEt.slice(0, 7);
+const endDateForImport = monthKey === todayEt.slice(0, 7) ? todayEt : new Date(Date.UTC(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5)), 0)).toISOString().slice(0, 10);
+// The tab is normally "<Month> <year>" (e.g. "October 2026"), but November's was named just "November": try both.
+const monthName = MONTHS[Number(monthKey.slice(5)) - 1];
+let sheetName = `${monthName} ${monthKey.slice(0, 4)}`;
+try {
+  const tabs = JSON.parse(execFileSync('msgraph-cli', ['api', 'get', `/drives/${DRIVE}/items/${ITEM}/workbook/worksheets`, '--params', '$select=name', '--json'], { maxBuffer: 8e6, timeout: 120000 }).toString()).data.value.map(w => w.name);
+  sheetName = tabs.find(n => n === sheetName) || tabs.find(n => n.trim().toLowerCase() === monthName.toLowerCase()) || sheetName;
+} catch (e) { console.error('worksheet list failed, using', sheetName); }
 
+// A bounded range, not usedRange: the October sheet's used range reaches row 1048576 (a stray cell far below the table),
+// which Graph refuses with "cell count exceeded". The real table ends around row 50.
 function readRange() {
   for (let i = 0; i < 6; i += 1) {
     try {
-      return JSON.parse(execFileSync('msgraph-cli', ['api', 'get', `/drives/${DRIVE}/items/${ITEM}/workbook/worksheets('${sheetName}')/usedRange`, '--params', '$select=address,values', '--json'], { maxBuffer: 64e6, timeout: 120000 }).toString()).data;
+      return JSON.parse(execFileSync('msgraph-cli', ['api', 'get', `/drives/${DRIVE}/items/${ITEM}/workbook/worksheets('${sheetName}')/range(address='A2:BX200')`, '--params', '$select=address,values', '--json'], { maxBuffer: 64e6, timeout: 120000 }).toString()).data;
     } catch (e) { console.error('workbook read retry', i + 1, String(e.message).slice(0, 80)); }
   }
   throw new Error('Could not read the attendance workbook.');
@@ -37,7 +50,8 @@ const colDates = {};
 dateRow.forEach((v, c) => {
   if (Number(v) > 40000) {
     const d = new Date(Math.round((Number(v) - 25569) * 86400000)).toISOString().slice(0, 10);
-    if (d.startsWith(monthKey) && d < todayEt) colDates[c] = d;
+    // ATT_THROUGH=YYYY-MM-DD also takes today's column (the default stops at yesterday).
+    if (d.startsWith(monthKey) && (process.env.ATT_THROUGH ? d <= process.env.ATT_THROUGH : d < todayEt)) colDates[c] = d;
   }
 });
 const leadStart = values.findIndex(r => String(r[0] || '').trim() === 'Immediate Lead');
@@ -58,7 +72,7 @@ const VALID = new Set(['ONSITE', 'WFH', 'RD', 'PTO', 'PARTIAL_PTO', 'SL', 'SL-HD
 const entries = {}, report = [], skipped = [];
 for (const r of rows) {
   const team = String(r[0]).trim(), name = String(r[1]).trim();
-  if (team === 'Reymark "Mac" Lopez') { skipped.push(name); continue; }
+  if ((team === 'Reymark "Mac" Lopez') !== MAC_ONLY) { skipped.push(name); continue; }
   const rec = roster.find(x => x.active && namesMatch(x.employeeName, name));
   if (!rec) { report.push(`NO ROSTER MATCH: ${name}`); continue; }
   const by = {};
@@ -72,9 +86,10 @@ for (const r of rows) {
   report.push(`${team.slice(0, 12).padEnd(12)} ${name.padEnd(28)} -> ${rec.employeeName.padEnd(28)} ${Object.keys(by).length} days`);
 }
 const dates = Object.values(colDates).sort();
-console.log(`sheet "${sheetName}" | dates ${dates[0]} -> ${dates.at(-1)} | employees ${Object.keys(entries).length} | Mac's team skipped: ${skipped.length}`);
+console.log(`sheet "${sheetName}" | dates ${dates[0]} -> ${dates.at(-1)} | employees ${Object.keys(entries).length} | ${MAC_ONLY ? 'other teams skipped' : "Mac's team skipped"}: ${skipped.length}`);
 console.log(report.join('\n'));
-const payload = { month: monthKey, endDate: todayEt, entries };
+const payload = { month: monthKey, endDate: endDateForImport, entries };
+if (process.env.ATT_EXPORT) fs.writeFileSync(process.env.ATT_EXPORT, JSON.stringify(payload));
 if (MODE === 'dry') { console.log('\nDRY RUN - nothing changed. Run with "apply" to import.'); process.exit(0); }
 
 function post(p, body) {
