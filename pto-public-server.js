@@ -117,7 +117,7 @@ const LOFTIQ_LAST_VIEWED_KEY = 'mtdkpi:loftiq-last-viewed';
 // Bump this whenever pto-public.html gets a user-facing feature worth flagging - returning
 // reps whose credential.lastSeenVersion is behind this get a "what's new" popup on next
 // sign-in (see /api/my/whats-new-seen) instead of the full first-time welcome tour.
-const PORTAL_VERSION = '2.3.109';
+const PORTAL_VERSION = '2.3.110';
 const STATUS_WALL_KEY = process.env.STATUS_WALL_KEY || '';
 const STATUS_WALL_COOKIE_NAME = 'status_wall_key';
 const ROSTER_CONTACT_FIELDS = ['nickname','contactNumber','contactEmail','emergencyContactName','emergencyContactRelationship','emergencyContactNumber','currentResidence','birthday'];
@@ -1399,7 +1399,8 @@ function withInheritedLeaveAttachments(outDays) {
   const runs = [];
   for (const d of days) {
     const last = runs[runs.length - 1];
-    if (isLeave(d) && last && adjacent(last[last.length - 1], d)) last.push(d);
+    // `last` is an empty run when the previous out-day was not a leave day (PTO, Late, etc.) - it has no day to compare with, so a leave day starts its own run.
+    if (isLeave(d) && last && last.length && adjacent(last[last.length - 1], d)) last.push(d);
     else runs.push(isLeave(d) ? [d] : []);
   }
   for (const run of runs) {
@@ -1469,11 +1470,16 @@ async function buildHuddleWeeklyReport(tlEmail, weekMonday) {
   if (teamMembers.length) {
     try {
       const [schedules, attendance] = await Promise.all([loadScheduleSnapshot(), loadAttendanceSnapshot()]);
-      [kpiScores, kpiTrend, attendanceTrend] = await Promise.all([
+      // Settled one by one: a failure in one section (it used to be the attendance trend) must not blank the KPI scores and trend as well.
+      const settled = await Promise.allSettled([
         buildTeamKpiScores(teamMembers, weekMonday.slice(0, 7) !== weekSunday.slice(0, 7) ? { month: weekMonday.slice(0, 7), nextMonth: weekSunday.slice(0, 7) } : {}),
         buildTeamWeeklyKpiTrend(teamMembers, weekMonday, weekSunday, prevMonday, prevSunday),
         buildTeamAttendanceTrend(teamMembers, roster, schedules, attendance, weekMonday, weekSunday, prevMonday, prevSunday)
       ]);
+      ['KPI scores', 'KPI trend', 'attendance trend'].forEach((name, i) => { if (settled[i].status === 'rejected') console.error(`[huddle-report] ${name} build failed for ${tlEmail}:`, settled[i].reason?.message); });
+      kpiScores = settled[0].status === 'fulfilled' ? settled[0].value : [];
+      kpiTrend = settled[1].status === 'fulfilled' ? settled[1].value : null;
+      attendanceTrend = settled[2].status === 'fulfilled' ? settled[2].value : [];
       if (kpiTrend) {
         const notes = await cloudStore.kvGetJson(KPI_DROP_NOTES_KEY, {}).catch(() => ({}));
         kpiTrend.dropNotes = {};
